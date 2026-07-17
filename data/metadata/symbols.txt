@@ -1,5 +1,5 @@
-# One ticker per line. Include liquid names you want in the local universe.
-# QQQ is always added as the benchmark by the price downloader.
+# One ticker per line. Used when full NASDAQ listing is unavailable on the FMP plan.
+# Benchmark is configured separately in config.yaml (QQQ or SPY depending on plan access).
 AAPL
 MSFT
 AMZN

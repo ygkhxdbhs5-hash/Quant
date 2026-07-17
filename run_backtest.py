@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-"""Single entry point for running the local backtest.
+"""Single entry point for the Q_Alpha v5 standalone backtest.
 
-The engine reads only from data/ (prices, fundamentals). Use the downloader
-package first to populate those directories.
+Requires local datasets under data/ (populate via downloader.update_data).
 """
 
 from __future__ import annotations
@@ -10,60 +9,56 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-import pandas as pd
-import yaml
+import matplotlib.pyplot as plt
 
-from engine.backtest_runner import BacktestRunner
-from engine.data_store import DataStore
-
-
-def load_config(path: str | Path) -> dict:
-    with open(path, "r", encoding="utf-8") as fh:
-        return yaml.safe_load(fh)
+from engine.strategy import StandaloneEngine, load_config
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Run the Nasdaq institutional backtest")
+    parser = argparse.ArgumentParser(description="Run Q_Alpha v5 standalone backtest")
     parser.add_argument("--config", default="config/config.yaml")
     parser.add_argument("--equity-out", default="cache/equity_curve.csv")
-    parser.add_argument("--orders-out", default="cache/orders.csv")
+    parser.add_argument("--chart-out", default="cache/equity_curve_v5.png")
     args = parser.parse_args(argv)
 
     config = load_config(args.config)
-    paths = config.get("paths", {})
-    store = DataStore(
-        prices_dir=paths.get("prices", "data/prices"),
-        fundamentals_dir=paths.get("fundamentals", "data/fundamentals"),
-        metadata_dir=paths.get("metadata", "data/metadata"),
-    )
+    engine = StandaloneEngine(config=config, config_path=args.config)
+    result = engine.run()
 
-    if not store.list_price_symbols():
-        raise SystemExit(
-            "No price files found in data/prices/. "
-            "Run: python -m downloader.update_data --symbols QQQ AAPL MSFT ..."
-        )
+    if result.empty:
+        print("No equity curve produced (check data coverage / warmup).")
+        return 1
 
-    runner = BacktestRunner(config=config, store=store)
-    result = runner.run()
+    result["Peak"] = result["Total_Equity"].cummax()
+    result["Drawdown"] = (result["Total_Equity"] - result["Peak"]) / result["Peak"]
+    final_return = (result["Total_Equity"].iloc[-1] / result["Total_Equity"].iloc[0] - 1) * 100
+    mdd = result["Drawdown"].min() * 100
 
-    print("\n=== Backtest Complete ===")
-    print(f"Final portfolio value: ${result.final_value:,.2f}")
-    if len(result.equity_curve):
-        start_val = float(result.equity_curve.iloc[0])
-        total_return = result.final_value / start_val - 1.0 if start_val else 0.0
-        print(f"Total return: {total_return * 100:.2f}%")
-        print(f"Bars: {len(result.equity_curve)} | Orders: {len(result.orders)}")
+    print("\n" + "=" * 60)
+    print("   STANDALONE (Pure Python) INSTITUTIONAL ENGINE (v5)   ")
+    print("=" * 60)
+    print(f"▶ 누적 순수익률   : {final_return:.2f}%")
+    print(f"▶ 최대 낙폭       : {mdd:.2f}%")
+    print(f"▶ 최종 자산가치   : {result['Total_Equity'].iloc[-1]:,.0f}")
+    print("=" * 60)
+    print("주의: Value(FCF/Sales Yield) 팩터는 발행주식수 데이터 부재로 이번 버전에 미포함.")
+    print("      ROIC은 21% 고정세율 가정 하의 근사치. 상세 한계는 코드 주석 참고.")
 
     equity_out = Path(args.equity_out)
     equity_out.parent.mkdir(parents=True, exist_ok=True)
-    result.equity_curve.to_csv(equity_out, header=True)
-    print(f"Wrote equity curve -> {equity_out}")
+    result.to_csv(equity_out)
+    print(f"\nWrote equity curve -> {equity_out}")
 
-    orders_out = Path(args.orders_out)
-    if result.orders:
-        pd.DataFrame(result.orders).to_csv(orders_out, index=False)
-        print(f"Wrote orders -> {orders_out}")
-
+    chart_out = Path(args.chart_out)
+    chart_out.parent.mkdir(parents=True, exist_ok=True)
+    plt.figure(figsize=(14, 6))
+    plt.plot(result["Total_Equity"], color="darkgreen", lw=2.5, label="Standalone PIT Strategy (v5)")
+    plt.title("Pure Python Standalone Engine - Equity Curve", fontsize=13, fontweight="bold")
+    plt.grid(True, linestyle=":", alpha=0.6)
+    plt.legend()
+    plt.savefig(chart_out, dpi=150)
+    plt.close()
+    print(f"차트 저장: {chart_out}")
     return 0
 
 

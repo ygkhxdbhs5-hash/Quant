@@ -15,5 +15,6 @@ data/prices/*
 !data/prices/.gitkeep
 data/fundamentals/*
 !data/fundamentals/.gitkeep
-# keep metadata templates tracked
-!data/metadata/
+data/metadata/*
+!data/metadata/.gitkeep
+!data/metadata/symbols.txt

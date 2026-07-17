@@ -1,41 +1,44 @@
-# Backtest configuration — parameters mirror the existing engine Initialize() values.
-# Changing these changes behavior; keep defaults unless you intentionally re-tune.
+# Q_Alpha v5 standalone engine configuration
+# Defaults match the provided pure-Python engine constants 1:1.
 
-start_date: [2007, 1, 1]
-end_date: [2026, 6, 30]
+fmp_api_key: "MOpiLFdjoJV9d7uSVMz8RfSqIhSofqLJ"  # override with env FMP_API_KEY preferred
+
+start_date: "2010-01-01"
+end_date: null  # null => today
 initial_cash: 50000000
 
-benchmark: QQQ
+universe_limit: null
+# QQQ may require a higher FMP plan; SPY is used as a liquid available fallback.
+benchmark: SPY
+
+request_interval_sec: 0.25
+max_retries: 3
+cache_ttl_days_default: 7
+# Free FMP plans often cap statement `limit` at 5; raise if your plan allows.
+statement_limit: 5
 
 max_portfolio_size: 30
 selection_buffer_size: 40
 max_industry_weight: 0.20
-
+min_industry_size: 8
+vol_floor: 1.0e-4
+weight_sum_tolerance: 0.02
 lowvol_window: 60
 mom_window: 252
 corr_window: 60
 corr_threshold: 0.80
+flat_tax_rate: 0.21
 
-min_industry_size: 8
-vol_floor: 1.0e-4
-weight_sum_tolerance: 0.02
+silent_delist_recovery: 0.30
+silent_delist_gap_days: 10
 
-universe:
-  min_price: 2.0
-  min_volume: 50000
-  top_n: 250
-
-rebalance:
-  # Month-start, 30 minutes after QQQ open (same schedule as original engine)
-  after_open_minutes: 30
+top_adv_pool: 250
+participation_cap_buy: 0.08
+participation_cap_sell: 0.15
 
 paths:
   prices: data/prices
   fundamentals: data/fundamentals
   metadata: data/metadata
   cache: cache
-
-# Slippage / fees — match original UniverseSettings
-slippage:
-  volume_limit: 0.10
-fee_model: interactive_brokers
+  fmp_cache: cache/fmp_cache_v5
