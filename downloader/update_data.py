@@ -1,4 +1,4 @@
-"""Orchestrate full local dataset refresh (universe -> prices -> fundamentals)."""
+"""Orchestrate full local dataset refresh via Massive.com."""
 
 from __future__ import annotations
 
@@ -6,11 +6,11 @@ import argparse
 
 from downloader.download_fundamentals import main as fundamentals_main
 from downloader.download_prices import main as prices_main
-from downloader.download_universe import main as universe_main  # noqa: F401
+from downloader.download_universe import main as universe_main
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Update all local datasets for the v5 engine")
+    parser = argparse.ArgumentParser(description="Update all local datasets (Massive.com)")
     parser.add_argument("--config", default="config/config.yaml")
     parser.add_argument("--skip-universe", action="store_true")
     parser.add_argument("--skip-prices", action="store_true")

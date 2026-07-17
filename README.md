@@ -1,12 +1,13 @@
 # Q_Alpha v5 — Pure Python Standalone Backtest
 
-LEAN-free institutional engine. Downloaders write into `data/`; the engine only
-reads those local files. Entry point: `run_backtest.py`.
+LEAN-free institutional engine. Downloaders use **Massive.com** (ex-Polygon)
+and write into `data/`. The engine only reads those local files.
+Entry point: `run_backtest.py`.
 
 ## Layout
 
 ```
-downloader/              # FMP download pipeline (stable API)
+downloader/              # Massive.com download pipeline
 data/
   metadata/universe.pkl
   prices/panels.pkl
@@ -21,8 +22,10 @@ run_backtest.py
 
 ```bash
 pip install -r requirements.txt
-export FMP_API_KEY=...   # optional; overrides config
+export MASSIVE_API_KEY=your_key_here
 ```
+
+Or set `massive_api_key` in `config/config.yaml`.
 
 ## 1) Download data
 
@@ -30,7 +33,7 @@ export FMP_API_KEY=...   # optional; overrides config
 python -m downloader.update_data --config config/config.yaml
 ```
 
-Or:
+Or step by step:
 
 ```bash
 python -m downloader.download_universe
@@ -38,10 +41,10 @@ python -m downloader.download_prices
 python -m downloader.download_fundamentals
 ```
 
-Tips for limited FMP plans:
-- Set `universe_limit` (e.g. `50`) and maintain `data/metadata/symbols.txt`
-- `benchmark: SPY` if `QQQ` is plan-restricted
-- `statement_limit: 5` on free plans (raise if your plan allows more history)
+Tips:
+- Set `universe_limit` (e.g. `50`) for a smaller first download
+- Keep a curated list in `data/metadata/symbols.txt` if desired
+- Financials require a Massive plan that includes Financials & Ratios
 
 ## 2) Run backtest
 
@@ -53,8 +56,7 @@ Outputs: `cache/equity_curve.csv`, `cache/equity_curve_v5.png`
 
 ## Notes
 
-- Investment pipeline matches the provided Q_Alpha v5 engine (regime, factors,
-  rank, portfolio, risk, next-open execution, delisting handlers).
-- Value (FCF/Sales yield) omitted in v5 (no share count / EV scale).
+- Investment pipeline matches Q_Alpha v5 (regime / factors / rank / portfolio / risk / next-open execution).
+- Value (FCF/Sales yield) omitted in v5 (documented in strategy).
 - ROIC uses a flat 21% tax approximation.
-- Downloaders use FMP **stable** endpoints (legacy `/api/v3/...` is shut down).
+- PIT fundamentals use Massive `filing_date` as the accepted-date proxy.

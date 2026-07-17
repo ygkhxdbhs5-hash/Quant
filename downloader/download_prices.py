@@ -1,4 +1,4 @@
-"""Download OHLCV panels into data/prices/panels.pkl (FMP stable EOD)."""
+"""Download OHLCV panels via Massive aggregates into data/prices/panels.pkl."""
 
 from __future__ import annotations
 
@@ -10,34 +10,71 @@ from typing import Dict, List, Tuple
 import pandas as pd
 
 from downloader.download_universe_utils import load_config, make_client
-from downloader.fmp_client import FmpClient
+from downloader.massive_client import MassiveClient
 
 
-def _historical_to_df(res) -> pd.DataFrame:
-    """Normalize stable list response and legacy {historical:[...]} shapes."""
-    if res is None:
+def _aggs_to_df(payload) -> pd.DataFrame:
+    if not isinstance(payload, dict):
         return pd.DataFrame()
-    if isinstance(res, dict) and res.get("historical"):
-        rows = res["historical"]
-    elif isinstance(res, list):
-        rows = res
-    else:
-        return pd.DataFrame()
+    rows = payload.get("results") or []
     if not rows:
         return pd.DataFrame()
     df = pd.DataFrame(rows)
-    if "date" not in df.columns:
+    # t = unix ms, o/h/l/c/v
+    if "t" not in df.columns:
         return pd.DataFrame()
-    df["date"] = pd.to_datetime(df["date"])
+    df["date"] = pd.to_datetime(df["t"], unit="ms", utc=True).dt.tz_convert("America/New_York").dt.normalize()
+    df["date"] = df["date"].dt.tz_localize(None)
     df = df.set_index("date").sort_index()
-    # Stable EOD has close (no adjClose). Prefer adjClose when present.
-    if "adjClose" not in df.columns and "close" in df.columns:
-        df["adjClose"] = df["close"]
-    return df
+    out = pd.DataFrame(
+        {
+            "open": df["o"],
+            "high": df["h"],
+            "low": df["l"],
+            "close": df["c"],
+            "adjClose": df["c"],  # aggregates are split-adjusted by default
+            "volume": df["v"],
+        }
+    )
+    return out[~out.index.duplicated(keep="last")]
+
+
+def _fetch_daily_bars(
+    client: MassiveClient,
+    ticker: str,
+    start_date: str,
+    end_date: str,
+) -> pd.DataFrame:
+    # Paginate via next_url when history exceeds limit.
+    path = f"/v2/aggs/ticker/{ticker}/range/1/day/{start_date}/{end_date}"
+    params = {"adjusted": "true", "sort": "asc", "limit": 50000}
+    frames: List[pd.DataFrame] = []
+    page = 0
+    next_path: str | None = path
+    next_params: dict | None = params
+    while next_path and page < 20:
+        payload = client.cached_get(
+            next_path,
+            cache_key=f"aggs_{ticker}_{start_date}_{end_date}_p{page}",
+            params=next_params,
+            ttl_days=1,
+        )
+        part = _aggs_to_df(payload)
+        if not part.empty:
+            frames.append(part)
+        if not isinstance(payload, dict) or not payload.get("next_url"):
+            break
+        next_path = payload["next_url"]
+        next_params = None
+        page += 1
+    if not frames:
+        return pd.DataFrame()
+    out = pd.concat(frames).sort_index()
+    return out[~out.index.duplicated(keep="last")]
 
 
 def build_price_panel(
-    client: FmpClient,
+    client: MassiveClient,
     tickers: List[str],
     delisted_meta: dict,
     profile_meta: dict,
@@ -50,14 +87,9 @@ def build_price_panel(
     silent_delist_flags: Dict[str, pd.Timestamp] = {}
     end_ts = pd.to_datetime(end_date)
 
-    print(f">> {len(tickers)}개 종목 OHLCV 수집...")
+    print(f">> {len(tickers)}개 종목 OHLCV 수집 (Massive aggregates)...")
     for i, t in enumerate(tickers):
-        res = client.cached_get(
-            f"https://financialmodelingprep.com/stable/historical-price-eod/full?symbol={t}&from={start_date}&to={end_date}&apikey={client.api_key}",
-            f"prices_stable_{t}_{start_date}_{end_date}",
-            ttl_days=1,
-        )
-        df = _historical_to_df(res)
+        df = _fetch_daily_bars(client, t, start_date, end_date)
         if df.empty:
             continue
 
@@ -75,29 +107,21 @@ def build_price_panel(
             else first_price_date
         )
         df = df.loc[df.index >= effective_start]
+        if df.empty:
+            continue
 
-        if not df.empty and {"open", "high", "low", "adjClose", "volume"}.issubset(df.columns):
-            prices_open[t] = df["open"]
-            prices_close[t] = df["adjClose"]
-            highs[t] = df["high"]
-            lows[t] = df["low"]
-            vols[t] = df["adjClose"] * df["volume"]
+        prices_open[t] = df["open"]
+        prices_close[t] = df["adjClose"]
+        highs[t] = df["high"]
+        lows[t] = df["low"]
+        vols[t] = df["adjClose"] * df["volume"]
 
         if (i + 1) % 50 == 0:
             print(f"    ...{i+1}/{len(tickers)}")
 
-    # 벤치마크
-    bm_res = client.cached_get(
-        f"https://financialmodelingprep.com/stable/historical-price-eod/full?symbol={benchmark}&from={start_date}&to={end_date}&apikey={client.api_key}",
-        f"prices_stable_{benchmark}_{start_date}_{end_date}",
-        ttl_days=1,
-    )
-    bm_df = _historical_to_df(bm_res)
+    bm_df = _fetch_daily_bars(client, benchmark, start_date, end_date)
     if bm_df.empty:
-        raise RuntimeError(
-            f"Benchmark prices unavailable for {benchmark}. "
-            "Your FMP plan may restrict this symbol — set config.benchmark to an available ticker (e.g. SPY)."
-        )
+        raise RuntimeError(f"Benchmark prices unavailable for {benchmark} from Massive.")
     prices_close[benchmark] = bm_df["adjClose"]
     prices_open[benchmark] = bm_df["open"]
     highs[benchmark] = bm_df["high"]
@@ -132,7 +156,7 @@ def save_panels(prices_dir: Path, panels: dict) -> Path:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Download OHLCV price panels")
+    parser = argparse.ArgumentParser(description="Download OHLCV price panels (Massive)")
     parser.add_argument("--config", default="config/config.yaml")
     args = parser.parse_args(argv)
     config = load_config(args.config)

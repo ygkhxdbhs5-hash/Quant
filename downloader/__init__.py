@@ -1,1 +1,1 @@
-"""Downloader package — FMP data pipeline into data/."""
+"""Downloader package — Massive.com data pipeline into data/."""

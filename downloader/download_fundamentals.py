@@ -1,11 +1,8 @@
-"""Download PIT fundamentals into data/fundamentals/pit_history.pkl.
+"""Download PIT fundamentals via Massive financials into data/fundamentals/.
 
-Computes the same PIT factor schema used by StandaloneEngine.build_factors:
+Output schema matches StandaloneEngine expectations:
 op_margin, roic, gross_profitability, revenue, operating_income, op_cf, capex,
-total_debt, cash_eq — indexed by acceptedDate.
-
-Uses FMP stable statement endpoints. Prefers as-reported when available;
-falls back to standard quarterly statements (same output schema).
+total_debt, cash_eq — indexed by filing_date (PIT accepted proxy).
 """
 
 from __future__ import annotations
@@ -19,112 +16,110 @@ import numpy as np
 import pandas as pd
 
 from downloader.download_universe_utils import load_config, make_client
-from downloader.fmp_client import FmpClient
+from downloader.massive_client import MassiveClient
 
 
-def _pick(df: pd.DataFrame, candidates):
-    for c in candidates:
-        if c in df.columns:
-            return df[c]
-    return pd.Series(np.nan, index=df.index)
+def _statement_df(client: MassiveClient, endpoint: str, ticker: str, limit: int) -> pd.DataFrame:
+    rows = client.paginate(
+        endpoint,
+        cache_key_prefix=f"{endpoint.strip('/').replace('/', '_')}_{ticker}",
+        params={
+            "tickers.any_of": ticker,
+            "timeframe": "quarterly",
+            "limit": limit,
+            "sort": "filing_date.asc",
+        },
+        ttl_days=3,
+        max_pages=20,
+    )
+    if not rows:
+        return pd.DataFrame()
+    df = pd.DataFrame(rows)
+    if "filing_date" not in df.columns or "period_end" not in df.columns:
+        return pd.DataFrame()
+    df["filing_date"] = pd.to_datetime(df["filing_date"])
+    df["period_end"] = pd.to_datetime(df["period_end"])
+    df = df.dropna(subset=["filing_date"]).sort_values("filing_date")
+    df = df.drop_duplicates(subset=["fiscal_year", "fiscal_quarter"], keep="first")
+    return df
 
 
-def _first_accepted_only(df: pd.DataFrame) -> pd.DataFrame:
-    if df.empty or "acceptedDate" not in df.columns:
-        return df
-    df = df.dropna(subset=["acceptedDate"]).copy()
-    key_cols = [c for c in ["fiscalYear", "period"] if c in df.columns]
-    df = df.sort_values("acceptedDate")
-    if not key_cols:
-        return df.drop_duplicates(subset=["date"], keep="first")
-    return df.drop_duplicates(subset=key_cols, keep="first")
-
-
-def _flatten_as_reported(rows: list) -> pd.DataFrame:
-    """Stable as-reported nests fields under ``data`` — flatten for _pick()."""
-    flat = []
-    for row in rows:
-        if not isinstance(row, dict):
-            continue
-        item = {k: v for k, v in row.items() if k != "data"}
-        data = row.get("data") or {}
-        if isinstance(data, dict):
-            item.update(data)
-        flat.append(item)
-    return pd.DataFrame(flat)
-
-
-def _pit_from_frames(inc_df, cfs_df, bal_df, flat_tax_rate: float) -> Optional[pd.DataFrame]:
-    for df in (inc_df, cfs_df, bal_df):
-        if "date" in df.columns:
-            df["date"] = pd.to_datetime(df["date"])
-
-    revenue = _pick(inc_df, [
-        "revenuefromcontractwithcustomerexcludingassessedtax", "revenues", "salesrevenuenet", "revenue",
-    ])
-    cogs = _pick(inc_df, ["costofgoodsandservicessold", "costofrevenue", "costOfRevenue"])
-    operating_income = _pick(inc_df, ["operatingincomeloss", "operatingIncome"])
-    gross_profit = _pick(inc_df, ["grossprofit", "grossProfit"])
-    if gross_profit.isna().all():
-        gross_profit = revenue - cogs
-
-    op_cf = _pick(cfs_df, [
-        "netcashprovidedbyusedinoperatingactivities",
-        "netCashProvidedByOperatingActivities",
-        "operatingCashFlow",
-    ])
-    capex = _pick(cfs_df, [
-        "paymentstoacquirepropertyplantandequipment",
-        "paymentsforcapitalimprovements",
-        "capitalExpenditure",
-    ]).abs()
-
-    total_assets = _pick(bal_df, ["assets", "totalAssets"])
-    total_debt = _pick(bal_df, ["longtermdebtnoncurrent", "longtermdebt", "totalDebt"])
-    total_equity = _pick(bal_df, ["stockholdersequity", "totalStockholdersEquity"])
-    cash_eq = _pick(bal_df, [
-        "cashandcashequivalentsatcarryingvalue",
-        "cashandcashequivalents",
-        "cashAndCashEquivalents",
-    ])
+def fetch_pit_fundamentals(
+    client: MassiveClient,
+    ticker: str,
+    flat_tax_rate: float,
+    statement_limit: int = 100,
+) -> Optional[pd.DataFrame]:
+    inc = _statement_df(client, "/stocks/financials/v1/income-statements", ticker, statement_limit)
+    cfs = _statement_df(client, "/stocks/financials/v1/cash-flow-statements", ticker, statement_limit)
+    bal = _statement_df(client, "/stocks/financials/v1/balance-sheets", ticker, statement_limit)
+    if inc.empty or cfs.empty or bal.empty:
+        return None
 
     inc_small = pd.DataFrame(
         {
-            "date": inc_df["date"],
-            "revenue": revenue.values,
-            "operating_income": operating_income.values,
-            "gross_profit": gross_profit.values,
+            "period_end": inc["period_end"],
+            "filing_date": inc["filing_date"],
+            "revenue": inc.get("revenue"),
+            "operating_income": inc.get("operating_income"),
+            "gross_profit": inc.get("gross_profit"),
+            "fiscal_year": inc.get("fiscal_year"),
+            "fiscal_quarter": inc.get("fiscal_quarter"),
         }
     )
-    cfs_small = pd.DataFrame({"date": cfs_df["date"], "op_cf": op_cf.values, "capex": capex.values})
+    cfs_small = pd.DataFrame(
+        {
+            "period_end": cfs["period_end"],
+            "op_cf": cfs.get("net_cash_from_operating_activities"),
+            "capex": cfs.get("purchase_of_property_plant_and_equipment"),
+            "fiscal_year": cfs.get("fiscal_year"),
+            "fiscal_quarter": cfs.get("fiscal_quarter"),
+        }
+    )
+    # CapEx is typically negative in Massive; take absolute value.
+    cfs_small["capex"] = pd.to_numeric(cfs_small["capex"], errors="coerce").abs()
+
+    debt_current = bal.get("debt_current")
+    debt_lt = bal.get("long_term_debt_and_capital_lease_obligations")
+    total_debt = None
+    if debt_current is not None or debt_lt is not None:
+        total_debt = pd.to_numeric(debt_current, errors="coerce").fillna(0) + pd.to_numeric(
+            debt_lt, errors="coerce"
+        ).fillna(0)
+
     bal_small = pd.DataFrame(
         {
-            "date": bal_df["date"],
-            "total_assets": total_assets.values,
-            "total_debt": total_debt.values,
-            "total_equity": total_equity.values,
-            "cash_eq": cash_eq.values,
+            "period_end": bal["period_end"],
+            "total_assets": bal.get("total_assets"),
+            "total_debt": total_debt,
+            "total_equity": bal.get("total_equity"),
+            "cash_eq": bal.get("cash_and_equivalents"),
+            "fiscal_year": bal.get("fiscal_year"),
+            "fiscal_quarter": bal.get("fiscal_quarter"),
         }
     )
 
-    merged = inc_small.merge(cfs_small, on="date", how="outer").merge(bal_small, on="date", how="outer")
-    merged = merged.sort_values("date").set_index("date")
+    merged = inc_small.merge(
+        cfs_small.drop(columns=["period_end"], errors="ignore"),
+        on=["fiscal_year", "fiscal_quarter"],
+        how="outer",
+    ).merge(
+        bal_small.drop(columns=["period_end"], errors="ignore"),
+        on=["fiscal_year", "fiscal_quarter"],
+        how="outer",
+    )
+    merged = merged.dropna(subset=["filing_date"]).sort_values("filing_date")
+    if merged.empty:
+        return None
 
     merged["op_margin"] = merged["operating_income"] / merged["revenue"].replace(0, np.nan)
     merged["gross_profitability"] = merged["gross_profit"] / merged["total_assets"].replace(0, np.nan)
-
     invested_capital = merged["total_debt"] + merged["total_equity"] - merged["cash_eq"]
     invested_capital = invested_capital.where(invested_capital > 0, merged["total_assets"])
     merged["roic"] = (merged["operating_income"] * (1 - flat_tax_rate)) / invested_capital.replace(0, np.nan)
 
-    if "acceptedDate" not in inc_df.columns:
-        return None
-    accepted_map = inc_df.set_index("date")["acceptedDate"]
-    merged = merged.join(accepted_map, how="left").dropna(subset=["acceptedDate"])
-    merged["acceptedDate"] = pd.to_datetime(merged["acceptedDate"])
-    merged = merged.set_index("acceptedDate").sort_index()
-
-    out = merged[
+    out = merged.set_index("filing_date").sort_index()
+    out = out[
         [
             "op_margin",
             "roic",
@@ -138,70 +133,12 @@ def _pit_from_frames(inc_df, cfs_df, bal_df, flat_tax_rate: float) -> Optional[p
         ]
     ]
     out = out.dropna(subset=["op_margin", "roic", "gross_profitability"], how="all")
+    out.index.name = "acceptedDate"  # engine indexes PIT by accepted/filing date
     return out if not out.empty else None
 
 
-def fetch_pit_fundamentals(
-    client: FmpClient,
-    ticker: str,
-    flat_tax_rate: float,
-    statement_limit: int = 5,
-) -> Optional[pd.DataFrame]:
-    # Try as-reported quarterly first (matches original v5 design).
-    inc = client.cached_get(
-        f"https://financialmodelingprep.com/stable/income-statement-as-reported?symbol={ticker}&period=quarter&limit={statement_limit}&apikey={client.api_key}",
-        f"inc_as_reported_stable_{ticker}_{statement_limit}",
-        ttl_days=3,
-    )
-    cfs = client.cached_get(
-        f"https://financialmodelingprep.com/stable/cash-flow-statement-as-reported?symbol={ticker}&period=quarter&limit={statement_limit}&apikey={client.api_key}",
-        f"cfs_as_reported_stable_{ticker}_{statement_limit}",
-        ttl_days=3,
-    )
-    bal = client.cached_get(
-        f"https://financialmodelingprep.com/stable/balance-sheet-statement-as-reported?symbol={ticker}&period=quarter&limit={statement_limit}&apikey={client.api_key}",
-        f"bal_as_reported_stable_{ticker}_{statement_limit}",
-        ttl_days=3,
-    )
-
-    use_as_reported = isinstance(inc, list) and isinstance(cfs, list) and isinstance(bal, list) and inc and cfs and bal
-    if use_as_reported:
-        # Stable as-reported may omit acceptedDate; fall through if so.
-        inc_df = _first_accepted_only(_flatten_as_reported(inc))
-        cfs_df = _first_accepted_only(_flatten_as_reported(cfs))
-        bal_df = _first_accepted_only(_flatten_as_reported(bal))
-        if "acceptedDate" in inc_df.columns:
-            out = _pit_from_frames(inc_df, cfs_df, bal_df, flat_tax_rate)
-            if out is not None:
-                return out
-
-    # Fallback: standard quarterly statements (widely available; same PIT schema).
-    inc = client.cached_get(
-        f"https://financialmodelingprep.com/stable/income-statement?symbol={ticker}&period=quarter&limit={statement_limit}&apikey={client.api_key}",
-        f"inc_std_stable_{ticker}_{statement_limit}",
-        ttl_days=3,
-    )
-    cfs = client.cached_get(
-        f"https://financialmodelingprep.com/stable/cash-flow-statement?symbol={ticker}&period=quarter&limit={statement_limit}&apikey={client.api_key}",
-        f"cfs_std_stable_{ticker}_{statement_limit}",
-        ttl_days=3,
-    )
-    bal = client.cached_get(
-        f"https://financialmodelingprep.com/stable/balance-sheet-statement?symbol={ticker}&period=quarter&limit={statement_limit}&apikey={client.api_key}",
-        f"bal_std_stable_{ticker}_{statement_limit}",
-        ttl_days=3,
-    )
-    if not (isinstance(inc, list) and isinstance(cfs, list) and isinstance(bal, list) and inc and cfs and bal):
-        return None
-
-    inc_df = _first_accepted_only(pd.DataFrame(inc))
-    cfs_df = _first_accepted_only(pd.DataFrame(cfs))
-    bal_df = _first_accepted_only(pd.DataFrame(bal))
-    return _pit_from_frames(inc_df, cfs_df, bal_df, flat_tax_rate)
-
-
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Download PIT fundamentals")
+    parser = argparse.ArgumentParser(description="Download PIT fundamentals (Massive)")
     parser.add_argument("--config", default="config/config.yaml")
     args = parser.parse_args(argv)
     config = load_config(args.config)
@@ -209,7 +146,7 @@ def main(argv: list[str] | None = None) -> int:
     paths = config.get("paths", {})
     benchmark = config.get("benchmark", "QQQ")
     flat_tax_rate = float(config.get("flat_tax_rate", 0.21))
-    statement_limit = int(config.get("statement_limit", 5))
+    statement_limit = int(config.get("statement_limit", 100))
 
     universe_path = Path(paths.get("metadata", "data/metadata")) / "universe.pkl"
     panels_path = Path(paths.get("prices", "data/prices")) / "panels.pkl"
@@ -224,7 +161,7 @@ def main(argv: list[str] | None = None) -> int:
         panels = pickle.load(f)
 
     close_m = panels["close_m"]
-    print(">> PIT 재무 데이터 수집...")
+    print(">> PIT 재무 데이터 수집 (Massive financials)...")
     fundamental_history = {}
     symbols = [c for c in close_m.columns if c != benchmark]
     for i, t in enumerate(symbols):

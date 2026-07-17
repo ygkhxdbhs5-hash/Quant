@@ -4,13 +4,14 @@ Q_Alpha - Pure Python Standalone Backtest Engine (v5)
 QuantConnect/LEAN 의존성을 완전히 제거한 순수 파이썬 버전.
 lean_engine_v3.py의 파이프라인 설계(PIT 추상화, industry-relative 랭킹 + 소규모 산업군 폴백,
 turnover 히스테리시스, 상관관계 필터, 역변동성 사이징+floor, industry cap, 검증 assertion,
-구조화 로깅)를 그대로 유지하고, 데이터 소스/체결 모델만 FMP API 기반(qalpha_v4 방식)으로 교체.
+구조화 로깅)를 그대로 유지하고, 데이터 소스/체결 모델만 Massive.com API 기반으로 교체.
 
-Data download lives in ``downloader/``. This module only reads local artifacts under ``data/``.
+Data download lives in ``downloader/`` (Massive.com). This module only reads
+local artifacts under ``data/``.
 
 LEAN -> 순수 파이썬 대응관계:
-  AddUniverse(Coarse/Fine)     -> download_complete_nasdaq_universe + fetch_profile_meta
-  Fine 재무 필드                -> as-reported 원본 재무제표에서 직접 계산 (PIT 저장소)
+  AddUniverse(Coarse/Fine)     -> Massive /v3/reference/tickers + ticker overview
+  Fine 재무 필드                -> Massive financials statements (PIT by filing_date)
   SetHoldings(symbol, weight)  -> 목표비중 대비 델타를 다음날 시가 주문으로 큐잉
   VolumeShareSlippageModel     -> Corwin-Schultz 스프레드 + sqrt 시장충격 근사
   InteractiveBrokersFeeModel   -> 위 비용모델에 포함(별도 수수료 미분리, 근사)
@@ -64,9 +65,9 @@ class RebalanceContext:
 def load_config(path: str | Path = "config/config.yaml") -> dict:
     with open(path, "r", encoding="utf-8") as fh:
         cfg = yaml.safe_load(fh) or {}
-    env_key = os.environ.get("FMP_API_KEY")
+    env_key = os.environ.get("MASSIVE_API_KEY") or os.environ.get("POLYGON_API_KEY")
     if env_key:
-        cfg["fmp_api_key"] = env_key
+        cfg["massive_api_key"] = env_key
     if not cfg.get("end_date"):
         cfg["end_date"] = pd.Timestamp.today().strftime("%Y-%m-%d")
     return cfg

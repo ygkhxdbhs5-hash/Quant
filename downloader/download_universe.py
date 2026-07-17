@@ -1,8 +1,4 @@
-"""Download universe metadata into data/metadata/universe.pkl.
-
-Uses FMP stable endpoints. Falls back to data/metadata/symbols.txt when the
-full exchange listing endpoint is unavailable on the current plan.
-"""
+"""Download NASDAQ universe + profiles via Massive reference APIs."""
 
 from __future__ import annotations
 
@@ -13,78 +9,105 @@ from typing import Dict, List, Tuple
 
 import pandas as pd
 
-from downloader.fmp_client import FmpClient
 from downloader.download_universe_utils import load_config, make_client, read_symbol_file
+from downloader.massive_client import MassiveClient
+
+# ISO 10383 MIC for NASDAQ
+NASDAQ_EXCHANGE = "XNAS"
 
 
-def download_complete_nasdaq_universe(client: FmpClient, symbol_file: Path) -> Tuple[List[str], Dict[str, dict]]:
-    print(">> 나스닥 유니버스 명단 수집...")
-    active_tickers: List[str] = []
-
-    # Prefer stable constituent list when the plan allows it.
-    active_res = client.cached_get(
-        f"https://financialmodelingprep.com/stable/nasdaq-constituent?apikey={client.api_key}",
-        "nasdaq_constituent_stable",
+def download_complete_nasdaq_universe(
+    client: MassiveClient,
+    symbol_file: Path,
+) -> Tuple[List[str], Dict[str, dict]]:
+    print(">> 나스닥 전체 상장 + 상장폐지 전수 명단 수집 (Massive)...")
+    active_rows = client.paginate(
+        "/v3/reference/tickers",
+        cache_key_prefix="nasdaq_active",
+        params={
+            "market": "stocks",
+            "exchange": NASDAQ_EXCHANGE,
+            "active": "true",
+            "limit": 1000,
+            "sort": "ticker",
+            "order": "asc",
+        },
         ttl_days=1,
+        max_pages=50,
     )
-    if isinstance(active_res, list) and active_res and isinstance(active_res[0], dict):
-        active_tickers = [x["symbol"] for x in active_res if x.get("symbol")]
+    active_tickers = []
+    for r in active_rows:
+        if not isinstance(r, dict) or not r.get("ticker"):
+            continue
+        ttype = (r.get("type") or "").upper()
+        # Prefer common stock / ADR; skip ETFs and funds at universe stage.
+        if ttype in {"ETF", "ETV", "ETS", "FUND", "UNIT"}:
+            continue
+        active_tickers.append(r["ticker"])
+    if not active_tickers:
+        active_tickers = [r["ticker"] for r in active_rows if isinstance(r, dict) and r.get("ticker")]
 
     used_symbol_file = False
     if not active_tickers:
-        print("    (nasdaq-constituent unavailable — using symbols.txt fallback)")
+        print("    (Massive ticker list empty — using symbols.txt fallback)")
         active_tickers = read_symbol_file(symbol_file)
         used_symbol_file = True
 
+    delisted_rows = client.paginate(
+        "/v3/reference/tickers",
+        cache_key_prefix="nasdaq_delisted",
+        params={
+            "market": "stocks",
+            "exchange": NASDAQ_EXCHANGE,
+            "active": "false",
+            "limit": 1000,
+            "sort": "ticker",
+            "order": "asc",
+        },
+        ttl_days=3,
+        max_pages=50,
+    )
     delisted_meta: Dict[str, dict] = {}
-    page = 0
-    while True:
-        d_res = client.cached_get(
-            f"https://financialmodelingprep.com/stable/delisted-companies?page={page}&apikey={client.api_key}",
-            f"delisted_page_stable_{page}",
-            ttl_days=3,
-        )
-        if not d_res or not isinstance(d_res, list):
-            break
-        for item in d_res:
-            t = item.get("symbol")
-            exchange = (item.get("exchange") or "").upper()
-            if t and ("NASDAQ" in exchange or exchange in {"", "NASDAQ"}):
-                # Map stable field name -> engine expects delistingDate
-                delisted_meta[t] = {"delistingDate": item.get("delistedDate") or item.get("delistingDate")}
-        if len(d_res) < 100:
-            break
-        page += 1
-        if page > 50:
-            break
+    for item in delisted_rows:
+        t = item.get("ticker")
+        if not t:
+            continue
+        delisted_utc = item.get("delisted_utc")
+        delisting_date = None
+        if delisted_utc:
+            delisting_date = pd.to_datetime(delisted_utc).strftime("%Y-%m-%d")
+        delisted_meta[t] = {"delistingDate": delisting_date}
 
     if used_symbol_file:
-        # Keep download scope to the explicit list; still retain delisted metadata
-        # for symbols that appear in that list.
         all_tickers = list(active_tickers)
         delisted_meta = {k: v for k, v in delisted_meta.items() if k in set(active_tickers)}
     else:
         all_tickers = sorted(set(active_tickers) | set(delisted_meta.keys()))
+
     print(f"    active={len(active_tickers)} delisted={len(delisted_meta)} total={len(all_tickers)}")
     return all_tickers, delisted_meta
 
 
-def fetch_profile_meta(client: FmpClient, tickers: List[str]) -> Dict[str, dict]:
+def fetch_profile_meta(client: MassiveClient, tickers: List[str]) -> Dict[str, dict]:
     print(f">> {len(tickers)}개 종목 profile(섹터/산업/IPO일) 조회...")
     meta: Dict[str, dict] = {}
     for i, t in enumerate(tickers):
-        res = client.cached_get(
-            f"https://financialmodelingprep.com/stable/profile?symbol={t}&apikey={client.api_key}",
-            f"profile_stable_{t}",
+        payload = client.cached_get(
+            f"/v3/reference/tickers/{t}",
+            cache_key=f"ticker_overview_{t}",
             ttl_days=30,
         )
-        if res and isinstance(res, list) and res and isinstance(res[0], dict):
-            p = res[0]
+        results = payload.get("results") if isinstance(payload, dict) else None
+        if isinstance(results, dict):
+            list_date = results.get("list_date")
+            sic = results.get("sic_description") or results.get("sic_code") or "Unknown"
+            # Massive/Polygon overview does not always expose GICS industry;
+            # sic_description is the closest stable industry label.
             meta[t] = {
-                "sector": p.get("sector") or "Unknown",
-                "industry": p.get("industry") or "Unknown",
-                "ipoDate": pd.to_datetime(p.get("ipoDate")) if p.get("ipoDate") else pd.NaT,
-                "isEtf": bool(p.get("isEtf", False)),
+                "sector": results.get("sic_description") or "Unknown",
+                "industry": str(sic),
+                "ipoDate": pd.to_datetime(list_date) if list_date else pd.NaT,
+                "isEtf": (results.get("type") or "").upper() in {"ETF", "ETV", "ETS"},
             }
         else:
             meta[t] = {"sector": "Unknown", "industry": "Unknown", "ipoDate": pd.NaT, "isEtf": False}
@@ -117,7 +140,7 @@ def save_universe(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Download NASDAQ universe + profiles")
+    parser = argparse.ArgumentParser(description="Download NASDAQ universe + profiles (Massive)")
     parser.add_argument("--config", default="config/config.yaml")
     args = parser.parse_args(argv)
     config = load_config(args.config)
@@ -129,11 +152,13 @@ def main(argv: list[str] | None = None) -> int:
         client, metadata_dir / "symbols.txt"
     )
     limit = config.get("universe_limit")
-    tickers = all_tickers if limit is None else all_tickers[: int(limit)]
-    # Always include explicit symbol-file names first when limiting.
     file_syms = read_symbol_file(metadata_dir / "symbols.txt")
     if limit is not None and file_syms:
         tickers = file_syms[: int(limit)]
+    elif limit is not None:
+        tickers = all_tickers[: int(limit)]
+    else:
+        tickers = all_tickers
 
     profile_meta = fetch_profile_meta(client, tickers)
     save_universe(metadata_dir, all_tickers, delisted_meta, profile_meta, tickers)
