@@ -1,7 +1,7 @@
 # Q_Alpha v5 standalone engine configuration
 # Data provider: Massive.com (ex-Polygon). Override key via MASSIVE_API_KEY.
 
-massive_api_key: ""  # set here or export MASSIVE_API_KEY
+massive_api_key: "Zs2ZeVDXsn8zS3jPO6yDDL3CDQHbaO9r"  # override with env MASSIVE_API_KEY preferred
 massive_base_url: "https://api.massive.com"
 
 start_date: "2010-01-01"
