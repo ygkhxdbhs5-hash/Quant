@@ -1,0 +1,43 @@
+# Q_Alpha v5 standalone engine configuration
+# Data provider: Massive.com (ex-Polygon). Override key via MASSIVE_API_KEY.
+
+massive_api_key: ""  # set here or export MASSIVE_API_KEY
+massive_base_url: "https://api.massive.com"
+
+start_date: "2010-01-01"
+end_date: null  # null => today
+initial_cash: 50000000
+
+universe_limit: null
+benchmark: QQQ
+
+request_interval_sec: 0.20
+max_retries: 3
+# Max quarterly statements to pull per ticker from Massive financials
+statement_limit: 100
+
+max_portfolio_size: 30
+selection_buffer_size: 40
+max_industry_weight: 0.20
+min_industry_size: 8
+vol_floor: 1.0e-4
+weight_sum_tolerance: 0.02
+lowvol_window: 60
+mom_window: 252
+corr_window: 60
+corr_threshold: 0.80
+flat_tax_rate: 0.21
+
+silent_delist_recovery: 0.30
+silent_delist_gap_days: 10
+
+top_adv_pool: 250
+participation_cap_buy: 0.08
+participation_cap_sell: 0.15
+
+paths:
+  prices: data/prices
+  fundamentals: data/fundamentals
+  metadata: data/metadata
+  cache: cache
+  massive_cache: cache/massive_cache
