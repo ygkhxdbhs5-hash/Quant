@@ -208,11 +208,9 @@ class StandaloneEngine:
     def build_factors(self, date_idx, active_symbols) -> pd.DataFrame:
         current_date = self.close_m.index[date_idx]
         rows = []
+        n_price_only = 0
+        n_full = 0
         for sym in active_symbols:
-            fundamentals = self.get_latest_available_fundamentals(sym, current_date)
-            if fundamentals is None:
-                continue
-
             price = self.close_m[sym].iloc[date_idx]
             if pd.isna(price) or price <= 0:
                 continue
@@ -222,34 +220,57 @@ class StandaloneEngine:
             if pd.isna(mom) or pd.isna(vol60) or vol60 <= 0:
                 continue
 
-            revenue = fundamentals.get("revenue", np.nan)
-            op_cf = fundamentals.get("op_cf", np.nan)
-            capex = fundamentals.get("capex", np.nan)
-            total_debt = fundamentals.get("total_debt", np.nan)
-            cash_eq = fundamentals.get("cash_eq", np.nan)
+            fundamentals = self.get_latest_available_fundamentals(sym, current_date)
+            if fundamentals is None:
+                # Fallback: keep ticker with price/volume factors only.
+                rows.append({
+                    "symbol": sym,
+                    "mom_raw": mom,
+                    "vol_raw": vol60,
+                    "op_margin_raw": np.nan,
+                    "roic_raw": np.nan,
+                    "gross_prof_raw": np.nan,
+                    "op_cf": np.nan,
+                    "capex": np.nan,
+                    "revenue": np.nan,
+                    "industry": self.profile_meta.get(sym, {}).get("industry", "Unknown"),
+                    "has_fundamentals": False,
+                })
+                n_price_only += 1
+                continue
 
-            market_cap = price * 1.0  # 주가 * 1주 기준 스케일(주식수 정보 미사용) -> 비율(수익률/자산) 계산엔 영향 없음
-            # EV 근사: 시가총액 스케일이 아니라 팩터 자체가 회사 단위 절대값이므로,
-            # 여기서는 회사 레벨 시가총액이 필요하다. dollar_volume/price로 유통주식수를 추정하는 것은
-            # 부정확하므로, EV 팩터는 총자산 대비 스케일로 근사(자산 기반 valuation proxy)한다.
-            # [한계] 진짜 시가총액 기반 EV 계산에는 발행주식수 데이터가 별도로 필요함 -> 다음 버전 과제로 명시.
-            total_assets = fundamentals.get if False else None
+            def _fget(key, default=np.nan):
+                try:
+                    val = fundamentals[key]
+                    return default if pd.isna(val) else val
+                except Exception:
+                    return default
 
             rows.append({
                 "symbol": sym,
                 "mom_raw": mom,
                 "vol_raw": vol60,
-                "op_margin_raw": fundamentals.get("op_margin", np.nan),
-                "roic_raw": fundamentals.get("roic", np.nan),
-                "gross_prof_raw": fundamentals.get("gross_profitability", np.nan),
-                "op_cf": op_cf, "capex": capex, "revenue": revenue,
+                "op_margin_raw": _fget("op_margin"),
+                "roic_raw": _fget("roic"),
+                "gross_prof_raw": _fget("gross_profitability"),
+                "op_cf": _fget("op_cf"),
+                "capex": _fget("capex"),
+                "revenue": _fget("revenue"),
                 "industry": self.profile_meta.get(sym, {}).get("industry", "Unknown"),
+                "has_fundamentals": True,
             })
+            n_full += 1
 
         df = pd.DataFrame(rows)
         if df.empty:
             return df
-        df = df.dropna(subset=["mom_raw", "vol_raw", "op_margin_raw", "roic_raw", "gross_prof_raw"])
+        # Require only price-based factors; quality may be missing (fallback mode).
+        df = df.dropna(subset=["mom_raw", "vol_raw"])
+        if n_price_only > 0:
+            print(
+                f"    [FACTORS] {current_date.date()} full={n_full} "
+                f"price_volume_fallback={n_price_only}"
+            )
         return df
 
     def rank_universe(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -265,14 +286,21 @@ class StandaloneEngine:
         df["rank_mom"] = _rank("mom_raw")
         df["neg_vol"] = -df["vol_raw"]
         df["rank_lowvol"] = _rank("neg_vol")
+
+        has_quality = (
+            df["roic_raw"].notna() & df["gross_prof_raw"].notna() & df["op_margin_raw"].notna()
+        )
+        # Quality ranks: NaN inputs stay NaN (pandas rank skips them within group).
         df["rank_roic"] = _rank("roic_raw")
         df["rank_gp"] = _rank("gross_prof_raw")
         df["rank_op"] = _rank("op_margin_raw")
         df["rank_quality"] = (df["rank_roic"] * 0.50) + (df["rank_gp"] * 0.30) + (df["rank_op"] * 0.20)
 
-        # [한계] Value(FCF/Sales Yield) 팩터는 시가총액/EV 스케일 데이터(발행주식수)가
-        # 이 파이프라인에 없어 정확히 재현하지 못했다. Quality/Momentum/LowVol 3팩터로 축소.
-        df["final_score"] = (df["rank_mom"] * 0.45) + (df["rank_quality"] * 0.45) + (df["rank_lowvol"] * 0.10)
+        # Full model when fundamentals exist; otherwise momentum + low-vol only.
+        full_score = (df["rank_mom"] * 0.45) + (df["rank_quality"] * 0.45) + (df["rank_lowvol"] * 0.10)
+        fallback_score = (df["rank_mom"] * 0.80) + (df["rank_lowvol"] * 0.20)
+        df["final_score"] = np.where(has_quality, full_score, fallback_score)
+        df["factor_mode"] = np.where(has_quality, "full", "price_volume_fallback")
         return df.sort_values("final_score", ascending=False).reset_index(drop=True)
 
     def construct_portfolio(self, ranked_df, date_idx, ctx: RebalanceContext) -> pd.DataFrame:

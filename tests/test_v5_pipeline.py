@@ -45,6 +45,25 @@ def test_rank_universe_weights():
     assert ranked["final_score"].iloc[0] >= ranked["final_score"].iloc[-1]
 
 
+def test_rank_universe_price_volume_fallback():
+    eng = _TinyEngine()
+    df = pd.DataFrame(
+        {
+            "symbol": ["A", "B", "C", "D"],
+            "mom_raw": [0.4, 0.3, 0.2, 0.1],
+            "vol_raw": [0.02, 0.03, 0.04, 0.05],
+            "op_margin_raw": [0.2, np.nan, 0.15, np.nan],
+            "roic_raw": [0.2, np.nan, 0.15, np.nan],
+            "gross_prof_raw": [0.2, np.nan, 0.15, np.nan],
+            "industry": ["X", "X", "Y", "Y"],
+        }
+    )
+    ranked = eng.rank_universe(df)
+    assert set(ranked["factor_mode"]) == {"full", "price_volume_fallback"}
+    assert ranked["final_score"].notna().all()
+    assert len(ranked) == 4
+
+
 def test_apply_risk_adjustments_sums_to_exposure():
     eng = _TinyEngine()
     targets = pd.DataFrame(
