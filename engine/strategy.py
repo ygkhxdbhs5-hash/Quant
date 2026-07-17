@@ -19,11 +19,12 @@ LEAN -> 순수 파이썬 대응관계:
   RollingWindow[float]         -> 사전 계산된 벡터화 매트릭스(가격/모멘텀/변동성)
 
 [근사/한계 - 명시]
-  - ROIC은 FMP의 사전계산값 대신 as-reported 항목으로 직접 근사 계산한다.
+  - ROIC은 Massive financials 항목으로 직접 근사 계산한다.
     invested_capital = total_debt + total_equity - cash (가능하면), 아니면 total_assets로 폴백.
     세율은 21% 고정 가정 (실제 유효세율과 다를 수 있음) -> 근사치임을 명시.
   - LEAN의 FeeModel/SlippageModel만큼 검증된 모델이 아니라 학술 근사식(Corwin-Schultz, sqrt-impact)이다.
   - PIT의 완전성 한계는 이전 리뷰(CODE_REVIEW_v3_to_v4.md) 참고 -> 여전히 유효.
+  - Massive filing_date를 acceptedDate 대용으로 사용한다.
 """
 
 from __future__ import annotations
