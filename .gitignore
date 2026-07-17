@@ -1,0 +1,19 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+.mypy_cache/
+.ruff_cache/
+.DS_Store
+cache/*
+!cache/.gitkeep
+data/prices/*
+!data/prices/.gitkeep
+data/fundamentals/*
+!data/fundamentals/.gitkeep
+# keep metadata templates tracked
+!data/metadata/

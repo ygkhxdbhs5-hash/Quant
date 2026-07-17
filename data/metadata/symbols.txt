@@ -1,0 +1,32 @@
+# One ticker per line. Include liquid names you want in the local universe.
+# QQQ is always added as the benchmark by the price downloader.
+AAPL
+MSFT
+AMZN
+GOOGL
+META
+NVDA
+AVGO
+TSLA
+COST
+NFLX
+ADBE
+PEP
+CSCO
+AMD
+INTC
+QCOM
+AMGN
+HON
+TXN
+INTU
+ISRG
+BKNG
+SBUX
+GILD
+MDLZ
+ADP
+VRTX
+REGN
+PANW
+MU
