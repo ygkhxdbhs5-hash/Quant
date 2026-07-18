@@ -168,13 +168,45 @@ def main(argv: list[str] | None = None) -> int:
 
     all_tickers, delisted_meta = download_complete_nasdaq_universe(client)
 
-    # Strictly enforce full universe: ignore universe_limit and symbols.txt entirely.
-    # tickers must always equal all_tickers for profile fetch + save.
-    tickers = all_tickers
+    # -------------------------------------------------------------------------
+    # CRITICAL: never shrink the universe after the Massive pull.
+    # Ignore config.universe_limit and data/metadata/symbols.txt completely.
+    # (A ~30-name profile step almost always means an old script used symbols.txt.)
+    # -------------------------------------------------------------------------
+    ignored_limit = config.get("universe_limit")
+    symbols_path = metadata_dir / "symbols.txt"
+    print(
+        f">> Ignoring universe_limit={ignored_limit!r} and symbols.txt "
+        f"(exists={symbols_path.exists()})"
+    )
 
-    print(f">> Full NASDAQ universe enforced: tickers={len(tickers)} (== all_tickers)")
+    tickers = list(all_tickers)  # hard copy; must stay equal to full pull
+
+    if tickers != list(all_tickers):
+        raise RuntimeError("BUG: tickers diverged from all_tickers before profile fetch")
+    if len(tickers) < 1000:
+        raise RuntimeError(
+            f"Refusing to continue: tickers={len(tickers)} (<1000). "
+            "Expected full NASDAQ pull (~4000+). Wrong branch or truncated all_tickers."
+        )
+
+    print(
+        f">> Full NASDAQ universe enforced: "
+        f"len(all_tickers)={len(all_tickers)} len(tickers)={len(tickers)} "
+        f"(must match; about to fetch profiles for ALL of them)"
+    )
     profile_meta = fetch_profile_meta(client, tickers)
+    print(
+        f">> profile_meta fetched for {len(profile_meta)} symbols "
+        f"(expected {len(tickers)})"
+    )
     save_universe(metadata_dir, all_tickers, delisted_meta, profile_meta, tickers)
+
+    # Final sanity check on what was written
+    print(
+        f">> SAVED universe.pkl with tickers={len(tickers)} "
+        f"all_tickers={len(all_tickers)} profiles={len(profile_meta)}"
+    )
     return 0
 
 

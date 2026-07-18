@@ -2,7 +2,7 @@
 
 Usage in Colab (one cell):
 
-    !git clone --branch cursor/full-nasdaq-universe-cb1c https://github.com/ygkhxdbhs5-hash/Quant.git
+    !git clone --branch cursor/universe-paginate-debug-cb1c https://github.com/ygkhxdbhs5-hash/Quant.git
     %cd Quant
     !pip -q install -r requirements.txt
     # then upload/run this file, or:
