@@ -100,6 +100,7 @@ def test_rank_universe_weights():
             "symbol": [f"S{i}" for i in range(12)],
             "mom_raw": np.linspace(0.1, 0.5, 12),
             "vol_raw": np.linspace(0.01, 0.05, 12),
+            "vol_expansion_raw": np.linspace(-0.5, 2.0, 12),
             "op_margin_raw": np.linspace(0.1, 0.3, 12),
             "roic_raw": np.linspace(0.1, 0.3, 12),
             "gross_prof_raw": np.linspace(0.1, 0.3, 12),
@@ -108,6 +109,7 @@ def test_rank_universe_weights():
     )
     ranked = eng.rank_universe(df)
     assert "final_score" in ranked.columns
+    assert "rank_vol_expansion" in ranked.columns
     assert ranked["final_score"].iloc[0] >= ranked["final_score"].iloc[-1]
 
 
@@ -118,6 +120,7 @@ def test_rank_universe_price_volume_fallback():
             "symbol": ["A", "B", "C", "D"],
             "mom_raw": [0.4, 0.3, 0.2, 0.1],
             "vol_raw": [0.02, 0.03, 0.04, 0.05],
+            "vol_expansion_raw": [1.5, 0.5, 2.0, 0.0],
             "op_margin_raw": [0.2, np.nan, 0.15, np.nan],
             "roic_raw": [0.2, np.nan, 0.15, np.nan],
             "gross_prof_raw": [0.2, np.nan, 0.15, np.nan],
@@ -128,6 +131,25 @@ def test_rank_universe_price_volume_fallback():
     assert set(ranked["factor_mode"]) == {"full", "price_volume_fallback"}
     assert ranked["final_score"].notna().all()
     assert len(ranked) == 4
+
+
+def test_rank_universe_vol_expansion_boosts_score():
+    """Higher vol expansion should lift final_score when mom/quality are tied."""
+    eng = _TinyEngine()
+    df = pd.DataFrame(
+        {
+            "symbol": ["LOW_EXP", "HIGH_EXP"],
+            "mom_raw": [0.3, 0.3],
+            "vol_raw": [0.02, 0.02],
+            "vol_expansion_raw": [0.1, 2.0],
+            "op_margin_raw": [0.2, 0.2],
+            "roic_raw": [0.2, 0.2],
+            "gross_prof_raw": [0.2, 0.2],
+            "industry": ["X", "X"],
+        }
+    )
+    ranked = eng.rank_universe(df)
+    assert ranked.iloc[0]["symbol"] == "HIGH_EXP"
 
 
 def test_apply_risk_adjustments_sums_to_exposure():
@@ -174,36 +196,37 @@ def test_trailing_stop_exits_and_resets_on_repurchase():
     assert eng.highest_prices["AAA"] == 95.0
 
 
-def test_build_factors_volatility_breakout_filter():
-    """Only names with (close - open) > 1.5 * ATR20 pass; momentum rank untouched."""
+def test_build_factors_vol_expansion_score():
+    """All names kept; vol_expansion_raw = (close - open) / ATR20."""
     eng = _TinyEngine()
     dates = pd.to_datetime(["2024-06-03", "2024-06-04"])
     eng.close_m = pd.DataFrame(
-        {"BREAK": [10.0, 14.0], "QUIET": [10.0, 10.5], "DOWN": [10.0, 8.0]},
+        {"BREAK": [10.0, 14.0], "QUIET": [10.0, 10.5]},
         index=dates,
     )
     eng.open_m = pd.DataFrame(
-        {"BREAK": [10.0, 10.0], "QUIET": [10.0, 10.0], "DOWN": [10.0, 10.0]},
+        {"BREAK": [10.0, 10.0], "QUIET": [10.0, 10.0]},
         index=dates,
     )
-    # ATR=2 => threshold 3.0; BREAK change=4 passes; QUIET=0.5 fails; DOWN=-2 fails
     eng.atr20_m = pd.DataFrame(
-        {"BREAK": [2.0, 2.0], "QUIET": [2.0, 2.0], "DOWN": [2.0, 2.0]},
+        {"BREAK": [2.0, 2.0], "QUIET": [2.0, 2.0]},
         index=dates,
     )
     eng.mom_12_1_m = pd.DataFrame(
-        {"BREAK": [0.2, 0.3], "QUIET": [0.4, 0.5], "DOWN": [0.1, 0.2]},
+        {"BREAK": [0.2, 0.3], "QUIET": [0.4, 0.5]},
         index=dates,
     )
     eng.vol60_m = pd.DataFrame(
-        {"BREAK": [0.02, 0.02], "QUIET": [0.02, 0.02], "DOWN": [0.02, 0.02]},
+        {"BREAK": [0.02, 0.02], "QUIET": [0.02, 0.02]},
         index=dates,
     )
     eng.fundamental_history = {}
-    eng.profile_meta = {s: {"industry": "X"} for s in ["BREAK", "QUIET", "DOWN"]}
+    eng.profile_meta = {s: {"industry": "X"} for s in ["BREAK", "QUIET"]}
 
-    df = eng.build_factors(1, ["BREAK", "QUIET", "DOWN"])
-    assert list(df["symbol"]) == ["BREAK"]
+    df = eng.build_factors(1, ["BREAK", "QUIET"]).set_index("symbol")
+    assert set(df.index) == {"BREAK", "QUIET"}
+    assert df.loc["BREAK", "vol_expansion_raw"] == pytest.approx(2.0)  # (14-10)/2
+    assert df.loc["QUIET", "vol_expansion_raw"] == pytest.approx(0.25)  # (10.5-10)/2
 
 
 def test_allocate_weights_equal_weight():

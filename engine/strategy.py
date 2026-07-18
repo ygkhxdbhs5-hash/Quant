@@ -355,7 +355,6 @@ class StandaloneEngine:
         rows = []
         n_price_only = 0
         n_full = 0
-        n_fail_breakout = 0
         for sym in active_symbols:
             price = self.close_m[sym].iloc[date_idx]
             if pd.isna(price) or price <= 0:
@@ -366,21 +365,18 @@ class StandaloneEngine:
             if pd.isna(mom) or pd.isna(vol60) or vol60 <= 0:
                 continue
 
-            # Volatility Breakout binary filter (does not alter momentum ranking):
-            # only keep names where daily range (close - open) > 1.5x 20-day ATR.
+            # Volatility expansion score for ranking: (close - open) / ATR_20
+            # (not a hard filter — high-momentum names without a breakout are kept)
             o_price = self.open_m[sym].iloc[date_idx] if sym in self.open_m.columns else np.nan
             atr20 = (
                 self.atr20_m[sym].iloc[date_idx]
                 if hasattr(self, "atr20_m") and sym in self.atr20_m.columns
                 else np.nan
             )
-            if pd.isna(o_price) or pd.isna(atr20) or atr20 <= 0:
-                n_fail_breakout += 1
-                continue
-            daily_change = float(price) - float(o_price)
-            if daily_change <= self.VOL_BREAKOUT_ATR_MULT * float(atr20):
-                n_fail_breakout += 1
-                continue
+            if pd.notna(o_price) and pd.notna(atr20) and float(atr20) > 0:
+                vol_expansion = (float(price) - float(o_price)) / float(atr20)
+            else:
+                vol_expansion = np.nan
 
             fundamentals = self.get_latest_available_fundamentals(sym, current_date)
             if fundamentals is None:
@@ -389,6 +385,7 @@ class StandaloneEngine:
                     "symbol": sym,
                     "mom_raw": mom,
                     "vol_raw": vol60,
+                    "vol_expansion_raw": vol_expansion,
                     "op_margin_raw": np.nan,
                     "roic_raw": np.nan,
                     "gross_prof_raw": np.nan,
@@ -412,6 +409,7 @@ class StandaloneEngine:
                 "symbol": sym,
                 "mom_raw": mom,
                 "vol_raw": vol60,
+                "vol_expansion_raw": vol_expansion,
                 "op_margin_raw": _fget("op_margin"),
                 "roic_raw": _fget("roic"),
                 "gross_prof_raw": _fget("gross_profitability"),
@@ -425,19 +423,13 @@ class StandaloneEngine:
 
         df = pd.DataFrame(rows)
         if df.empty:
-            if n_fail_breakout > 0:
-                print(
-                    f"    [FACTORS] {current_date.date()} empty after filters "
-                    f"fail_vol_breakout={n_fail_breakout}"
-                )
             return df
         # Require only price-based factors; quality may be missing (fallback mode).
         df = df.dropna(subset=["mom_raw", "vol_raw"])
-        if n_price_only > 0 or n_fail_breakout > 0:
+        if n_price_only > 0:
             print(
                 f"    [FACTORS] {current_date.date()} full={n_full} "
-                f"price_volume_fallback={n_price_only} "
-                f"fail_vol_breakout={n_fail_breakout}"
+                f"price_volume_fallback={n_price_only}"
             )
         return df
 
@@ -455,6 +447,11 @@ class StandaloneEngine:
         df["neg_vol"] = -df["vol_raw"]
         df["rank_lowvol"] = _rank("neg_vol")
 
+        # Volatility expansion: (close - open) / ATR_20 (computed in build_factors)
+        if "vol_expansion_raw" not in df.columns:
+            df["vol_expansion_raw"] = np.nan
+        df["rank_vol_expansion"] = _rank("vol_expansion_raw")
+
         has_quality = (
             df["roic_raw"].notna() & df["gross_prof_raw"].notna() & df["op_margin_raw"].notna()
         )
@@ -464,9 +461,21 @@ class StandaloneEngine:
         df["rank_op"] = _rank("op_margin_raw")
         df["rank_quality"] = (df["rank_roic"] * 0.50) + (df["rank_gp"] * 0.30) + (df["rank_op"] * 0.20)
 
-        # Full model when fundamentals exist; otherwise momentum + low-vol only.
-        full_score = (df["rank_mom"] * 0.45) + (df["rank_quality"] * 0.45) + (df["rank_lowvol"] * 0.10)
-        fallback_score = (df["rank_mom"] * 0.80) + (df["rank_lowvol"] * 0.20)
+        # Score: prefer momentum + quality + volatility expansion (not a hard breakout filter).
+        # Original (commented for easy revert):
+        # full_score = (df["rank_mom"] * 0.45) + (df["rank_quality"] * 0.45) + (df["rank_lowvol"] * 0.10)
+        # fallback_score = (df["rank_mom"] * 0.80) + (df["rank_lowvol"] * 0.20)
+        full_score = (
+            (df["rank_mom"] * 0.40) + (df["rank_quality"] * 0.40) + (df["rank_vol_expansion"] * 0.20)
+        )
+        fallback_score = (df["rank_mom"] * 0.80) + (df["rank_vol_expansion"] * 0.20)
+        # If vol-expansion rank missing, fall back to low-vol term for that row
+        full_score = full_score.fillna(
+            (df["rank_mom"] * 0.45) + (df["rank_quality"] * 0.45) + (df["rank_lowvol"] * 0.10)
+        )
+        fallback_score = fallback_score.fillna(
+            (df["rank_mom"] * 0.80) + (df["rank_lowvol"] * 0.20)
+        )
         df["final_score"] = np.where(has_quality, full_score, fallback_score)
         df["factor_mode"] = np.where(has_quality, "full", "price_volume_fallback")
         return df.sort_values("final_score", ascending=False).reset_index(drop=True)
