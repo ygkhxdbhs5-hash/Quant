@@ -141,13 +141,13 @@ def test_apply_risk_adjustments_sums_to_exposure():
 
 def test_trailing_stop_exits_and_resets_on_repurchase():
     eng = _TinyEngine()
-    eng.TRAILING_STOP_PCT = 0.05
+    eng.TRAILING_STOP_PCT = 0.10
     eng.highest_prices = {}
     eng.cash = 0.0
     eng.portfolio = {"AAA": 10}
     eng.previous_target_symbols = {"AAA"}
     dates = pd.to_datetime(["2024-01-02", "2024-01-03", "2024-01-04"])
-    eng.close_m = pd.DataFrame({"AAA": [100.0, 96.0, 94.0]}, index=dates)
+    eng.close_m = pd.DataFrame({"AAA": [100.0, 96.0, 89.0]}, index=dates)
     eng.high_m = pd.DataFrame({"AAA": [100.0, 100.0, 95.0]}, index=dates)
 
     # Day 0: establish peak at 100
@@ -155,16 +155,16 @@ def test_trailing_stop_exits_and_resets_on_repurchase():
     assert eng.portfolio.get("AAA") == 10
     assert eng.highest_prices["AAA"] == 100.0
 
-    # Day 2: close 94 is >5% below peak 100 -> immediate exit
+    # Day 2: close 89 is >10% below peak 100 -> immediate exit
     eng.check_trailing_stops(2)
     assert "AAA" not in eng.portfolio
     assert "AAA" not in eng.highest_prices
-    assert eng.cash == pytest.approx(940.0)
+    assert eng.cash == pytest.approx(890.0)
 
     # Re-purchase resets peak to new entry
     eng.portfolio["AAA"] = 5
     eng.highest_prices["AAA"] = 50.0  # simulate execute_pending_orders reset
-    eng.check_trailing_stops(2)  # high=95 raises peak; close=94 within 5% of 95
+    eng.check_trailing_stops(2)  # high=95 raises peak; close=89 within 10% of 95
     assert eng.portfolio.get("AAA") == 5
     assert eng.highest_prices["AAA"] == 95.0
 

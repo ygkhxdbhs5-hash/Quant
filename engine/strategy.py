@@ -149,9 +149,9 @@ class StandaloneEngine:
         self.pending_orders = []
         self.equity_curve = []
         self._prior_invested_for_log = set()
-        # Trailing stop: peak price since purchase; exit if close falls 5% below peak
+        # Trailing stop: peak price since purchase; exit if close falls 10% below peak
         self.highest_prices = {}
-        self.TRAILING_STOP_PCT = float(cfg.get("trailing_stop_pct", 0.05))
+        self.TRAILING_STOP_PCT = float(cfg.get("trailing_stop_pct", 0.10))
 
     # -------------------------------------------------------------
     def _precompute_matrices(self):
@@ -660,7 +660,7 @@ class StandaloneEngine:
         self.pending_orders = []
 
     def check_trailing_stops(self, date_idx):
-        """Daily trailing-stop exit: sell if close is 5% below peak since purchase."""
+        """Daily trailing-stop exit: sell if close is 10% below peak since purchase."""
         current_date = self.close_m.index[date_idx]
         current_closes = self.close_m.loc[current_date]
         current_highs = self.high_m.loc[current_date]
