@@ -104,19 +104,39 @@ class MassiveClient:
         out: list = []
         next_path: Optional[str] = path
         next_params: Optional[Dict[str, Any]] = params
+        print(
+            f"[paginate] start path={path!r} max_pages={max_pages} "
+            f"params={params!r} cache_prefix={cache_key_prefix!r}"
+        )
         while next_path and page < max_pages:
             key = f"{cache_key_prefix}_p{page}_{urlencode(sorted((next_params or {}).items()))}"
             payload = self.cached_get(next_path, key, params=next_params, ttl_days=ttl_days)
             if not isinstance(payload, dict):
+                print(
+                    f"[paginate] Page {page} returned non-dict payload "
+                    f"({type(payload).__name__}); stopping. accumulated={len(out)}"
+                )
                 break
             results = payload.get("results") or []
+            n_results = len(results) if isinstance(results, list) else 0
             if isinstance(results, list):
                 out.extend(results)
             next_url = payload.get("next_url")
+            print(
+                f"Page {page} returned {n_results} items "
+                f"(accumulated={len(out)}, next_url={'yes' if next_url else 'no'})"
+            )
+            page += 1
             if not next_url:
+                next_path = None
                 break
             # next_url is absolute and already includes query params / cursor
             next_path = next_url
             next_params = None
-            page += 1
+        if next_path and page >= max_pages:
+            print(
+                f"[paginate] WARNING: hit max_pages={max_pages}; "
+                f"there may be more results. accumulated={len(out)}"
+            )
+        print(f"[paginate] done pages_fetched={page} total_rows={len(out)}")
         return out

@@ -24,46 +24,62 @@ def download_complete_nasdaq_universe(
     No config limits or external symbol-file restrictions are applied.
     """
     print(">> 나스닥 전체 상장 + 상장폐지 전수 명단 수집 (Massive)...")
+    active_params = {
+        "market": "stocks",       # verified: stocks
+        "exchange": NASDAQ_EXCHANGE,
+        "active": "true",         # verified: active listings only
+        "limit": 1000,
+        "sort": "ticker",
+        "order": "asc",
+    }
+    print(f"    [active] request params={active_params} max_pages=500")
     active_rows = client.paginate(
         "/v3/reference/tickers",
-        cache_key_prefix="nasdaq_active",
-        params={
-            "market": "stocks",
-            "exchange": NASDAQ_EXCHANGE,
-            "active": "true",
-            "limit": 1000,
-            "sort": "ticker",
-            "order": "asc",
-        },
+        # bump cache prefix so stale limited pages are not reused
+        cache_key_prefix="nasdaq_active_v500",
+        params=active_params,
         ttl_days=1,
-        max_pages=50,
+        max_pages=500,
     )
+    print(f"    [active] raw API rows={len(active_rows)}")
+
     active_tickers = []
+    n_skipped_type = 0
     for r in active_rows:
         if not isinstance(r, dict) or not r.get("ticker"):
             continue
         ttype = (r.get("type") or "").upper()
         # Prefer common stock / ADR; skip ETFs and funds at universe stage.
         if ttype in {"ETF", "ETV", "ETS", "FUND", "UNIT"}:
+            n_skipped_type += 1
             continue
         active_tickers.append(r["ticker"])
     if not active_tickers:
         active_tickers = [r["ticker"] for r in active_rows if isinstance(r, dict) and r.get("ticker")]
+        print("    [active] WARN: type filter left 0 names; using all raw tickers")
+    print(
+        f"    [active] kept={len(active_tickers)} "
+        f"skipped_etf_fund={n_skipped_type}"
+    )
 
+    delisted_params = {
+        "market": "stocks",       # verified: stocks
+        "exchange": NASDAQ_EXCHANGE,
+        "active": "false",
+        "limit": 1000,
+        "sort": "ticker",
+        "order": "asc",
+    }
+    print(f"    [delisted] request params={delisted_params} max_pages=500")
     delisted_rows = client.paginate(
         "/v3/reference/tickers",
-        cache_key_prefix="nasdaq_delisted",
-        params={
-            "market": "stocks",
-            "exchange": NASDAQ_EXCHANGE,
-            "active": "false",
-            "limit": 1000,
-            "sort": "ticker",
-            "order": "asc",
-        },
+        cache_key_prefix="nasdaq_delisted_v500",
+        params=delisted_params,
         ttl_days=3,
-        max_pages=50,
+        max_pages=500,
     )
+    print(f"    [delisted] raw API rows={len(delisted_rows)}")
+
     delisted_meta: Dict[str, dict] = {}
     for item in delisted_rows:
         t = item.get("ticker")
@@ -78,7 +94,15 @@ def download_complete_nasdaq_universe(
     # Full universe: active ∪ delisted (never restricted by symbols.txt / universe_limit)
     all_tickers = sorted(set(active_tickers) | set(delisted_meta.keys()))
 
-    print(f"    active={len(active_tickers)} delisted={len(delisted_meta)} total={len(all_tickers)}")
+    print(
+        f"    SUMMARY active={len(active_tickers)} delisted={len(delisted_meta)} "
+        f"total={len(all_tickers)}"
+    )
+    if len(all_tickers) < 1000:
+        print(
+            "    WARNING: total < 1000 — pagination/API may still be truncated. "
+            "Check Page N logs above."
+        )
     return all_tickers, delisted_meta
 
 
