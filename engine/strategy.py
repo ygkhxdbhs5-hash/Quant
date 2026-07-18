@@ -109,6 +109,9 @@ class StandaloneEngine:
         # Universe Quality / Value filter thresholds (appended selection screens)
         self.MIN_ROIC = float(cfg.get("min_roic", 0.10))  # Quality: ROIC > 10%
         self.MIN_FCF_SALES_YIELD = float(cfg.get("min_fcf_sales_yield", 0.0))  # Value: FCF/Sales
+        # Debt & Growth fundamental filters (appended)
+        self.MAX_DEBT_TO_EQUITY = float(cfg.get("max_debt_to_equity", 1.50))  # D/E < 150%
+        self.MIN_REVENUE_GROWTH_YOY = float(cfg.get("min_revenue_growth_yoy", 0.0))  # YoY > 0
 
         print(">> 로컬 데이터 로드...")
         universe_path = Path(paths.get("metadata", "data/metadata")) / "universe.pkl"
@@ -181,12 +184,39 @@ class StandaloneEngine:
             return None
         return past.iloc[-1]
 
+    def _revenue_growth_yoy(self, symbol, as_of_date):
+        """YoY revenue growth from PIT history (latest vs ~1y prior filing)."""
+        hist = self.fundamental_history.get(symbol)
+        if hist is None or hist.empty or "revenue" not in hist.columns:
+            return np.nan
+        past = hist.loc[:as_of_date]
+        if past.empty:
+            return np.nan
+        latest_rev = past["revenue"].iloc[-1]
+        if pd.isna(latest_rev):
+            return np.nan
+        latest_dt = past.index[-1]
+        target = latest_dt - pd.DateOffset(years=1)
+        prior = past.loc[:target]
+        if not prior.empty and pd.notna(prior["revenue"].iloc[-1]):
+            prior_rev = float(prior["revenue"].iloc[-1])
+        elif len(past) >= 5 and pd.notna(past["revenue"].iloc[-5]):
+            # Quarterly fallback: ~4 periods earlier
+            prior_rev = float(past["revenue"].iloc[-5])
+        else:
+            return np.nan
+        if prior_rev == 0:
+            return np.nan
+        return (float(latest_rev) - prior_rev) / abs(prior_rev)
+
     def get_universe(self, candidate_symbols, date_idx):
         """Append Quality (ROIC > 10%) and Value (FCF/Sales) filters using PIT data.
 
         Value metric: FCF/Sales = (op_cf - capex) / revenue.
         If FCF inputs are limited, approximate with Sales / Market Cap where
         Market Cap ≈ price * diluted_shares_outstanding (PIT shares when present).
+
+        Also appends Debt (D/E < 150%) and Growth (Revenue YoY > 0) filters.
         Existing candidate construction / ranking logic is left unchanged.
         """
         current_date = self.close_m.index[date_idx]
@@ -194,6 +224,8 @@ class StandaloneEngine:
         filtered = []
         n_fail_quality = 0
         n_fail_value = 0
+        n_fail_debt = 0
+        n_fail_growth = 0
         n_value_approx = 0
 
         for sym in candidate_symbols:
@@ -245,11 +277,31 @@ class StandaloneEngine:
                 n_fail_value += 1
                 continue
 
+            # --- Debt filter: Debt-to-Equity < 150% ---
+            debt_to_equity = _fget("debt_to_equity")
+            if pd.isna(debt_to_equity):
+                total_debt = _fget("total_debt")
+                total_equity = _fget("total_equity")
+                if pd.notna(total_debt) and pd.notna(total_equity) and total_equity != 0:
+                    debt_to_equity = float(total_debt) / float(total_equity)
+            if pd.isna(debt_to_equity) or debt_to_equity >= self.MAX_DEBT_TO_EQUITY:
+                n_fail_debt += 1
+                continue
+
+            # --- Growth filter: Revenue Growth (YoY) > 0 ---
+            rev_growth = _fget("revenue_growth_yoy")
+            if pd.isna(rev_growth):
+                rev_growth = self._revenue_growth_yoy(sym, current_date)
+            if pd.isna(rev_growth) or rev_growth <= self.MIN_REVENUE_GROWTH_YOY:
+                n_fail_growth += 1
+                continue
+
             filtered.append(sym)
 
         print(
             f"    [UNIVERSE] {current_date.date()} in={len(candidate_symbols)} "
             f"out={len(filtered)} fail_quality={n_fail_quality} fail_value={n_fail_value} "
+            f"fail_debt={n_fail_debt} fail_growth={n_fail_growth} "
             f"value_approx_mcap_sales={n_value_approx}"
         )
         return filtered

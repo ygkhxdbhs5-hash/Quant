@@ -24,41 +24,67 @@ class _TinyEngine(StandaloneEngine):
         self.CORR_THRESHOLD = 0.80
         self.MIN_ROIC = 0.10
         self.MIN_FCF_SALES_YIELD = 0.0
+        self.MAX_DEBT_TO_EQUITY = 1.50
+        self.MIN_REVENUE_GROWTH_YOY = 0.0
         self.previous_target_symbols = set()
         self.profile_meta = {}
         self.close_m = pd.DataFrame()
         self.fundamental_history = {}
 
 
+def _pit_rows(rows, start="2022-01-01"):
+    """Build a small PIT frame; each row is a dict of fields."""
+    idx = pd.date_range(start, periods=len(rows), freq="90D")
+    return pd.DataFrame(rows, index=idx)
+
+
 def test_get_universe_quality_and_value_filters():
     eng = _TinyEngine()
     dates = pd.to_datetime(["2024-01-02", "2024-01-03"])
     eng.close_m = pd.DataFrame(
-        {"GOOD": [100.0, 101.0], "LOW_ROIC": [50.0, 51.0], "NEG_FCF": [80.0, 81.0], "APPROX": [20.0, 21.0]},
+        {
+            "GOOD": [100.0, 101.0],
+            "LOW_ROIC": [50.0, 51.0],
+            "NEG_FCF": [80.0, 81.0],
+            "APPROX": [20.0, 21.0],
+            "HIGH_DEBT": [40.0, 41.0],
+            "NEG_GROWTH": [60.0, 61.0],
+        },
         index=dates,
     )
 
-    def _pit(roic, revenue, op_cf, capex, shares=np.nan):
-        return pd.DataFrame(
-            {
-                "roic": [roic],
-                "revenue": [revenue],
-                "op_cf": [op_cf],
-                "capex": [capex],
-                "diluted_shares_outstanding": [shares],
-                "basic_shares_outstanding": [shares],
-            },
-            index=pd.to_datetime(["2023-12-01"]),
-        )
+    def _series(roic, revenues, op_cf, capex, debt, equity, shares=np.nan):
+        rows = []
+        for i, rev in enumerate(revenues):
+            rows.append(
+                {
+                    "roic": roic,
+                    "revenue": rev,
+                    "op_cf": op_cf if i == len(revenues) - 1 else op_cf,
+                    "capex": capex,
+                    "total_debt": debt,
+                    "total_equity": equity,
+                    "debt_to_equity": debt / equity if equity else np.nan,
+                    "diluted_shares_outstanding": shares,
+                    "basic_shares_outstanding": shares,
+                }
+            )
+        return _pit_rows(rows)
 
+    # 5 quarterly points so YoY (shift 4 / ~1y) is defined on the last row
     eng.fundamental_history = {
-        "GOOD": _pit(0.15, 100.0, 40.0, 10.0),          # FCF/Sales = 0.30
-        "LOW_ROIC": _pit(0.05, 100.0, 40.0, 10.0),      # fails quality
-        "NEG_FCF": _pit(0.20, 100.0, 5.0, 20.0),        # FCF/Sales < 0
-        "APPROX": _pit(0.12, 100.0, np.nan, np.nan, shares=10.0),  # Sales/MCap = 100/(21*10)>0
+        "GOOD": _series(0.15, [80, 85, 90, 95, 100], 40.0, 10.0, 50.0, 100.0),
+        "LOW_ROIC": _series(0.05, [80, 85, 90, 95, 100], 40.0, 10.0, 50.0, 100.0),
+        "NEG_FCF": _series(0.20, [80, 85, 90, 95, 100], 5.0, 20.0, 50.0, 100.0),
+        "APPROX": _series(0.12, [80, 85, 90, 95, 100], np.nan, np.nan, 40.0, 100.0, shares=10.0),
+        "HIGH_DEBT": _series(0.15, [80, 85, 90, 95, 100], 40.0, 10.0, 200.0, 100.0),  # D/E=2.0
+        "NEG_GROWTH": _series(0.15, [120, 110, 105, 100, 90], 40.0, 10.0, 50.0, 100.0),
     }
 
-    out = eng.get_universe(["GOOD", "LOW_ROIC", "NEG_FCF", "APPROX"], date_idx=1)
+    out = eng.get_universe(
+        ["GOOD", "LOW_ROIC", "NEG_FCF", "APPROX", "HIGH_DEBT", "NEG_GROWTH"],
+        date_idx=1,
+    )
     assert out == ["GOOD", "APPROX"]
 
 

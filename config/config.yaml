@@ -42,6 +42,8 @@ slippage_rate: 0.0002    # 0.02%
 # Universe filters appended in get_universe (PIT fundamentals)
 min_roic: 0.10             # Quality: ROIC must be greater than 10%
 min_fcf_sales_yield: 0.0   # Value: FCF/Sales (or Sales/MarketCap approx) must exceed this
+max_debt_to_equity: 1.50   # Debt: Debt-to-Equity must be below 150%
+min_revenue_growth_yoy: 0.0  # Growth: Revenue YoY growth must be positive
 
 paths:
   prices: data/prices

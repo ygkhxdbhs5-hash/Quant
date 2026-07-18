@@ -2,7 +2,8 @@
 
 Output schema matches StandaloneEngine expectations:
 op_margin, roic, gross_profitability, revenue, operating_income, op_cf, capex,
-total_debt, cash_eq, diluted_shares_outstanding, basic_shares_outstanding —
+total_debt, total_equity, cash_eq, debt_to_equity, revenue_growth_yoy,
+diluted_shares_outstanding, basic_shares_outstanding —
 indexed by filing_date (PIT accepted proxy).
 """
 
@@ -217,8 +218,14 @@ def fetch_pit_fundamentals(
         invested_capital = merged["total_debt"] + merged["total_equity"] - merged["cash_eq"]
         invested_capital = invested_capital.where(invested_capital > 0, merged["total_assets"])
         merged["roic"] = (merged["operating_income"] * (1 - flat_tax_rate)) / invested_capital.replace(0, np.nan)
+        # Debt-to-Equity for universe debt filter (total_debt / total_equity)
+        merged["debt_to_equity"] = merged["total_debt"] / merged["total_equity"].replace(0, np.nan)
 
         out = merged.set_index("filing_date").sort_index()
+        # YoY revenue growth for quarterly statements: compare to 4 periods earlier
+        rev = pd.to_numeric(out["revenue"], errors="coerce")
+        prior_q = rev.shift(4)
+        out["revenue_growth_yoy"] = (rev - prior_q) / prior_q.abs().replace(0, np.nan)
         out = out[
             [
                 "op_margin",
@@ -229,7 +236,10 @@ def fetch_pit_fundamentals(
                 "op_cf",
                 "capex",
                 "total_debt",
+                "total_equity",
                 "cash_eq",
+                "debt_to_equity",
+                "revenue_growth_yoy",
                 "diluted_shares_outstanding",
                 "basic_shares_outstanding",
             ]
