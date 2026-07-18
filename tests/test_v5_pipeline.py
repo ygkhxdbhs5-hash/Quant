@@ -137,3 +137,29 @@ def test_apply_risk_adjustments_sums_to_exposure():
     )
     sized = eng.apply_risk_adjustments(targets, exposure=0.5)
     assert sized["final_weight"].sum() == pytest.approx(0.5, abs=1e-10)
+
+
+def test_allocate_weights_inverse_atr():
+    eng = _TinyEngine()
+    dates = pd.date_range("2024-01-01", periods=3, freq="D")
+    # ATR: A more stable than C; equal prices so ATR% ranking matches ATR
+    eng.close_m = pd.DataFrame(
+        {"A": [100.0, 100.0, 100.0], "B": [100.0, 100.0, 100.0], "C": [100.0, 100.0, 100.0]},
+        index=dates,
+    )
+    eng.atr20_m = pd.DataFrame(
+        {"A": [1.0, 1.0, 1.0], "B": [2.0, 2.0, 2.0], "C": [4.0, 4.0, 4.0]},
+        index=dates,
+    )
+    targets = pd.DataFrame(
+        {
+            "symbol": ["A", "B", "C"],
+            "vol_raw": [0.02, 0.03, 0.04],
+            "final_score": [1.0, 0.9, 0.8],
+            "industry": ["X", "X", "Y"],
+        }
+    )
+    sized = eng.allocate_weights(targets, date_idx=2, exposure=1.0)
+    assert sized["final_weight"].sum() == pytest.approx(1.0, abs=1e-10)
+    w = dict(zip(sized["symbol"], sized["final_weight"]))
+    assert w["A"] > w["B"] > w["C"]

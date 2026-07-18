@@ -162,6 +162,13 @@ class StandaloneEngine:
         self.sma50_m = close_m.rolling(50, min_periods=50).mean()
         self.sma200_m = close_m.rolling(200, min_periods=200).mean()
 
+        # 20-day ATR for volatility-adjusted position sizing (allocate_weights)
+        prev_close = close_m.shift(1)
+        tr = (high_m - low_m).combine((high_m - prev_close).abs(), np.maximum).combine(
+            (low_m - prev_close).abs(), np.maximum
+        )
+        self.atr20_m = tr.rolling(20, min_periods=10).mean()
+
         # [버그 수정 계승] 12-1 모멘텀: t-252~t-21 구간의 누적수익률
         self.mom_12_1_m = close_m.shift(21) / close_m.shift(self.MOM_WINDOW) - 1
 
@@ -475,7 +482,52 @@ class StandaloneEngine:
 
         return ranked_df[ranked_df["symbol"].isin(final_selected)].copy()
 
-    def apply_risk_adjustments(self, targets: pd.DataFrame, exposure: float) -> pd.DataFrame:
+    def allocate_weights(self, targets: pd.DataFrame, date_idx: int, exposure: float) -> pd.DataFrame:
+        """Volatility-adjusted position sizing via inverse 20-day ATR.
+
+        More stable (lower ATR%) names receive higher weights. Selection and
+        rebalance cadence are unchanged; only the weight calculation is updated.
+        """
+        if targets.empty:
+            return targets
+        targets = targets.copy()
+        atr_pcts = []
+        for sym in targets["symbol"]:
+            atr = (
+                self.atr20_m[sym].iloc[date_idx]
+                if hasattr(self, "atr20_m") and sym in self.atr20_m.columns
+                else np.nan
+            )
+            px = (
+                self.close_m[sym].iloc[date_idx]
+                if sym in self.close_m.columns
+                else np.nan
+            )
+            if pd.notna(atr) and pd.notna(px) and float(px) > 0:
+                atr_pcts.append(float(atr) / float(px))
+            else:
+                # Fallback to existing vol_raw if ATR unavailable for a name
+                row = targets.loc[targets["symbol"] == sym, "vol_raw"]
+                atr_pcts.append(float(row.iloc[0]) if len(row) and pd.notna(row.iloc[0]) else np.nan)
+
+        targets["atr20_pct"] = atr_pcts
+        safe_vol = targets["atr20_pct"].astype(float)
+        if safe_vol.isna().any():
+            med = safe_vol.median()
+            safe_vol = safe_vol.fillna(med if pd.notna(med) else self.VOL_FLOOR)
+        safe_vol = safe_vol.clip(lower=self.VOL_FLOOR)
+
+        targets["inv_vol"] = 1.0 / safe_vol
+        targets["raw_weight"] = targets["inv_vol"] / targets["inv_vol"].sum()
+        max_single = (1.0 / self.MAX_PORTFOLIO_SIZE) * 2.0
+        targets["raw_weight"] = targets["raw_weight"].clip(upper=max_single)
+        targets["final_weight"] = (targets["raw_weight"] / targets["raw_weight"].sum()) * exposure
+        return targets
+
+    def apply_risk_adjustments(self, targets: pd.DataFrame, exposure: float, date_idx: int = None) -> pd.DataFrame:
+        # Prefer ATR-based allocate_weights when a date index is available.
+        if date_idx is not None:
+            return self.allocate_weights(targets, date_idx, exposure)
         if targets.empty:
             return targets
         targets = targets.copy()
@@ -697,7 +749,8 @@ class StandaloneEngine:
 
                 ctx.ranked_df = self.rank_universe(ctx.factor_df)
                 ctx.targets_df = self.construct_portfolio(ctx.ranked_df, idx, ctx)
-                ctx.targets_df = self.apply_risk_adjustments(ctx.targets_df, ctx.regime.exposure)
+                # Volatility-adjusted sizing: inverse 20-day ATR (selection/cadence unchanged)
+                ctx.targets_df = self.allocate_weights(ctx.targets_df, idx, ctx.regime.exposure)
                 final_targets = self.construct_final_targets_with_industry_cap(ctx.targets_df, ctx.regime.exposure, ctx)
 
                 if not final_targets.empty:
