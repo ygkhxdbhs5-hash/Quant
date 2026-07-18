@@ -130,8 +130,8 @@ def fetch_profile_meta(client: MassiveClient, tickers: List[str]) -> Dict[str, d
             }
         else:
             meta[t] = {"sector": "Unknown", "industry": "Unknown", "ipoDate": pd.NaT, "isEtf": False}
-        if (i + 1) % 50 == 0:
-            print(f"    ...{i+1}/{len(tickers)}")
+        if (i + 1) % 10 == 0 or (i + 1) == len(tickers):
+            print(f"    ... profiles {i+1}/{len(tickers)}", flush=True)
     return meta
 
 

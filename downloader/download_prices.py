@@ -116,8 +116,8 @@ def build_price_panel(
         lows[t] = df["low"]
         vols[t] = df["adjClose"] * df["volume"]
 
-        if (i + 1) % 50 == 0:
-            print(f"    ...{i+1}/{len(tickers)}")
+        if (i + 1) % 10 == 0 or (i + 1) == len(tickers):
+            print(f"    ... prices {i+1}/{len(tickers)}", flush=True)
 
     bm_df = _fetch_daily_bars(client, benchmark, start_date, end_date)
     if bm_df.empty:

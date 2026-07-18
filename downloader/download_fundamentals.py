@@ -382,8 +382,12 @@ def main(argv: list[str] | None = None) -> int:
                     f"raw=(inc={stats.get('inc_raw')}, cfs={stats.get('cfs_raw')}, bal={stats.get('bal_raw')})"
                 )
 
-        if (i + 1) % 50 == 0:
-            print(f"    ...{i+1}/{len(symbols)} 처리 (stored={len(fundamental_history)})")
+        if (i + 1) % 10 == 0 or (i + 1) == len(symbols):
+            print(
+                f"    ... fundamentals {i+1}/{len(symbols)} "
+                f"(stored={len(fundamental_history)})",
+                flush=True,
+            )
 
     out_dir = Path(paths.get("fundamentals", "data/fundamentals"))
     out_dir.mkdir(parents=True, exist_ok=True)
