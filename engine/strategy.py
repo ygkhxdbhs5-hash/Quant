@@ -386,6 +386,7 @@ class StandaloneEngine:
                     "mom_raw": mom,
                     "vol_raw": vol60,
                     "vol_expansion_raw": vol_expansion,
+                    "rev_growth_raw": np.nan,
                     "op_margin_raw": np.nan,
                     "roic_raw": np.nan,
                     "gross_prof_raw": np.nan,
@@ -405,11 +406,17 @@ class StandaloneEngine:
                 except Exception:
                     return default
 
+            # Aggressive Growth: YoY revenue growth from PIT (stored or derived)
+            rev_growth = _fget("revenue_growth_yoy")
+            if pd.isna(rev_growth):
+                rev_growth = self._revenue_growth_yoy(sym, current_date)
+
             rows.append({
                 "symbol": sym,
                 "mom_raw": mom,
                 "vol_raw": vol60,
                 "vol_expansion_raw": vol_expansion,
+                "rev_growth_raw": rev_growth,
                 "op_margin_raw": _fget("op_margin"),
                 "roic_raw": _fget("roic"),
                 "gross_prof_raw": _fget("gross_profitability"),
@@ -452,32 +459,46 @@ class StandaloneEngine:
             df["vol_expansion_raw"] = np.nan
         df["rank_vol_expansion"] = _rank("vol_expansion_raw")
 
+        # Aggressive Growth: YoY revenue growth from PIT fundamentals
+        if "rev_growth_raw" not in df.columns:
+            df["rev_growth_raw"] = np.nan
+        df["rank_rev_growth"] = _rank("rev_growth_raw")
+
         has_quality = (
             df["roic_raw"].notna() & df["gross_prof_raw"].notna() & df["op_margin_raw"].notna()
         )
+        has_rev_growth = df["rev_growth_raw"].notna()
         # Quality ranks: NaN inputs stay NaN (pandas rank skips them within group).
         df["rank_roic"] = _rank("roic_raw")
         df["rank_gp"] = _rank("gross_prof_raw")
         df["rank_op"] = _rank("op_margin_raw")
         df["rank_quality"] = (df["rank_roic"] * 0.50) + (df["rank_gp"] * 0.30) + (df["rank_op"] * 0.20)
 
-        # Score: prefer momentum + quality + volatility expansion (not a hard breakout filter).
-        # Original (commented for easy revert):
+        # Aggressive growth-tilted score (high momentum + high revenue growth).
+        # Prior formulas kept commented for easy revert:
         # full_score = (df["rank_mom"] * 0.45) + (df["rank_quality"] * 0.45) + (df["rank_lowvol"] * 0.10)
+        # full_score = (df["rank_mom"] * 0.40) + (df["rank_quality"] * 0.40) + (df["rank_vol_expansion"] * 0.20)
         # fallback_score = (df["rank_mom"] * 0.80) + (df["rank_lowvol"] * 0.20)
         full_score = (
-            (df["rank_mom"] * 0.40) + (df["rank_quality"] * 0.40) + (df["rank_vol_expansion"] * 0.20)
+            (df["rank_mom"] * 0.55) + (df["rank_rev_growth"] * 0.30) + (df["rank_quality"] * 0.15)
         )
+        # Mom + growth when quality missing; mom + vol-expansion when growth also missing
+        growth_score = (df["rank_mom"] * 0.70) + (df["rank_rev_growth"] * 0.30)
         fallback_score = (df["rank_mom"] * 0.80) + (df["rank_vol_expansion"] * 0.20)
-        # If vol-expansion rank missing, fall back to low-vol term for that row
-        full_score = full_score.fillna(
-            (df["rank_mom"] * 0.45) + (df["rank_quality"] * 0.45) + (df["rank_lowvol"] * 0.10)
-        )
         fallback_score = fallback_score.fillna(
             (df["rank_mom"] * 0.80) + (df["rank_lowvol"] * 0.20)
         )
-        df["final_score"] = np.where(has_quality, full_score, fallback_score)
-        df["factor_mode"] = np.where(has_quality, "full", "price_volume_fallback")
+
+        df["final_score"] = np.where(
+            has_quality & has_rev_growth,
+            full_score,
+            np.where(has_rev_growth, growth_score, fallback_score),
+        )
+        df["factor_mode"] = np.where(
+            has_quality & has_rev_growth,
+            "full",
+            np.where(has_rev_growth, "mom_growth", "price_volume_fallback"),
+        )
         return df.sort_values("final_score", ascending=False).reset_index(drop=True)
 
     def construct_portfolio(self, ranked_df, date_idx, ctx: RebalanceContext) -> pd.DataFrame:
