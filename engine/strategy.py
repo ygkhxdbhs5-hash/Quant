@@ -103,6 +103,9 @@ class StandaloneEngine:
         self.TOP_ADV_POOL = int(cfg.get("top_adv_pool", 250))
         self.PARTICIPATION_CAP_BUY = float(cfg.get("participation_cap_buy", 0.08))
         self.PARTICIPATION_CAP_SELL = float(cfg.get("participation_cap_sell", 0.15))
+        # Trading costs applied on every buy/sell at rebalance fill
+        self.COMMISSION_RATE = float(cfg.get("commission_rate", 0.0005))  # 0.05%
+        self.SLIPPAGE_RATE = float(cfg.get("slippage_rate", 0.0002))  # 0.02%
 
         print(">> 로컬 데이터 로드...")
         universe_path = Path(paths.get("metadata", "data/metadata")) / "universe.pkl"
@@ -425,7 +428,8 @@ class StandaloneEngine:
         half_spread = float(cs) / 2 if pd.notna(cs) and cs > 0 else 0.0015
         participation = (qty * price) / max(adv, 1.0)
         impact = 0.6 * sigma * np.sqrt(max(participation, 0.0))
-        return float(half_spread + impact)
+        # Append fixed commission (0.05%) and slippage (0.02%) on every trade
+        return float(half_spread + impact + self.COMMISSION_RATE + self.SLIPPAGE_RATE)
 
     def _max_shares_participation(self, symbol, date_idx, price, cap_ratio):
         adv = self.adv20_m[symbol].iloc[date_idx]

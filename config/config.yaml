@@ -35,6 +35,10 @@ top_adv_pool: 250
 participation_cap_buy: 0.08
 participation_cap_sell: 0.15
 
+# Trading costs deducted on every buy/sell during rebalance fills
+commission_rate: 0.0005  # 0.05%
+slippage_rate: 0.0002    # 0.02%
+
 paths:
   prices: data/prices
   fundamentals: data/fundamentals
