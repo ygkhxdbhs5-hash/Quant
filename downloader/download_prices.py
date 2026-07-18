@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import pickle
+import time
 from pathlib import Path
 from typing import Dict, List, Tuple
 
@@ -44,33 +45,54 @@ def _fetch_daily_bars(
     ticker: str,
     start_date: str,
     end_date: str,
+    retries: int = 3,
 ) -> pd.DataFrame:
-    # Paginate via next_url when history exceeds limit.
+    """Fetch daily OHLCV; retry a few times on empty/rate-limited responses."""
     path = f"/v2/aggs/ticker/{ticker}/range/1/day/{start_date}/{end_date}"
     params = {"adjusted": "true", "sort": "asc", "limit": 50000}
-    frames: List[pd.DataFrame] = []
-    page = 0
-    next_path: str | None = path
-    next_params: dict | None = params
-    while next_path and page < 20:
-        payload = client.cached_get(
-            next_path,
-            cache_key=f"aggs_{ticker}_{start_date}_{end_date}_p{page}",
-            params=next_params,
-            ttl_days=1,
-        )
-        part = _aggs_to_df(payload)
-        if not part.empty:
-            frames.append(part)
-        if not isinstance(payload, dict) or not payload.get("next_url"):
-            break
-        next_path = payload["next_url"]
-        next_params = None
-        page += 1
-    if not frames:
-        return pd.DataFrame()
-    out = pd.concat(frames).sort_index()
-    return out[~out.index.duplicated(keep="last")]
+
+    for attempt in range(max(1, retries)):
+        frames: List[pd.DataFrame] = []
+        page = 0
+        next_path: str | None = path
+        next_params: dict | None = params
+        while next_path and page < 20:
+            payload = client.cached_get(
+                next_path,
+                cache_key=f"aggs_{ticker}_{start_date}_{end_date}_p{page}_v2",
+                params=next_params,
+                ttl_days=1,
+            )
+            part = _aggs_to_df(payload)
+            if not part.empty:
+                frames.append(part)
+            if not isinstance(payload, dict) or not payload.get("next_url"):
+                break
+            next_path = payload["next_url"]
+            next_params = None
+            page += 1
+        if frames:
+            out = pd.concat(frames).sort_index()
+            return out[~out.index.duplicated(keep="last")]
+        print(f"    [prices] empty bars for {ticker} attempt={attempt+1}/{retries}", flush=True)
+        time.sleep(1.0 + attempt)
+    return pd.DataFrame()
+
+
+def _store_bars(
+    df: pd.DataFrame,
+    ticker: str,
+    prices_open: dict,
+    prices_close: dict,
+    highs: dict,
+    lows: dict,
+    vols: dict,
+) -> None:
+    prices_open[ticker] = df["open"]
+    prices_close[ticker] = df["adjClose"]
+    highs[ticker] = df["high"]
+    lows[ticker] = df["low"]
+    vols[ticker] = df["adjClose"] * df["volume"]
 
 
 def build_price_panel(
@@ -86,9 +108,43 @@ def build_price_panel(
     prices_open, prices_close, highs, lows, vols = {}, {}, {}, {}, {}
     silent_delist_flags: Dict[str, pd.Timestamp] = {}
     end_ts = pd.to_datetime(end_date)
+    benchmark = (benchmark or "QQQ").upper()
+    fallback_benchmarks = [benchmark] + [b for b in ("QQQ", "SPY", "IVV") if b != benchmark]
 
-    print(f">> {len(tickers)}개 종목 OHLCV 수집 (Massive aggregates)...")
-    for i, t in enumerate(tickers):
+    # Fetch benchmark FIRST so regime data exists even if later calls are rate-limited.
+    print(f">> Benchmark OHLCV first (try {fallback_benchmarks})...")
+    bm_used = None
+    for bm in fallback_benchmarks:
+        bm_df = _fetch_daily_bars(client, bm, start_date, end_date, retries=4)
+        if bm_df.empty:
+            print(f"    [prices] benchmark candidate {bm} unavailable", flush=True)
+            continue
+        _store_bars(bm_df, bm, prices_open, prices_close, highs, lows, vols)
+        bm_used = bm
+        print(
+            f"    [prices] benchmark={bm} bars={len(bm_df)} "
+            f"{bm_df.index.min().date()} → {bm_df.index.max().date()}",
+            flush=True,
+        )
+        break
+    if bm_used is None:
+        raise RuntimeError(
+            f"Benchmark prices unavailable for any of {fallback_benchmarks} from Massive. "
+            "Check API key entitlements / rate limits, then retry."
+        )
+    if bm_used != benchmark:
+        print(
+            f"    [prices] WARN: requested benchmark={benchmark} unavailable; "
+            f"using {bm_used} instead (update config.benchmark if needed)",
+            flush=True,
+        )
+        benchmark = bm_used
+
+    # Avoid double-fetching the benchmark inside the main loop.
+    tickers_to_pull = [t for t in tickers if str(t).upper() != benchmark]
+
+    print(f">> {len(tickers_to_pull)}개 종목 OHLCV 수집 (Massive aggregates)...")
+    for i, t in enumerate(tickers_to_pull):
         df = _fetch_daily_bars(client, t, start_date, end_date)
         if df.empty:
             continue
@@ -110,23 +166,13 @@ def build_price_panel(
         if df.empty:
             continue
 
-        prices_open[t] = df["open"]
-        prices_close[t] = df["adjClose"]
-        highs[t] = df["high"]
-        lows[t] = df["low"]
-        vols[t] = df["adjClose"] * df["volume"]
+        _store_bars(df, t, prices_open, prices_close, highs, lows, vols)
 
-        if (i + 1) % 10 == 0 or (i + 1) == len(tickers):
-            print(f"    ... prices {i+1}/{len(tickers)}", flush=True)
+        if (i + 1) % 10 == 0 or (i + 1) == len(tickers_to_pull):
+            print(f"    ... prices {i+1}/{len(tickers_to_pull)}", flush=True)
 
-    bm_df = _fetch_daily_bars(client, benchmark, start_date, end_date)
-    if bm_df.empty:
-        raise RuntimeError(f"Benchmark prices unavailable for {benchmark} from Massive.")
-    prices_close[benchmark] = bm_df["adjClose"]
-    prices_open[benchmark] = bm_df["open"]
-    highs[benchmark] = bm_df["high"]
-    lows[benchmark] = bm_df["low"]
-    vols[benchmark] = bm_df["adjClose"] * bm_df["volume"]
+    if benchmark not in prices_close:
+        raise RuntimeError(f"Benchmark prices missing after download for {benchmark}.")
 
     close_matrix = pd.DataFrame(prices_close)
     idx = close_matrix.index

@@ -55,21 +55,41 @@ class MassiveClient:
             time.sleep(self.request_interval_sec - elapsed)
 
     def get_json(self, path: str, params: Optional[Dict[str, Any]] = None) -> Any:
-        """GET a relative path or absolute next_url; returns parsed JSON or None."""
-        self._throttle()
+        """GET a relative path or absolute next_url; returns parsed JSON or None.
+
+        Retries on 429 / transient 5xx with backoff so late-stage calls
+        (e.g. benchmark after hundreds of ticker pulls) are more reliable.
+        """
         url = path if path.startswith("http") else f"{self.base_url}{path}"
-        try:
-            res = self.session.get(url, params=params, timeout=30)
-            self._last_call_ts = time.time()
-            if res.status_code != 200:
-                return None
+        last_status = None
+        for attempt in range(5):
+            self._throttle()
             try:
-                return res.json()
-            except Exception:
+                res = self.session.get(url, params=params, timeout=60)
+                self._last_call_ts = time.time()
+                last_status = res.status_code
+                if res.status_code == 200:
+                    try:
+                        return res.json()
+                    except Exception:
+                        return None
+                if res.status_code in {429, 500, 502, 503, 504}:
+                    sleep_s = min(2.0 ** attempt, 20.0)
+                    print(
+                        f"[massive] HTTP {res.status_code} attempt={attempt+1}/5 "
+                        f"sleep={sleep_s:.1f}s url={url[:120]}"
+                    )
+                    time.sleep(sleep_s)
+                    continue
+                print(f"[massive] HTTP {res.status_code} giving up url={url[:120]}")
                 return None
-        except Exception:
-            self._last_call_ts = time.time()
-            return None
+            except Exception as exc:
+                self._last_call_ts = time.time()
+                sleep_s = min(2.0 ** attempt, 20.0)
+                print(f"[massive] request error {type(exc).__name__}: {exc}; sleep={sleep_s:.1f}s")
+                time.sleep(sleep_s)
+        print(f"[massive] failed after retries last_status={last_status} url={url[:120]}")
+        return None
 
     def cached_get(
         self,
@@ -83,9 +103,23 @@ class MassiveClient:
         if fpath.exists():
             if (time.time() - fpath.stat().st_mtime) / 86400 < ttl_days:
                 with open(fpath, "rb") as f:
-                    return pickle.load(f)
+                    cached = pickle.load(f)
+                # Do not reuse empty aggregate payloads (often from prior rate-limits)
+                if isinstance(cached, dict):
+                    results = cached.get("results")
+                    if results is None or (isinstance(results, list) and len(results) == 0):
+                        fpath.unlink(missing_ok=True)
+                    else:
+                        return cached
+                else:
+                    return cached
         data = self.get_json(path, params=params)
-        if data is not None:
+        # Cache only non-empty useful payloads
+        if isinstance(data, dict) and data.get("results"):
+            with open(fpath, "wb") as f:
+                pickle.dump(data, f)
+        elif data is not None and not (isinstance(data, dict) and "results" in data):
+            # Non-aggregate endpoints (ticker overview, etc.)
             with open(fpath, "wb") as f:
                 pickle.dump(data, f)
         return data
