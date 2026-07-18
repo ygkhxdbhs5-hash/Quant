@@ -26,9 +26,14 @@ class _TinyEngine(StandaloneEngine):
         self.MIN_FCF_SALES_YIELD = 0.0
         self.MAX_DEBT_TO_EQUITY = 1.50
         self.MIN_REVENUE_GROWTH_YOY = 0.0
+        self.VOL_BREAKOUT_ATR_MULT = 1.5
         self.previous_target_symbols = set()
         self.profile_meta = {}
         self.close_m = pd.DataFrame()
+        self.open_m = pd.DataFrame()
+        self.atr20_m = pd.DataFrame()
+        self.mom_12_1_m = pd.DataFrame()
+        self.vol60_m = pd.DataFrame()
         self.fundamental_history = {}
 
 
@@ -167,6 +172,38 @@ def test_trailing_stop_exits_and_resets_on_repurchase():
     eng.check_trailing_stops(2)  # high=95 raises peak; close=89 within 10% of 95
     assert eng.portfolio.get("AAA") == 5
     assert eng.highest_prices["AAA"] == 95.0
+
+
+def test_build_factors_volatility_breakout_filter():
+    """Only names with (close - open) > 1.5 * ATR20 pass; momentum rank untouched."""
+    eng = _TinyEngine()
+    dates = pd.to_datetime(["2024-06-03", "2024-06-04"])
+    eng.close_m = pd.DataFrame(
+        {"BREAK": [10.0, 14.0], "QUIET": [10.0, 10.5], "DOWN": [10.0, 8.0]},
+        index=dates,
+    )
+    eng.open_m = pd.DataFrame(
+        {"BREAK": [10.0, 10.0], "QUIET": [10.0, 10.0], "DOWN": [10.0, 10.0]},
+        index=dates,
+    )
+    # ATR=2 => threshold 3.0; BREAK change=4 passes; QUIET=0.5 fails; DOWN=-2 fails
+    eng.atr20_m = pd.DataFrame(
+        {"BREAK": [2.0, 2.0], "QUIET": [2.0, 2.0], "DOWN": [2.0, 2.0]},
+        index=dates,
+    )
+    eng.mom_12_1_m = pd.DataFrame(
+        {"BREAK": [0.2, 0.3], "QUIET": [0.4, 0.5], "DOWN": [0.1, 0.2]},
+        index=dates,
+    )
+    eng.vol60_m = pd.DataFrame(
+        {"BREAK": [0.02, 0.02], "QUIET": [0.02, 0.02], "DOWN": [0.02, 0.02]},
+        index=dates,
+    )
+    eng.fundamental_history = {}
+    eng.profile_meta = {s: {"industry": "X"} for s in ["BREAK", "QUIET", "DOWN"]}
+
+    df = eng.build_factors(1, ["BREAK", "QUIET", "DOWN"])
+    assert list(df["symbol"]) == ["BREAK"]
 
 
 def test_allocate_weights_equal_weight():

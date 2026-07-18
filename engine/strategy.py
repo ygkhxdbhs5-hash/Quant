@@ -99,6 +99,8 @@ class StandaloneEngine:
         self.CORR_WINDOW = int(cfg.get("corr_window", 60))
         # Aggressive test default 0.95 (was 0.80); override via config
         self.CORR_THRESHOLD = float(cfg.get("corr_threshold", 0.95))
+        # Volatility breakout filter: (close - open) > mult * 20-day ATR
+        self.VOL_BREAKOUT_ATR_MULT = float(cfg.get("vol_breakout_atr_mult", 1.5))
         self.FLAT_TAX_RATE = float(cfg.get("flat_tax_rate", 0.21))
         self.SILENT_DELIST_RECOVERY = float(cfg.get("silent_delist_recovery", 0.30))
         self.SILENT_DELIST_GAP_DAYS = int(cfg.get("silent_delist_gap_days", 10))
@@ -353,6 +355,7 @@ class StandaloneEngine:
         rows = []
         n_price_only = 0
         n_full = 0
+        n_fail_breakout = 0
         for sym in active_symbols:
             price = self.close_m[sym].iloc[date_idx]
             if pd.isna(price) or price <= 0:
@@ -361,6 +364,22 @@ class StandaloneEngine:
             mom = self.mom_12_1_m[sym].iloc[date_idx]
             vol60 = self.vol60_m[sym].iloc[date_idx]
             if pd.isna(mom) or pd.isna(vol60) or vol60 <= 0:
+                continue
+
+            # Volatility Breakout binary filter (does not alter momentum ranking):
+            # only keep names where daily range (close - open) > 1.5x 20-day ATR.
+            o_price = self.open_m[sym].iloc[date_idx] if sym in self.open_m.columns else np.nan
+            atr20 = (
+                self.atr20_m[sym].iloc[date_idx]
+                if hasattr(self, "atr20_m") and sym in self.atr20_m.columns
+                else np.nan
+            )
+            if pd.isna(o_price) or pd.isna(atr20) or atr20 <= 0:
+                n_fail_breakout += 1
+                continue
+            daily_change = float(price) - float(o_price)
+            if daily_change <= self.VOL_BREAKOUT_ATR_MULT * float(atr20):
+                n_fail_breakout += 1
                 continue
 
             fundamentals = self.get_latest_available_fundamentals(sym, current_date)
@@ -406,13 +425,19 @@ class StandaloneEngine:
 
         df = pd.DataFrame(rows)
         if df.empty:
+            if n_fail_breakout > 0:
+                print(
+                    f"    [FACTORS] {current_date.date()} empty after filters "
+                    f"fail_vol_breakout={n_fail_breakout}"
+                )
             return df
         # Require only price-based factors; quality may be missing (fallback mode).
         df = df.dropna(subset=["mom_raw", "vol_raw"])
-        if n_price_only > 0:
+        if n_price_only > 0 or n_fail_breakout > 0:
             print(
                 f"    [FACTORS] {current_date.date()} full={n_full} "
-                f"price_volume_fallback={n_price_only}"
+                f"price_volume_fallback={n_price_only} "
+                f"fail_vol_breakout={n_fail_breakout}"
             )
         return df
 
