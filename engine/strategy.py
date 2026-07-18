@@ -89,14 +89,16 @@ class StandaloneEngine:
         self.BENCHMARK_TICKER = cfg.get("benchmark", "QQQ")
         self.MAX_PORTFOLIO_SIZE = int(cfg.get("max_portfolio_size", 30))
         self.SELECTION_BUFFER_SIZE = int(cfg.get("selection_buffer_size", 40))
-        self.MAX_INDUSTRY_WEIGHT = float(cfg.get("max_industry_weight", 0.20))
+        # Aggressive test default 0.40 (was 0.20); override via config
+        self.MAX_INDUSTRY_WEIGHT = float(cfg.get("max_industry_weight", 0.40))
         self.MIN_INDUSTRY_SIZE = int(cfg.get("min_industry_size", 8))
         self.VOL_FLOOR = float(cfg.get("vol_floor", 1e-4))
         self.WEIGHT_SUM_TOLERANCE = float(cfg.get("weight_sum_tolerance", 0.02))
         self.LOWVOL_WINDOW = int(cfg.get("lowvol_window", 60))
         self.MOM_WINDOW = int(cfg.get("mom_window", 252))
         self.CORR_WINDOW = int(cfg.get("corr_window", 60))
-        self.CORR_THRESHOLD = float(cfg.get("corr_threshold", 0.80))
+        # Aggressive test default 0.95 (was 0.80); override via config
+        self.CORR_THRESHOLD = float(cfg.get("corr_threshold", 0.95))
         self.FLAT_TAX_RATE = float(cfg.get("flat_tax_rate", 0.21))
         self.SILENT_DELIST_RECOVERY = float(cfg.get("silent_delist_recovery", 0.30))
         self.SILENT_DELIST_GAP_DAYS = int(cfg.get("silent_delist_gap_days", 10))
@@ -486,61 +488,77 @@ class StandaloneEngine:
         return ranked_df[ranked_df["symbol"].isin(final_selected)].copy()
 
     def allocate_weights(self, targets: pd.DataFrame, date_idx: int, exposure: float) -> pd.DataFrame:
-        """Volatility-adjusted position sizing via inverse 20-day ATR.
+        """Position sizing for selected names.
 
-        More stable (lower ATR%) names receive higher weights. Selection and
-        rebalance cadence are unchanged; only the weight calculation is updated.
+        Aggressive test: equal weighting (inverse-vol / ATR sizing commented out
+        below so it can be restored if MDD becomes too high).
         """
         if targets.empty:
             return targets
         targets = targets.copy()
-        atr_pcts = []
-        for sym in targets["symbol"]:
-            atr = (
-                self.atr20_m[sym].iloc[date_idx]
-                if hasattr(self, "atr20_m") and sym in self.atr20_m.columns
-                else np.nan
-            )
-            px = (
-                self.close_m[sym].iloc[date_idx]
-                if sym in self.close_m.columns
-                else np.nan
-            )
-            if pd.notna(atr) and pd.notna(px) and float(px) > 0:
-                atr_pcts.append(float(atr) / float(px))
-            else:
-                # Fallback to existing vol_raw if ATR unavailable for a name
-                row = targets.loc[targets["symbol"] == sym, "vol_raw"]
-                atr_pcts.append(float(row.iloc[0]) if len(row) and pd.notna(row.iloc[0]) else np.nan)
 
-        targets["atr20_pct"] = atr_pcts
-        safe_vol = targets["atr20_pct"].astype(float)
-        if safe_vol.isna().any():
-            med = safe_vol.median()
-            safe_vol = safe_vol.fillna(med if pd.notna(med) else self.VOL_FLOOR)
-        safe_vol = safe_vol.clip(lower=self.VOL_FLOOR)
-
-        targets["inv_vol"] = 1.0 / safe_vol
-        targets["raw_weight"] = targets["inv_vol"] / targets["inv_vol"].sum()
-        max_single = (1.0 / self.MAX_PORTFOLIO_SIZE) * 2.0
-        targets["raw_weight"] = targets["raw_weight"].clip(upper=max_single)
-        targets["final_weight"] = (targets["raw_weight"] / targets["raw_weight"].sum()) * exposure
+        # --- Aggressive test: equal weight all selected names ---
+        n = max(len(targets), 1)
+        targets["raw_weight"] = 1.0 / n
+        targets["final_weight"] = targets["raw_weight"] * exposure
         return targets
 
+        # --- Original inverse-volatility / 20-day ATR weighting (kept for easy revert) ---
+        # atr_pcts = []
+        # for sym in targets["symbol"]:
+        #     atr = (
+        #         self.atr20_m[sym].iloc[date_idx]
+        #         if hasattr(self, "atr20_m") and sym in self.atr20_m.columns
+        #         else np.nan
+        #     )
+        #     px = (
+        #         self.close_m[sym].iloc[date_idx]
+        #         if sym in self.close_m.columns
+        #         else np.nan
+        #     )
+        #     if pd.notna(atr) and pd.notna(px) and float(px) > 0:
+        #         atr_pcts.append(float(atr) / float(px))
+        #     else:
+        #         # Fallback to existing vol_raw if ATR unavailable for a name
+        #         row = targets.loc[targets["symbol"] == sym, "vol_raw"]
+        #         atr_pcts.append(float(row.iloc[0]) if len(row) and pd.notna(row.iloc[0]) else np.nan)
+        #
+        # targets["atr20_pct"] = atr_pcts
+        # safe_vol = targets["atr20_pct"].astype(float)
+        # if safe_vol.isna().any():
+        #     med = safe_vol.median()
+        #     safe_vol = safe_vol.fillna(med if pd.notna(med) else self.VOL_FLOOR)
+        # safe_vol = safe_vol.clip(lower=self.VOL_FLOOR)
+        #
+        # targets["inv_vol"] = 1.0 / safe_vol
+        # targets["raw_weight"] = targets["inv_vol"] / targets["inv_vol"].sum()
+        # max_single = (1.0 / self.MAX_PORTFOLIO_SIZE) * 2.0
+        # targets["raw_weight"] = targets["raw_weight"].clip(upper=max_single)
+        # targets["final_weight"] = (targets["raw_weight"] / targets["raw_weight"].sum()) * exposure
+        # return targets
+
     def apply_risk_adjustments(self, targets: pd.DataFrame, exposure: float, date_idx: int = None) -> pd.DataFrame:
-        # Prefer ATR-based allocate_weights when a date index is available.
+        # Prefer allocate_weights when a date index is available.
         if date_idx is not None:
             return self.allocate_weights(targets, date_idx, exposure)
         if targets.empty:
             return targets
         targets = targets.copy()
-        safe_vol = targets["vol_raw"].clip(lower=self.VOL_FLOOR)
-        targets["inv_vol"] = 1.0 / safe_vol
-        targets["raw_weight"] = targets["inv_vol"] / targets["inv_vol"].sum()
-        max_single = (1.0 / self.MAX_PORTFOLIO_SIZE) * 2.0
-        targets["raw_weight"] = targets["raw_weight"].clip(upper=max_single)
-        targets["final_weight"] = (targets["raw_weight"] / targets["raw_weight"].sum()) * exposure
+
+        # --- Aggressive test: equal weight (inverse-vol commented out for easy revert) ---
+        n = max(len(targets), 1)
+        targets["raw_weight"] = 1.0 / n
+        targets["final_weight"] = targets["raw_weight"] * exposure
         return targets
+
+        # --- Original inverse-volatility weighting (kept for easy revert) ---
+        # safe_vol = targets["vol_raw"].clip(lower=self.VOL_FLOOR)
+        # targets["inv_vol"] = 1.0 / safe_vol
+        # targets["raw_weight"] = targets["inv_vol"] / targets["inv_vol"].sum()
+        # max_single = (1.0 / self.MAX_PORTFOLIO_SIZE) * 2.0
+        # targets["raw_weight"] = targets["raw_weight"].clip(upper=max_single)
+        # targets["final_weight"] = (targets["raw_weight"] / targets["raw_weight"].sum()) * exposure
+        # return targets
 
     def validate_portfolio(self, final_targets: pd.DataFrame, exposure: float):
         issues = []

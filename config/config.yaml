@@ -18,14 +18,16 @@ statement_limit: 100
 
 max_portfolio_size: 30
 selection_buffer_size: 40
-max_industry_weight: 0.20
+# Aggressive test: raised from 0.20 (revert if MDD too high)
+max_industry_weight: 0.40
 min_industry_size: 8
 vol_floor: 1.0e-4
 weight_sum_tolerance: 0.02
 lowvol_window: 60
 mom_window: 252
 corr_window: 60
-corr_threshold: 0.80
+# Aggressive test: raised from 0.80 (allow more similar names; revert if MDD too high)
+corr_threshold: 0.95
 flat_tax_rate: 0.21
 
 silent_delist_recovery: 0.30

@@ -169,10 +169,10 @@ def test_trailing_stop_exits_and_resets_on_repurchase():
     assert eng.highest_prices["AAA"] == 95.0
 
 
-def test_allocate_weights_inverse_atr():
+def test_allocate_weights_equal_weight():
+    """Aggressive config: equal weights (inverse-ATR path commented out in engine)."""
     eng = _TinyEngine()
     dates = pd.date_range("2024-01-01", periods=3, freq="D")
-    # ATR: A more stable than C; equal prices so ATR% ranking matches ATR
     eng.close_m = pd.DataFrame(
         {"A": [100.0, 100.0, 100.0], "B": [100.0, 100.0, 100.0], "C": [100.0, 100.0, 100.0]},
         index=dates,
@@ -191,5 +191,4 @@ def test_allocate_weights_inverse_atr():
     )
     sized = eng.allocate_weights(targets, date_idx=2, exposure=1.0)
     assert sized["final_weight"].sum() == pytest.approx(1.0, abs=1e-10)
-    w = dict(zip(sized["symbol"], sized["final_weight"]))
-    assert w["A"] > w["B"] > w["C"]
+    assert sized["final_weight"].tolist() == pytest.approx([1 / 3, 1 / 3, 1 / 3], abs=1e-10)
