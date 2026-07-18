@@ -480,7 +480,7 @@ class StandaloneEngine:
         # full_score = (df["rank_mom"] * 0.40) + (df["rank_quality"] * 0.40) + (df["rank_vol_expansion"] * 0.20)
         # fallback_score = (df["rank_mom"] * 0.80) + (df["rank_lowvol"] * 0.20)
         full_score = (
-            (df["rank_mom"] * 0.55) + (df["rank_rev_growth"] * 0.30) + (df["rank_quality"] * 0.15)
+            (df["rank_mom"] * 0.60) + (df["rank_rev_growth"] * 0.30) + (df["rank_quality"] * 0.10)
         )
         # Mom + growth when quality missing; mom + vol-expansion when growth also missing
         growth_score = (df["rank_mom"] * 0.70) + (df["rank_rev_growth"] * 0.30)
