@@ -2,7 +2,8 @@
 
 Output schema matches StandaloneEngine expectations:
 op_margin, roic, gross_profitability, revenue, operating_income, op_cf, capex,
-total_debt, cash_eq — indexed by filing_date (PIT accepted proxy).
+total_debt, cash_eq, diluted_shares_outstanding, basic_shares_outstanding —
+indexed by filing_date (PIT accepted proxy).
 """
 
 from __future__ import annotations
@@ -126,6 +127,16 @@ def fetch_pit_fundamentals(
                 "revenue": inc["revenue"] if "revenue" in inc.columns else np.nan,
                 "operating_income": inc["operating_income"] if "operating_income" in inc.columns else np.nan,
                 "gross_profit": inc["gross_profit"] if "gross_profit" in inc.columns else np.nan,
+                "diluted_shares_outstanding": (
+                    inc["diluted_shares_outstanding"]
+                    if "diluted_shares_outstanding" in inc.columns
+                    else np.nan
+                ),
+                "basic_shares_outstanding": (
+                    inc["basic_shares_outstanding"]
+                    if "basic_shares_outstanding" in inc.columns
+                    else np.nan
+                ),
                 "fiscal_year": inc["fiscal_year"] if "fiscal_year" in inc.columns else np.nan,
                 "fiscal_quarter": inc["fiscal_quarter"] if "fiscal_quarter" in inc.columns else np.nan,
             }
@@ -219,6 +230,8 @@ def fetch_pit_fundamentals(
                 "capex",
                 "total_debt",
                 "cash_eq",
+                "diluted_shares_outstanding",
+                "basic_shares_outstanding",
             ]
         ]
         before_drop = len(out)

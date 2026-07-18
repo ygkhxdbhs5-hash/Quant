@@ -39,6 +39,10 @@ participation_cap_sell: 0.15
 commission_rate: 0.0005  # 0.05%
 slippage_rate: 0.0002    # 0.02%
 
+# Universe filters appended in get_universe (PIT fundamentals)
+min_roic: 0.10             # Quality: ROIC must be greater than 10%
+min_fcf_sales_yield: 0.0   # Value: FCF/Sales (or Sales/MarketCap approx) must exceed this
+
 paths:
   prices: data/prices
   fundamentals: data/fundamentals

@@ -22,9 +22,44 @@ class _TinyEngine(StandaloneEngine):
         self.WEIGHT_SUM_TOLERANCE = 0.02
         self.CORR_WINDOW = 60
         self.CORR_THRESHOLD = 0.80
+        self.MIN_ROIC = 0.10
+        self.MIN_FCF_SALES_YIELD = 0.0
         self.previous_target_symbols = set()
         self.profile_meta = {}
         self.close_m = pd.DataFrame()
+        self.fundamental_history = {}
+
+
+def test_get_universe_quality_and_value_filters():
+    eng = _TinyEngine()
+    dates = pd.to_datetime(["2024-01-02", "2024-01-03"])
+    eng.close_m = pd.DataFrame(
+        {"GOOD": [100.0, 101.0], "LOW_ROIC": [50.0, 51.0], "NEG_FCF": [80.0, 81.0], "APPROX": [20.0, 21.0]},
+        index=dates,
+    )
+
+    def _pit(roic, revenue, op_cf, capex, shares=np.nan):
+        return pd.DataFrame(
+            {
+                "roic": [roic],
+                "revenue": [revenue],
+                "op_cf": [op_cf],
+                "capex": [capex],
+                "diluted_shares_outstanding": [shares],
+                "basic_shares_outstanding": [shares],
+            },
+            index=pd.to_datetime(["2023-12-01"]),
+        )
+
+    eng.fundamental_history = {
+        "GOOD": _pit(0.15, 100.0, 40.0, 10.0),          # FCF/Sales = 0.30
+        "LOW_ROIC": _pit(0.05, 100.0, 40.0, 10.0),      # fails quality
+        "NEG_FCF": _pit(0.20, 100.0, 5.0, 20.0),        # FCF/Sales < 0
+        "APPROX": _pit(0.12, 100.0, np.nan, np.nan, shares=10.0),  # Sales/MCap = 100/(21*10)>0
+    }
+
+    out = eng.get_universe(["GOOD", "LOW_ROIC", "NEG_FCF", "APPROX"], date_idx=1)
+    assert out == ["GOOD", "APPROX"]
 
 
 def test_rank_universe_weights():

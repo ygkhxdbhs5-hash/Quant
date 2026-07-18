@@ -106,6 +106,9 @@ class StandaloneEngine:
         # Trading costs applied on every buy/sell at rebalance fill
         self.COMMISSION_RATE = float(cfg.get("commission_rate", 0.0005))  # 0.05%
         self.SLIPPAGE_RATE = float(cfg.get("slippage_rate", 0.0002))  # 0.02%
+        # Universe Quality / Value filter thresholds (appended selection screens)
+        self.MIN_ROIC = float(cfg.get("min_roic", 0.10))  # Quality: ROIC > 10%
+        self.MIN_FCF_SALES_YIELD = float(cfg.get("min_fcf_sales_yield", 0.0))  # Value: FCF/Sales
 
         print(">> 로컬 데이터 로드...")
         universe_path = Path(paths.get("metadata", "data/metadata")) / "universe.pkl"
@@ -177,6 +180,79 @@ class StandaloneEngine:
         if past.empty:
             return None
         return past.iloc[-1]
+
+    def get_universe(self, candidate_symbols, date_idx):
+        """Append Quality (ROIC > 10%) and Value (FCF/Sales) filters using PIT data.
+
+        Value metric: FCF/Sales = (op_cf - capex) / revenue.
+        If FCF inputs are limited, approximate with Sales / Market Cap where
+        Market Cap ≈ price * diluted_shares_outstanding (PIT shares when present).
+        Existing candidate construction / ranking logic is left unchanged.
+        """
+        current_date = self.close_m.index[date_idx]
+        current_closes = self.close_m.loc[current_date]
+        filtered = []
+        n_fail_quality = 0
+        n_fail_value = 0
+        n_value_approx = 0
+
+        for sym in candidate_symbols:
+            fundamentals = self.get_latest_available_fundamentals(sym, current_date)
+            if fundamentals is None:
+                n_fail_quality += 1
+                continue
+
+            def _fget(key, default=np.nan):
+                try:
+                    val = fundamentals[key]
+                    return default if pd.isna(val) else float(val)
+                except Exception:
+                    return default
+
+            # --- Quality filter: ROIC > 10% ---
+            roic = _fget("roic")
+            if pd.isna(roic) or roic <= self.MIN_ROIC:
+                n_fail_quality += 1
+                continue
+
+            # --- Value filter: FCF/Sales Yield (fallback: Sales / Market Cap) ---
+            revenue = _fget("revenue")
+            op_cf = _fget("op_cf")
+            capex = _fget("capex")
+            value_yield = np.nan
+            if pd.notna(revenue) and revenue != 0 and pd.notna(op_cf) and pd.notna(capex):
+                value_yield = (op_cf - capex) / revenue
+            else:
+                # Limited FCF data: approximate value with Sales / Market Cap
+                shares = _fget("diluted_shares_outstanding")
+                if pd.isna(shares) or shares <= 0:
+                    shares = _fget("basic_shares_outstanding")
+                price = current_closes.get(sym, np.nan)
+                if (
+                    pd.notna(revenue)
+                    and revenue > 0
+                    and pd.notna(shares)
+                    and shares > 0
+                    and pd.notna(price)
+                    and price > 0
+                ):
+                    market_cap = float(price) * float(shares)
+                    if market_cap > 0:
+                        value_yield = float(revenue) / market_cap
+                        n_value_approx += 1
+
+            if pd.isna(value_yield) or value_yield <= self.MIN_FCF_SALES_YIELD:
+                n_fail_value += 1
+                continue
+
+            filtered.append(sym)
+
+        print(
+            f"    [UNIVERSE] {current_date.date()} in={len(candidate_symbols)} "
+            f"out={len(filtered)} fail_quality={n_fail_quality} fail_value={n_fail_value} "
+            f"value_approx_mcap_sales={n_value_approx}"
+        )
+        return filtered
 
     # -------------------------------------------------------------
     def determine_market_regime(self, date_idx, active_symbols) -> Optional[RegimeState]:
@@ -559,7 +635,10 @@ class StandaloneEngine:
                     min(self.TOP_ADV_POOL, len(active_symbols))
                 ).index.tolist()
 
-                ctx.factor_df = self.build_factors(idx, top_adv_symbols)
+                # Append Quality (ROIC>10%) + Value (FCF/Sales) screens on PIT data
+                universe_symbols = self.get_universe(top_adv_symbols, idx)
+
+                ctx.factor_df = self.build_factors(idx, universe_symbols)
                 if ctx.factor_df.empty:
                     self.log_rebalance_summary(ctx)
                     continue
