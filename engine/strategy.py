@@ -725,6 +725,16 @@ class StandaloneEngine:
                 if ctx.regime is None:
                     continue
 
+                # Dynamic leverage (appended): strong uptrend -> 1.2x target exposure.
+                # Strong uptrend = benchmark above its 200-day MA with full regime exposure.
+                # On trend reversal, determine_market_regime returns 0.0 or 0.5 (never leaves 1.2 sticky).
+                if ctx.regime.benchmark_above_ma200 and ctx.regime.exposure >= 1.0:
+                    ctx.regime.exposure = 1.2
+                    print(
+                        f"📈 [LEVERAGE] {current_date.date()} strong uptrend "
+                        f"(above MA200) target exposure={ctx.regime.exposure:.2f}x"
+                    )
+
                 if ctx.regime.exposure == 0.0:
                     print(f"🚨 [BEAR MARKET] {current_date.date()} 노출도 0% (breadth={ctx.regime.breadth:.2f})")
                     for s in list(self.portfolio.keys()):
