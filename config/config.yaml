@@ -15,7 +15,10 @@ universe_sample_size: 500
 universe_sample_seed: 42
 benchmark: QQQ
 
-request_interval_sec: 0.20
+# Parallel downloaders (profiles / prices / fundamentals). Shared rate limiter.
+# Raise workers or lower interval for more speed; back off if you see many 429s.
+download_workers: 8
+request_interval_sec: 0.08
 max_retries: 3
 # Max quarterly statements to pull per ticker from Massive financials
 statement_limit: 100

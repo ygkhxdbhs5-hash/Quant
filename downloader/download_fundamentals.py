@@ -21,6 +21,7 @@ import pandas as pd
 
 from downloader.download_universe_utils import load_config, make_client
 from downloader.massive_client import MassiveClient
+from downloader.parallel import map_parallel
 
 
 def _statement_df(
@@ -28,6 +29,7 @@ def _statement_df(
     endpoint: str,
     ticker: str,
     limit: int,
+    verbose_paginate: bool = False,
 ) -> Tuple[pd.DataFrame, str, int]:
     """Fetch one statement type.
 
@@ -49,6 +51,7 @@ def _statement_df(
         },
         ttl_days=3,
         max_pages=20,
+        verbose=verbose_paginate,
     )
     raw_n = len(rows) if isinstance(rows, list) else 0
     if not rows:
@@ -353,20 +356,31 @@ def main(argv: list[str] | None = None) -> int:
 
     fundamental_history: Dict[str, pd.DataFrame] = {}
     skip_reasons: Counter[str] = Counter()
+    workers = max(1, int(config.get("download_workers", 8)))
+    # Per-ticker debug spam is hard to read under many workers; keep summary progress.
+    per_ticker_debug = debug and workers == 1
+    print(f"[fundamentals] parallel workers={workers}")
 
-    for i, t in enumerate(symbols):
-        pit, reason, stats = fetch_pit_fundamentals(
+    results = map_parallel(
+        symbols,
+        lambda t: fetch_pit_fundamentals(
             client,
             t,
             flat_tax_rate=flat_tax_rate,
             statement_limit=statement_limit,
-            debug=debug,
-        )
+            debug=per_ticker_debug,
+        ),
+        workers=workers,
+        progress_every=25,
+        label="fundamentals",
+    )
+
+    for t, (pit, reason, stats) in zip(symbols, results):
         # Explicit integration: only store real DataFrames with rows.
         if isinstance(pit, pd.DataFrame) and not pit.empty:
             fundamental_history[t] = pit
             skip_reasons["ok"] += 1
-            if debug:
+            if debug and workers == 1:
                 print(
                     f"    [DICT] fundamental_history['{t}'] = {len(pit)} rows "
                     f"(dict size now {len(fundamental_history)})"
@@ -376,18 +390,11 @@ def main(argv: list[str] | None = None) -> int:
             if "empty/unauthorized" in bucket:
                 bucket = "statement empty/unauthorized"
             skip_reasons[bucket] += 1
-            if debug:
+            if debug and workers == 1:
                 print(
                     f"    [DICT] NOT stored {t}: reason={reason} "
                     f"raw=(inc={stats.get('inc_raw')}, cfs={stats.get('cfs_raw')}, bal={stats.get('bal_raw')})"
                 )
-
-        if (i + 1) % 10 == 0 or (i + 1) == len(symbols):
-            print(
-                f"    ... fundamentals {i+1}/{len(symbols)} "
-                f"(stored={len(fundamental_history)})",
-                flush=True,
-            )
 
     out_dir = Path(paths.get("fundamentals", "data/fundamentals"))
     out_dir.mkdir(parents=True, exist_ok=True)

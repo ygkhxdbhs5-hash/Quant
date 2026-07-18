@@ -12,6 +12,7 @@ import pandas as pd
 
 from downloader.download_universe_utils import load_config, make_client
 from downloader.massive_client import MassiveClient
+from downloader.parallel import map_parallel
 
 # ISO 10383 MIC for NASDAQ
 NASDAQ_EXCHANGE = "XNAS"
@@ -107,32 +108,46 @@ def download_complete_nasdaq_universe(
     return all_tickers, delisted_meta
 
 
-def fetch_profile_meta(client: MassiveClient, tickers: List[str]) -> Dict[str, dict]:
-    print(f">> {len(tickers)}개 종목 profile(섹터/산업/IPO일) 조회...")
-    meta: Dict[str, dict] = {}
-    for i, t in enumerate(tickers):
-        payload = client.cached_get(
-            f"/v3/reference/tickers/{t}",
-            cache_key=f"ticker_overview_{t}",
-            ttl_days=30,
-        )
-        results = payload.get("results") if isinstance(payload, dict) else None
-        if isinstance(results, dict):
-            list_date = results.get("list_date")
-            sic = results.get("sic_description") or results.get("sic_code") or "Unknown"
-            # Massive/Polygon overview does not always expose GICS industry;
-            # sic_description is the closest stable industry label.
-            meta[t] = {
-                "sector": results.get("sic_description") or "Unknown",
-                "industry": str(sic),
-                "ipoDate": pd.to_datetime(list_date) if list_date else pd.NaT,
-                "isEtf": (results.get("type") or "").upper() in {"ETF", "ETV", "ETS"},
-            }
-        else:
-            meta[t] = {"sector": "Unknown", "industry": "Unknown", "ipoDate": pd.NaT, "isEtf": False}
-        if (i + 1) % 10 == 0 or (i + 1) == len(tickers):
-            print(f"    ... profiles {i+1}/{len(tickers)}", flush=True)
-    return meta
+def _one_profile(client: MassiveClient, ticker: str) -> Tuple[str, dict]:
+    payload = client.cached_get(
+        f"/v3/reference/tickers/{ticker}",
+        cache_key=f"ticker_overview_{ticker}",
+        ttl_days=30,
+    )
+    results = payload.get("results") if isinstance(payload, dict) else None
+    if isinstance(results, dict):
+        list_date = results.get("list_date")
+        sic = results.get("sic_description") or results.get("sic_code") or "Unknown"
+        # Massive/Polygon overview does not always expose GICS industry;
+        # sic_description is the closest stable industry label.
+        return ticker, {
+            "sector": results.get("sic_description") or "Unknown",
+            "industry": str(sic),
+            "ipoDate": pd.to_datetime(list_date) if list_date else pd.NaT,
+            "isEtf": (results.get("type") or "").upper() in {"ETF", "ETV", "ETS"},
+        }
+    return ticker, {
+        "sector": "Unknown",
+        "industry": "Unknown",
+        "ipoDate": pd.NaT,
+        "isEtf": False,
+    }
+
+
+def fetch_profile_meta(
+    client: MassiveClient,
+    tickers: List[str],
+    workers: int = 8,
+) -> Dict[str, dict]:
+    print(f">> {len(tickers)}개 종목 profile(섹터/산업/IPO일) 조회 (workers={workers})...")
+    pairs = map_parallel(
+        tickers,
+        lambda t: _one_profile(client, t),
+        workers=workers,
+        progress_every=25,
+        label="profiles",
+    )
+    return {t: meta for t, meta in pairs}
 
 
 def save_universe(
@@ -233,8 +248,9 @@ def main(argv: list[str] | None = None) -> int:
             f"len(tickers)={len(tickers)}"
         )
 
-    print(f">> ABOUT_TO_FETCH_PROFILES n={len(tickers)}")
-    profile_meta = fetch_profile_meta(client, tickers)
+    workers = max(1, int(config.get("download_workers", 8)))
+    print(f">> ABOUT_TO_FETCH_PROFILES n={len(tickers)} workers={workers}")
+    profile_meta = fetch_profile_meta(client, tickers, workers=workers)
     # Ensure benchmark has a profile stub even if not on NASDAQ common-stock filter
     if benchmark and benchmark not in profile_meta:
         profile_meta[benchmark] = {

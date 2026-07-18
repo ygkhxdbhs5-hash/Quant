@@ -12,6 +12,7 @@ import pandas as pd
 
 from downloader.download_universe_utils import load_config, make_client
 from downloader.massive_client import MassiveClient
+from downloader.parallel import map_parallel
 
 
 def _aggs_to_df(payload) -> pd.DataFrame:
@@ -104,6 +105,7 @@ def build_price_panel(
     end_date: str,
     benchmark: str,
     silent_delist_gap_days: int,
+    workers: int = 8,
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, Dict[str, pd.Timestamp]]:
     prices_open, prices_close, highs, lows, vols = {}, {}, {}, {}, {}
     silent_delist_flags: Dict[str, pd.Timestamp] = {}
@@ -143,10 +145,20 @@ def build_price_panel(
     # Avoid double-fetching the benchmark inside the main loop.
     tickers_to_pull = [t for t in tickers if str(t).upper() != benchmark]
 
-    print(f">> {len(tickers_to_pull)}개 종목 OHLCV 수집 (Massive aggregates)...")
-    for i, t in enumerate(tickers_to_pull):
-        df = _fetch_daily_bars(client, t, start_date, end_date)
-        if df.empty:
+    print(
+        f">> {len(tickers_to_pull)}개 종목 OHLCV 수집 "
+        f"(Massive aggregates, workers={workers})..."
+    )
+    fetched = map_parallel(
+        tickers_to_pull,
+        lambda t: (t, _fetch_daily_bars(client, t, start_date, end_date)),
+        workers=workers,
+        progress_every=25,
+        label="prices",
+    )
+
+    for t, df in fetched:
+        if df is None or df.empty:
             continue
 
         first_price_date, last_price_date = df.index.min(), df.index.max()
@@ -167,9 +179,6 @@ def build_price_panel(
             continue
 
         _store_bars(df, t, prices_open, prices_close, highs, lows, vols)
-
-        if (i + 1) % 10 == 0 or (i + 1) == len(tickers_to_pull):
-            print(f"    ... prices {i+1}/{len(tickers_to_pull)}", flush=True)
 
     if benchmark not in prices_close:
         raise RuntimeError(f"Benchmark prices missing after download for {benchmark}.")
@@ -224,6 +233,7 @@ def main(argv: list[str] | None = None) -> int:
         end_date=config["end_date"],
         benchmark=config.get("benchmark", "QQQ"),
         silent_delist_gap_days=int(config.get("silent_delist_gap_days", 10)),
+        workers=max(1, int(config.get("download_workers", 8))),
     )
     save_panels(
         Path(paths.get("prices", "data/prices")),

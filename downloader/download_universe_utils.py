@@ -25,12 +25,14 @@ def load_config(path: str | Path) -> dict:
 
 def make_client(config: dict) -> MassiveClient:
     paths = config.get("paths", {})
+    workers = max(1, int(config.get("download_workers", 8)))
     return MassiveClient(
         api_key=str(config.get("massive_api_key") or ""),
         cache_dir=paths.get("massive_cache", paths.get("fmp_cache", "cache/massive_cache")),
         base_url=str(config.get("massive_base_url", "https://api.massive.com")),
-        request_interval_sec=float(config.get("request_interval_sec", 0.20)),
+        request_interval_sec=float(config.get("request_interval_sec", 0.10)),
         max_retries=int(config.get("max_retries", 3)),
+        pool_size=max(16, workers * 4),
     )
 
 

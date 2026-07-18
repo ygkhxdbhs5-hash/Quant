@@ -109,10 +109,12 @@ def apply_ui_config(
     trailing_stop: float,
     max_portfolio: int,
     api_key: str,
+    download_workers: int = 8,
 ) -> None:
     cfg = load_yaml(CONFIG_PATH)
     cfg["universe_sample_size"] = sample_size
     cfg["request_interval_sec"] = float(request_interval)
+    cfg["download_workers"] = int(download_workers)
     cfg["trailing_stop_pct"] = float(trailing_stop)
     cfg["max_portfolio_size"] = int(max_portfolio)
     cfg["selection_buffer_size"] = max(int(max_portfolio) + 20, int(cfg.get("selection_buffer_size", 70)))
@@ -142,7 +144,8 @@ with st.sidebar:
         "Full NASDAQ (slow)": None,
     }
     sample_size = sample_map[sample_mode]
-    request_interval = st.slider("API interval (sec)", 0.05, 0.50, 0.20, 0.05)
+    download_workers = st.slider("Download workers", 1, 16, 8, 1)
+    request_interval = st.slider("API interval (sec)", 0.05, 0.50, 0.08, 0.01)
     trailing_stop = st.slider("Trailing stop", 0.05, 0.40, 0.20, 0.01)
     max_portfolio = st.number_input("Max portfolio size", min_value=10, max_value=100, value=50, step=5)
     clear_cache = st.checkbox("Clear HTTP cache before download", value=False)
@@ -175,7 +178,9 @@ with tab_dl:
         st.warning("Enter a Massive API key in the sidebar (or configure secrets).")
 
     if st.button("Start download", type="primary", disabled=not bool(api_key)):
-        apply_ui_config(sample_size, request_interval, trailing_stop, max_portfolio, api_key)
+        apply_ui_config(
+            sample_size, request_interval, trailing_stop, max_portfolio, api_key, download_workers
+        )
         env = dict(os.environ)
         env["MASSIVE_API_KEY"] = api_key
         env["PYTHONUNBUFFERED"] = "1"
@@ -220,7 +225,14 @@ with tab_bt:
         st.write("Uses `data/` artifacts already on disk — no re-download needed.")
 
     if st.button("Run backtest", type="primary", disabled=not ready):
-        apply_ui_config(sample_size, request_interval, trailing_stop, max_portfolio, api_key or "unused")
+        apply_ui_config(
+            sample_size,
+            request_interval,
+            trailing_stop,
+            max_portfolio,
+            api_key or "unused",
+            download_workers,
+        )
         env = dict(os.environ)
         if api_key:
             env["MASSIVE_API_KEY"] = api_key
