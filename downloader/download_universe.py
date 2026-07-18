@@ -9,7 +9,7 @@ from typing import Dict, List, Tuple
 
 import pandas as pd
 
-from downloader.download_universe_utils import load_config, make_client, read_symbol_file
+from downloader.download_universe_utils import load_config, make_client
 from downloader.massive_client import MassiveClient
 
 # ISO 10383 MIC for NASDAQ
@@ -18,8 +18,11 @@ NASDAQ_EXCHANGE = "XNAS"
 
 def download_complete_nasdaq_universe(
     client: MassiveClient,
-    symbol_file: Path,
 ) -> Tuple[List[str], Dict[str, dict]]:
+    """Fetch the full NASDAQ active + delisted ticker set from Massive.
+
+    No config limits or external symbol-file restrictions are applied.
+    """
     print(">> 나스닥 전체 상장 + 상장폐지 전수 명단 수집 (Massive)...")
     active_rows = client.paginate(
         "/v3/reference/tickers",
@@ -47,12 +50,6 @@ def download_complete_nasdaq_universe(
     if not active_tickers:
         active_tickers = [r["ticker"] for r in active_rows if isinstance(r, dict) and r.get("ticker")]
 
-    used_symbol_file = False
-    if not active_tickers:
-        print("    (Massive ticker list empty — using symbols.txt fallback)")
-        active_tickers = read_symbol_file(symbol_file)
-        used_symbol_file = True
-
     delisted_rows = client.paginate(
         "/v3/reference/tickers",
         cache_key_prefix="nasdaq_delisted",
@@ -78,11 +75,8 @@ def download_complete_nasdaq_universe(
             delisting_date = pd.to_datetime(delisted_utc).strftime("%Y-%m-%d")
         delisted_meta[t] = {"delistingDate": delisting_date}
 
-    if used_symbol_file:
-        all_tickers = list(active_tickers)
-        delisted_meta = {k: v for k, v in delisted_meta.items() if k in set(active_tickers)}
-    else:
-        all_tickers = sorted(set(active_tickers) | set(delisted_meta.keys()))
+    # Full universe: active ∪ delisted (never restricted by symbols.txt / universe_limit)
+    all_tickers = sorted(set(active_tickers) | set(delisted_meta.keys()))
 
     print(f"    active={len(active_tickers)} delisted={len(delisted_meta)} total={len(all_tickers)}")
     return all_tickers, delisted_meta
@@ -148,18 +142,13 @@ def main(argv: list[str] | None = None) -> int:
     paths = config.get("paths", {})
     metadata_dir = Path(paths.get("metadata", "data/metadata"))
 
-    all_tickers, delisted_meta = download_complete_nasdaq_universe(
-        client, metadata_dir / "symbols.txt"
-    )
-    limit = config.get("universe_limit")
-    file_syms = read_symbol_file(metadata_dir / "symbols.txt")
-    if limit is not None and file_syms:
-        tickers = file_syms[: int(limit)]
-    elif limit is not None:
-        tickers = all_tickers[: int(limit)]
-    else:
-        tickers = all_tickers
+    all_tickers, delisted_meta = download_complete_nasdaq_universe(client)
 
+    # Strictly enforce full universe: ignore universe_limit and symbols.txt entirely.
+    # tickers must always equal all_tickers for profile fetch + save.
+    tickers = all_tickers
+
+    print(f">> Full NASDAQ universe enforced: tickers={len(tickers)} (== all_tickers)")
     profile_meta = fetch_profile_meta(client, tickers)
     save_universe(metadata_dir, all_tickers, delisted_meta, profile_meta, tickers)
     return 0
