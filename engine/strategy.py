@@ -149,6 +149,9 @@ class StandaloneEngine:
         self.pending_orders = []
         self.equity_curve = []
         self._prior_invested_for_log = set()
+        # Trailing stop: peak price since purchase; exit if close falls 5% below peak
+        self.highest_prices = {}
+        self.TRAILING_STOP_PCT = float(cfg.get("trailing_stop_pct", 0.05))
 
     # -------------------------------------------------------------
     def _precompute_matrices(self):
@@ -636,8 +639,12 @@ class StandaloneEngine:
                 cost_ratio = self._cost_ratio(sym, date_idx, exec_qty, o_price)
                 total_cost = exec_qty * o_price * (1 + cost_ratio)
                 if self.cash >= total_cost:
+                    was_held = self.portfolio.get(sym, 0) > 0
                     self.portfolio[sym] = self.portfolio.get(sym, 0) + exec_qty
                     self.cash -= total_cost
+                    # Re-purchase (new position): reset trailing-stop peak to entry price
+                    if not was_held:
+                        self.highest_prices[sym] = float(o_price)
             else:
                 if sym in self.portfolio:
                     cap = self._max_shares_participation(sym, date_idx, o_price, self.PARTICIPATION_CAP_SELL)
@@ -649,7 +656,40 @@ class StandaloneEngine:
                     self.portfolio[sym] -= exec_qty
                     if self.portfolio[sym] <= 0:
                         del self.portfolio[sym]
+                        self.highest_prices.pop(sym, None)
         self.pending_orders = []
+
+    def check_trailing_stops(self, date_idx):
+        """Daily trailing-stop exit: sell if close is 5% below peak since purchase."""
+        current_date = self.close_m.index[date_idx]
+        current_closes = self.close_m.loc[current_date]
+        current_highs = self.high_m.loc[current_date]
+
+        for sym in list(self.portfolio.keys()):
+            price = current_closes.get(sym, np.nan)
+            if pd.isna(price) or price <= 0:
+                continue
+
+            high = current_highs.get(sym, np.nan)
+            peak_candidate = float(high) if pd.notna(high) and high > 0 else float(price)
+            if sym not in self.highest_prices:
+                self.highest_prices[sym] = peak_candidate
+            else:
+                self.highest_prices[sym] = max(self.highest_prices[sym], peak_candidate)
+
+            peak = self.highest_prices[sym]
+            stop_level = peak * (1.0 - self.TRAILING_STOP_PCT)
+            if float(price) <= stop_level:
+                qty = self.portfolio[sym]
+                # Immediate SELL at close; remove from portfolio (additional daily exit only)
+                self.cash += qty * float(price)
+                del self.portfolio[sym]
+                self.highest_prices.pop(sym, None)
+                self.previous_target_symbols.discard(sym)
+                print(
+                    f"    🛑 [TRAILING STOP] {sym} close={float(price):.2f} "
+                    f"peak={peak:.2f} stop={stop_level:.2f} (−{self.TRAILING_STOP_PCT:.0%})"
+                )
 
     def handle_official_delisting(self, date_idx):
         """공식 상장폐지일 도래 시 즉시(당일 종가) 강제 청산 - LEAN의 Delisting.Warning 대응."""
@@ -663,6 +703,7 @@ class StandaloneEngine:
                     if pd.notna(last_close):
                         self.cash += self.portfolio[sym] * last_close
                     del self.portfolio[sym]
+                    self.highest_prices.pop(sym, None)
                     print(f"    ⚠️ [DELISTING] {sym} 공식 상장폐지일 강제청산")
 
     def handle_silent_delisting(self, date_idx):
@@ -673,6 +714,7 @@ class StandaloneEngine:
                 if pd.notna(last_valid):
                     self.cash += self.portfolio[sym] * last_valid * self.SILENT_DELIST_RECOVERY
                 del self.portfolio[sym]
+                self.highest_prices.pop(sym, None)
                 print(f"    ⚠️ [조용한 상장폐지] {sym} haircut({self.SILENT_DELIST_RECOVERY:.0%}) 청산")
 
     def log_rebalance_summary(self, ctx: RebalanceContext):
@@ -704,6 +746,8 @@ class StandaloneEngine:
             self.handle_official_delisting(idx)
             self.handle_silent_delisting(idx)
             self.execute_pending_orders(idx)
+            # Additional daily exit: trailing stop (does not alter monthly rebalance / bear regime)
+            self.check_trailing_stops(idx)
 
             current_closes = self.close_m.loc[current_date]
             portfolio_value = sum(

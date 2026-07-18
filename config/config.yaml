@@ -45,6 +45,9 @@ min_fcf_sales_yield: 0.0   # Value: FCF/Sales (or Sales/MarketCap approx) must e
 max_debt_to_equity: 1.50   # Debt: Debt-to-Equity must be below 150%
 min_revenue_growth_yoy: 0.0  # Growth: Revenue YoY growth must be positive
 
+# Daily trailing-stop exit (peak since purchase); does not change monthly rebalance
+trailing_stop_pct: 0.05    # Sell if close falls 5% below highest_price
+
 paths:
   prices: data/prices
   fundamentals: data/fundamentals
