@@ -22,10 +22,10 @@ class _TinyEngine(StandaloneEngine):
         self.WEIGHT_SUM_TOLERANCE = 0.02
         self.CORR_WINDOW = 60
         self.CORR_THRESHOLD = 0.80
-        self.MIN_ROIC = 0.10
-        self.MIN_FCF_SALES_YIELD = 0.0
-        self.MAX_DEBT_TO_EQUITY = 1.50
-        self.MIN_REVENUE_GROWTH_YOY = 0.0
+        self.MIN_ROIC = 0.03
+        self.MIN_FCF_SALES_YIELD = -0.05
+        self.MAX_DEBT_TO_EQUITY = 3.0
+        self.MIN_REVENUE_GROWTH_YOY = -0.15
         self.VOL_BREAKOUT_ATR_MULT = 1.5
         self.previous_target_symbols = set()
         self.profile_meta = {}
@@ -79,18 +79,25 @@ def test_get_universe_quality_and_value_filters():
     # 5 quarterly points so YoY (shift 4 / ~1y) is defined on the last row
     eng.fundamental_history = {
         "GOOD": _series(0.15, [80, 85, 90, 95, 100], 40.0, 10.0, 50.0, 100.0),
-        "LOW_ROIC": _series(0.05, [80, 85, 90, 95, 100], 40.0, 10.0, 50.0, 100.0),
-        "NEG_FCF": _series(0.20, [80, 85, 90, 95, 100], 5.0, 20.0, 50.0, 100.0),
+        "LOW_ROIC": _series(0.02, [80, 85, 90, 95, 100], 40.0, 10.0, 50.0, 100.0),  # < 3%
+        "NEG_FCF": _series(0.20, [80, 85, 90, 95, 100], 5.0, 20.0, 50.0, 100.0),  # FCF/Sales=-0.15
         "APPROX": _series(0.12, [80, 85, 90, 95, 100], np.nan, np.nan, 40.0, 100.0, shares=10.0),
-        "HIGH_DEBT": _series(0.15, [80, 85, 90, 95, 100], 40.0, 10.0, 200.0, 100.0),  # D/E=2.0
-        "NEG_GROWTH": _series(0.15, [120, 110, 105, 100, 90], 40.0, 10.0, 50.0, 100.0),
+        "HIGH_DEBT": _series(0.15, [80, 85, 90, 95, 100], 40.0, 10.0, 400.0, 100.0),  # D/E=4.0
+        "NEG_GROWTH": _series(0.15, [120, 110, 105, 100, 90], 40.0, 10.0, 50.0, 100.0),  # ~-25% YoY
+        # Mild cases that should pass under loosened thresholds:
+        "OK_ROIC5": _series(0.05, [80, 85, 90, 95, 100], 40.0, 10.0, 50.0, 100.0),
+        "OK_DEBT2": _series(0.15, [80, 85, 90, 95, 100], 40.0, 10.0, 200.0, 100.0),  # D/E=2.0
     }
 
     out = eng.get_universe(
-        ["GOOD", "LOW_ROIC", "NEG_FCF", "APPROX", "HIGH_DEBT", "NEG_GROWTH"],
+        ["GOOD", "LOW_ROIC", "NEG_FCF", "APPROX", "HIGH_DEBT", "NEG_GROWTH", "OK_ROIC5", "OK_DEBT2"],
         date_idx=1,
     )
-    assert out == ["GOOD", "APPROX"]
+    assert "GOOD" in out and "APPROX" in out and "OK_ROIC5" in out and "OK_DEBT2" in out
+    assert "LOW_ROIC" not in out
+    assert "NEG_FCF" not in out
+    assert "HIGH_DEBT" not in out
+    assert "NEG_GROWTH" not in out
 
 
 def test_rank_universe_weights():

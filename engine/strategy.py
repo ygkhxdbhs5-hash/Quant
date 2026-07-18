@@ -110,12 +110,11 @@ class StandaloneEngine:
         # Trading costs applied on every buy/sell at rebalance fill
         self.COMMISSION_RATE = float(cfg.get("commission_rate", 0.0005))  # 0.05%
         self.SLIPPAGE_RATE = float(cfg.get("slippage_rate", 0.0002))  # 0.02%
-        # Universe Quality / Value filter thresholds (appended selection screens)
-        self.MIN_ROIC = float(cfg.get("min_roic", 0.10))  # Quality: ROIC > 10%
-        self.MIN_FCF_SALES_YIELD = float(cfg.get("min_fcf_sales_yield", 0.0))  # Value: FCF/Sales
-        # Debt & Growth fundamental filters (appended)
-        self.MAX_DEBT_TO_EQUITY = float(cfg.get("max_debt_to_equity", 1.50))  # D/E < 150%
-        self.MIN_REVENUE_GROWTH_YOY = float(cfg.get("min_revenue_growth_yoy", 0.0))  # YoY > 0
+        # Universe filters (loosened for more candidates; missing metrics do not hard-reject)
+        self.MIN_ROIC = float(cfg.get("min_roic", 0.03))  # Quality: ROIC > 3% (was 10%)
+        self.MIN_FCF_SALES_YIELD = float(cfg.get("min_fcf_sales_yield", -0.05))  # allow mild neg FCF
+        self.MAX_DEBT_TO_EQUITY = float(cfg.get("max_debt_to_equity", 3.0))  # D/E < 300% (was 150%)
+        self.MIN_REVENUE_GROWTH_YOY = float(cfg.get("min_revenue_growth_yoy", -0.15))  # allow mild contraction
 
         print(">> 로컬 데이터 로드...")
         universe_path = Path(paths.get("metadata", "data/metadata")) / "universe.pkl"
@@ -224,14 +223,13 @@ class StandaloneEngine:
         return (float(latest_rev) - prior_rev) / abs(prior_rev)
 
     def get_universe(self, candidate_symbols, date_idx):
-        """Append Quality (ROIC > 10%) and Value (FCF/Sales) filters using PIT data.
+        """Soft fundamental screens (loosened). Missing metrics do not reject.
 
-        Value metric: FCF/Sales = (op_cf - capex) / revenue.
-        If FCF inputs are limited, approximate with Sales / Market Cap where
-        Market Cap ≈ price * diluted_shares_outstanding (PIT shares when present).
-
-        Also appends Debt (D/E < 150%) and Growth (Revenue YoY > 0) filters.
-        Existing candidate construction / ranking logic is left unchanged.
+        Quality: ROIC > min_roic when ROIC is available.
+        Value: FCF/Sales (or Sales/MCap approx) > min when available.
+        Debt: D/E < max when available.
+        Growth: Revenue YoY > min when available.
+        No PIT fundamentals -> keep name for price/volume ranking fallback.
         """
         current_date = self.close_m.index[date_idx]
         current_closes = self.close_m.loc[current_date]
@@ -241,11 +239,14 @@ class StandaloneEngine:
         n_fail_debt = 0
         n_fail_growth = 0
         n_value_approx = 0
+        n_pass_no_fundamentals = 0
 
         for sym in candidate_symbols:
             fundamentals = self.get_latest_available_fundamentals(sym, current_date)
             if fundamentals is None:
-                n_fail_quality += 1
+                # Loosened: keep price-only names instead of hard-rejecting
+                filtered.append(sym)
+                n_pass_no_fundamentals += 1
                 continue
 
             def _fget(key, default=np.nan):
@@ -255,13 +256,13 @@ class StandaloneEngine:
                 except Exception:
                     return default
 
-            # --- Quality filter: ROIC > 10% ---
+            # --- Quality: only reject when ROIC is present and too low ---
             roic = _fget("roic")
-            if pd.isna(roic) or roic <= self.MIN_ROIC:
+            if pd.notna(roic) and roic <= self.MIN_ROIC:
                 n_fail_quality += 1
                 continue
 
-            # --- Value filter: FCF/Sales Yield (fallback: Sales / Market Cap) ---
+            # --- Value: FCF/Sales (fallback Sales/MCap); missing -> pass ---
             revenue = _fget("revenue")
             op_cf = _fget("op_cf")
             capex = _fget("capex")
@@ -269,7 +270,6 @@ class StandaloneEngine:
             if pd.notna(revenue) and revenue != 0 and pd.notna(op_cf) and pd.notna(capex):
                 value_yield = (op_cf - capex) / revenue
             else:
-                # Limited FCF data: approximate value with Sales / Market Cap
                 shares = _fget("diluted_shares_outstanding")
                 if pd.isna(shares) or shares <= 0:
                     shares = _fget("basic_shares_outstanding")
@@ -287,26 +287,26 @@ class StandaloneEngine:
                         value_yield = float(revenue) / market_cap
                         n_value_approx += 1
 
-            if pd.isna(value_yield) or value_yield <= self.MIN_FCF_SALES_YIELD:
+            if pd.notna(value_yield) and value_yield <= self.MIN_FCF_SALES_YIELD:
                 n_fail_value += 1
                 continue
 
-            # --- Debt filter: Debt-to-Equity < 150% ---
+            # --- Debt: only reject when D/E is present and too high ---
             debt_to_equity = _fget("debt_to_equity")
             if pd.isna(debt_to_equity):
                 total_debt = _fget("total_debt")
                 total_equity = _fget("total_equity")
                 if pd.notna(total_debt) and pd.notna(total_equity) and total_equity != 0:
                     debt_to_equity = float(total_debt) / float(total_equity)
-            if pd.isna(debt_to_equity) or debt_to_equity >= self.MAX_DEBT_TO_EQUITY:
+            if pd.notna(debt_to_equity) and debt_to_equity >= self.MAX_DEBT_TO_EQUITY:
                 n_fail_debt += 1
                 continue
 
-            # --- Growth filter: Revenue Growth (YoY) > 0 ---
+            # --- Growth: only reject when YoY is present and too weak ---
             rev_growth = _fget("revenue_growth_yoy")
             if pd.isna(rev_growth):
                 rev_growth = self._revenue_growth_yoy(sym, current_date)
-            if pd.isna(rev_growth) or rev_growth <= self.MIN_REVENUE_GROWTH_YOY:
+            if pd.notna(rev_growth) and rev_growth <= self.MIN_REVENUE_GROWTH_YOY:
                 n_fail_growth += 1
                 continue
 
@@ -316,6 +316,7 @@ class StandaloneEngine:
             f"    [UNIVERSE] {current_date.date()} in={len(candidate_symbols)} "
             f"out={len(filtered)} fail_quality={n_fail_quality} fail_value={n_fail_value} "
             f"fail_debt={n_fail_debt} fail_growth={n_fail_growth} "
+            f"pass_no_fundamentals={n_pass_no_fundamentals} "
             f"value_approx_mcap_sales={n_value_approx}"
         )
         return filtered
