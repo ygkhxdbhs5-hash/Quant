@@ -8,7 +8,11 @@ start_date: "2010-01-01"
 end_date: null  # null => today
 initial_cash: 50000000
 
-universe_limit: null
+universe_limit: null          # ignored (legacy; do not use)
+# Test mode: after full NASDAQ pull, randomly keep N active tickers for profiles/prices/funds.
+# Set to null for the full universe (~4k+ active / ~11k with delisted).
+universe_sample_size: 500
+universe_sample_seed: 42
 benchmark: QQQ
 
 request_interval_sec: 0.20

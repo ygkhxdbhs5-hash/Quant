@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import argparse
 import pickle
+import random
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
 
@@ -157,6 +158,39 @@ def save_universe(
     return path
 
 
+def _sample_tickers_for_test(
+    all_tickers: List[str],
+    delisted_meta: dict,
+    sample_size: int,
+    seed: int,
+    benchmark: str,
+) -> List[str]:
+    """Random sample for a cheap test run (does NOT use symbols.txt)."""
+    active_pool = [t for t in all_tickers if t not in delisted_meta]
+    if not active_pool:
+        active_pool = list(all_tickers)
+
+    rng = random.Random(seed)
+    pool = list(active_pool)
+    rng.shuffle(pool)
+
+    n = min(int(sample_size), len(pool))
+    chosen = pool[:n]
+
+    # Keep benchmark available for regime logic / price panel
+    bm = (benchmark or "").upper()
+    if bm and bm not in chosen:
+        chosen = [bm] + [t for t in chosen if t != bm]
+        chosen = chosen[: max(n, 1)]
+
+    print(
+        f">> TEST SAMPLE: drew {len(chosen)} tickers from {len(active_pool)} active "
+        f"(sample_size={sample_size}, seed={seed}, benchmark={bm or 'none'})"
+    )
+    print(f"    sample head: {chosen[:10]}")
+    return chosen
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Download NASDAQ universe + profiles (Massive)")
     parser.add_argument("--config", default="config/config.yaml")
@@ -168,43 +202,52 @@ def main(argv: list[str] | None = None) -> int:
 
     all_tickers, delisted_meta = download_complete_nasdaq_universe(client)
 
-    # -------------------------------------------------------------------------
-    # CRITICAL: never shrink the universe after the Massive pull.
-    # Ignore config.universe_limit and data/metadata/symbols.txt completely.
-    # (A ~30-name profile step almost always means an old script used symbols.txt.)
-    # -------------------------------------------------------------------------
-    ignored_limit = config.get("universe_limit")
-    symbols_path = metadata_dir / "symbols.txt"
+    # Ignore legacy universe_limit / symbols.txt (those caused the accidental ~30 list).
     print(
-        f">> Ignoring universe_limit={ignored_limit!r} and symbols.txt "
-        f"(exists={symbols_path.exists()})"
+        f">> Ignoring universe_limit={config.get('universe_limit')!r} and symbols.txt "
+        f"(exists={(metadata_dir / 'symbols.txt').exists()})"
     )
 
-    tickers = list(all_tickers)  # hard copy; must stay equal to full pull
+    # Optional test mode: random N active names after the full Massive pull.
+    sample_size: Optional[int] = config.get("universe_sample_size")
+    sample_seed = int(config.get("universe_sample_seed", 42))
+    benchmark = str(config.get("benchmark", "QQQ")).upper()
 
-    if tickers != list(all_tickers):
-        raise RuntimeError("BUG: tickers diverged from all_tickers before profile fetch")
-    if len(tickers) < 1000:
-        raise RuntimeError(
-            f"Refusing to continue: tickers={len(tickers)} (<1000). "
-            "Expected full NASDAQ pull (~4000+). Wrong branch or truncated all_tickers."
+    if sample_size is not None:
+        tickers = _sample_tickers_for_test(
+            all_tickers,
+            delisted_meta,
+            sample_size=int(sample_size),
+            seed=sample_seed,
+            benchmark=benchmark,
+        )
+    else:
+        tickers = list(all_tickers)
+        if len(tickers) < 1000:
+            raise RuntimeError(
+                f"Refusing full-universe mode with tickers={len(tickers)} (<1000). "
+                "Set universe_sample_size for a small test, or fix pagination."
+            )
+        print(
+            f">> Full NASDAQ universe: len(all_tickers)={len(all_tickers)} "
+            f"len(tickers)={len(tickers)}"
         )
 
-    print(
-        f">> Full NASDAQ universe enforced: "
-        f"len(all_tickers)={len(all_tickers)} len(tickers)={len(tickers)} "
-        f"(must match; about to fetch profiles for ALL of them)"
-    )
+    print(f">> ABOUT_TO_FETCH_PROFILES n={len(tickers)}")
     profile_meta = fetch_profile_meta(client, tickers)
-    print(
-        f">> profile_meta fetched for {len(profile_meta)} symbols "
-        f"(expected {len(tickers)})"
-    )
-    save_universe(metadata_dir, all_tickers, delisted_meta, profile_meta, tickers)
+    # Ensure benchmark has a profile stub even if not on NASDAQ common-stock filter
+    if benchmark and benchmark not in profile_meta:
+        profile_meta[benchmark] = {
+            "sector": "Benchmark",
+            "industry": "Benchmark",
+            "ipoDate": pd.NaT,
+            "isEtf": True,
+        }
 
-    # Final sanity check on what was written
+    print(f">> profile_meta fetched for {len(profile_meta)} symbols (requested {len(tickers)})")
+    save_universe(metadata_dir, all_tickers, delisted_meta, profile_meta, tickers)
     print(
-        f">> SAVED universe.pkl with tickers={len(tickers)} "
+        f">> SAVED universe.pkl tickers={len(tickers)} "
         f"all_tickers={len(all_tickers)} profiles={len(profile_meta)}"
     )
     return 0
