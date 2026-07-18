@@ -54,6 +54,20 @@ python run_backtest.py --config config/config.yaml
 
 Outputs: `cache/equity_curve.csv`, `cache/equity_curve_v5.png`
 
+## 3) Web UI (download + backtest)
+
+```bash
+pip install -r requirements.txt
+export MASSIVE_API_KEY=your_key_here
+streamlit run app.py
+```
+
+Or deploy on [Streamlit Community Cloud](https://share.streamlit.io):
+- Main file: `app.py`
+- Secret: `MASSIVE_API_KEY`
+
+Long Massive downloads may time out on free cloud hosts; use the **500 sample** mode or run downloads locally/Colab, then backtest in the web UI.
+
 ## Notes
 
 - Investment pipeline matches Q_Alpha v5 (regime / factors / rank / portfolio / risk / next-open execution).
