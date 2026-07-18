@@ -87,8 +87,8 @@ class StandaloneEngine:
         self.END_DATE = cfg.get("end_date")
         self.INITIAL_CASH = float(cfg.get("initial_cash", 50_000_000))
         self.BENCHMARK_TICKER = cfg.get("benchmark", "QQQ")
-        self.MAX_PORTFOLIO_SIZE = int(cfg.get("max_portfolio_size", 30))
-        self.SELECTION_BUFFER_SIZE = int(cfg.get("selection_buffer_size", 40))
+        self.MAX_PORTFOLIO_SIZE = int(cfg.get("max_portfolio_size", 50))
+        self.SELECTION_BUFFER_SIZE = int(cfg.get("selection_buffer_size", 70))
         # Aggressive test default 0.40 (was 0.20); override via config
         self.MAX_INDUSTRY_WEIGHT = float(cfg.get("max_industry_weight", 0.40))
         self.MIN_INDUSTRY_SIZE = int(cfg.get("min_industry_size", 8))
@@ -153,9 +153,9 @@ class StandaloneEngine:
         self.pending_orders = []
         self.equity_curve = []
         self._prior_invested_for_log = set()
-        # Trailing stop: peak price since purchase; exit if close falls 10% below peak
+        # Trailing stop: peak price since purchase; exit if close falls 20% below peak
         self.highest_prices = {}
-        self.TRAILING_STOP_PCT = float(cfg.get("trailing_stop_pct", 0.10))
+        self.TRAILING_STOP_PCT = float(cfg.get("trailing_stop_pct", 0.20))
 
     # -------------------------------------------------------------
     def _precompute_matrices(self):
@@ -479,8 +479,10 @@ class StandaloneEngine:
         # full_score = (df["rank_mom"] * 0.45) + (df["rank_quality"] * 0.45) + (df["rank_lowvol"] * 0.10)
         # full_score = (df["rank_mom"] * 0.40) + (df["rank_quality"] * 0.40) + (df["rank_vol_expansion"] * 0.20)
         # fallback_score = (df["rank_mom"] * 0.80) + (df["rank_lowvol"] * 0.20)
+        # Quality reduced to 3%; freed weight goes to momentum (+5%) and rev growth (+2%)
+        # Prior: mom 0.60 + rev_growth 0.30 + quality 0.10
         full_score = (
-            (df["rank_mom"] * 0.60) + (df["rank_rev_growth"] * 0.30) + (df["rank_quality"] * 0.10)
+            (df["rank_mom"] * 0.65) + (df["rank_rev_growth"] * 0.32) + (df["rank_quality"] * 0.03)
         )
         # Mom + growth when quality missing; mom + vol-expansion when growth also missing
         growth_score = (df["rank_mom"] * 0.70) + (df["rank_rev_growth"] * 0.30)
@@ -733,7 +735,7 @@ class StandaloneEngine:
         self.pending_orders = []
 
     def check_trailing_stops(self, date_idx):
-        """Daily trailing-stop exit: sell if close is 10% below peak since purchase."""
+        """Daily trailing-stop exit: sell if close is 20% below peak since purchase."""
         current_date = self.close_m.index[date_idx]
         current_closes = self.close_m.loc[current_date]
         current_highs = self.high_m.loc[current_date]

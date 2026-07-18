@@ -20,8 +20,8 @@ max_retries: 3
 # Max quarterly statements to pull per ticker from Massive financials
 statement_limit: 100
 
-max_portfolio_size: 30
-selection_buffer_size: 40
+max_portfolio_size: 50
+selection_buffer_size: 70
 # Aggressive test: raised from 0.20 (revert if MDD too high)
 max_industry_weight: 0.40
 min_industry_size: 8
@@ -52,7 +52,7 @@ max_debt_to_equity: 1.50   # Debt: Debt-to-Equity must be below 150%
 min_revenue_growth_yoy: 0.0  # Growth: Revenue YoY growth must be positive
 
 # Daily trailing-stop exit (peak since purchase); does not change monthly rebalance
-trailing_stop_pct: 0.10    # Sell if close falls 10% below highest_price
+trailing_stop_pct: 0.20    # Sell if close falls 20% below highest_price
 
 # Volatility expansion is scored in rank_universe as (close-open)/ATR20
 # (vol_breakout_atr_mult kept unused; was the old hard filter threshold)
