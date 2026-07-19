@@ -120,7 +120,8 @@ class StandaloneEngine:
         universe_path = Path(paths.get("metadata", "data/metadata")) / "universe.pkl"
         panels_path = Path(paths.get("prices", "data/prices")) / "panels.pkl"
         funds_path = Path(paths.get("fundamentals", "data/fundamentals")) / "pit_history.pkl"
-        for required in (universe_path, panels_path, funds_path):
+        # CMVS v3 needs universe + prices only; fundamentals are optional.
+        for required in (universe_path, panels_path):
             if not required.exists():
                 raise FileNotFoundError(
                     f"Missing {required}. Run: python -m downloader.update_data --config {config_path}"
@@ -130,8 +131,13 @@ class StandaloneEngine:
             universe = pickle.load(f)
         with open(panels_path, "rb") as f:
             panels = pickle.load(f)
-        with open(funds_path, "rb") as f:
-            self.fundamental_history = pickle.load(f)
+        if funds_path.exists():
+            with open(funds_path, "rb") as f:
+                self.fundamental_history = pickle.load(f) or {}
+            print(f"    fundamentals loaded: {len(self.fundamental_history)} symbols (optional)")
+        else:
+            self.fundamental_history = {}
+            print("    fundamentals skipped (no pit_history.pkl) — OK for CMVS v3")
 
         self.all_tickers = universe["all_tickers"]
         self.tickers = universe["tickers"]

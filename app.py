@@ -110,11 +110,13 @@ def apply_ui_config(
     api_key: str,
     download_workers: int = 8,
     atr_multiplier: float = 2.0,
+    download_fundamentals: bool = False,
 ) -> None:
     cfg = load_yaml(CONFIG_PATH)
     cfg["universe_sample_size"] = sample_size
     cfg["request_interval_sec"] = float(request_interval)
     cfg["download_workers"] = int(download_workers)
+    cfg["download_fundamentals"] = bool(download_fundamentals)
     # CMVS v3 exit parameter (old trailing_stop_pct UI removed — unused by engine)
     cfg["atr_multiplier"] = float(atr_multiplier)
     # cfg["trailing_stop_pct"] = ...  # legacy % trail; replaced by CMVS exits
@@ -158,6 +160,11 @@ with st.sidebar:
         help="CMVS exit: sell if close < peak_close − multiplier × ATR(14)",
     )
     max_portfolio = st.number_input("Max portfolio size", min_value=10, max_value=100, value=50, step=5)
+    download_fundamentals = st.checkbox(
+        "Also download fundamentals (optional)",
+        value=False,
+        help="Not required for CMVS v3 (price/volume only). Enable only for legacy fundamental screens.",
+    )
     clear_cache = st.checkbox("Clear HTTP cache before download", value=False)
     st.divider()
     st.markdown(
@@ -171,7 +178,10 @@ status = data_status()
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("Tickers (sample)", status["universe_tickers"] if status["universe_tickers"] is not None else "—")
 c2.metric("All tickers pulled", status["all_tickers"] if status["all_tickers"] is not None else "—")
-c3.metric("Fundamentals", status["fundamentals"] if status["fundamentals"] is not None else "—")
+c3.metric(
+    "Fundamentals (optional)",
+    status["fundamentals"] if status["fundamentals"] is not None else "skip",
+)
 c4.metric("Price panel", str(status["prices_shape"]) if status["prices_shape"] else "—")
 if status["price_range"]:
     st.write(f"Price history: `{status['price_range']}`")
@@ -180,10 +190,8 @@ tab_dl, tab_bt, tab_help = st.tabs(["1) Download data", "2) Run backtest", "Help
 
 with tab_dl:
     st.subheader("Download from Massive.com")
-    st.write(
-        "Runs universe → prices → fundamentals. "
-        f"Mode: **{sample_mode}**."
-    )
+    fund_note = "universe → prices" + (" → fundamentals" if download_fundamentals else " (fundamentals skipped)")
+    st.write(f"Runs {fund_note}. Mode: **{sample_mode}**.")
     if not api_key:
         st.warning("Enter a Massive API key in the sidebar (or configure secrets).")
 
@@ -195,6 +203,7 @@ with tab_dl:
             api_key,
             download_workers,
             atr_multiplier,
+            download_fundamentals,
         )
         env = dict(os.environ)
         env["MASSIVE_API_KEY"] = api_key
@@ -212,8 +221,9 @@ with tab_dl:
         steps = [
             ("Universe", "downloader.download_universe"),
             ("Prices", "downloader.download_prices"),
-            ("Fundamentals", "downloader.download_fundamentals"),
         ]
+        if download_fundamentals:
+            steps.append(("Fundamentals", "downloader.download_fundamentals"))
         failed = False
         for title, module in steps:
             st.write(f"### {title}")
@@ -233,11 +243,14 @@ with tab_dl:
 
 with tab_bt:
     st.subheader("Run backtest")
-    ready = UNI_PATH.exists() and PX_PATH.exists() and FUND_PATH.exists()
+    # CMVS needs universe + prices only
+    ready = UNI_PATH.exists() and PX_PATH.exists()
     if not ready:
-        st.warning("Missing local data. Run Download first.")
+        st.warning("Missing universe/prices data. Run Download first.")
     else:
         st.write("Uses `data/` artifacts already on disk — no re-download needed.")
+        if not FUND_PATH.exists():
+            st.caption("Fundamentals not present (optional for CMVS v3).")
 
     if st.button("Run backtest", type="primary", disabled=not ready):
         apply_ui_config(
@@ -247,6 +260,7 @@ with tab_bt:
             api_key or "unused",
             download_workers,
             atr_multiplier,
+            download_fundamentals,
         )
         env = dict(os.environ)
         if api_key:
@@ -310,6 +324,7 @@ MASSIVE_API_KEY = "your_key"
 
 ### Notes
 - Free Streamlit Cloud often **times out** on long Massive downloads. Use **500 sample** locally, or download on a VPS/Colab then upload `data/` into the app environment.
+- CMVS v3 needs **universe + prices** only. Fundamentals download is optional / off by default.
 - Backtest-only is fast once `data/` exists.
 """
     )

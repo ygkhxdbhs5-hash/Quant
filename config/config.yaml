@@ -15,11 +15,13 @@ universe_sample_size: 500
 universe_sample_seed: 42
 benchmark: QQQ
 
-# Parallel downloaders (profiles / prices / fundamentals). Shared rate limiter.
+# Parallel downloaders (profiles / prices / optional fundamentals). Shared rate limiter.
 # Raise workers or lower interval for more speed; back off if you see many 429s.
 download_workers: 8
 request_interval_sec: 0.08
 max_retries: 3
+# CMVS v3 does not use PIT fundamentals — leave false unless you need legacy screens.
+download_fundamentals: false
 # Max quarterly statements to pull per ticker from Massive financials
 statement_limit: 100
 

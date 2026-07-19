@@ -74,7 +74,8 @@ def main() -> None:
 
     run("downloader.download_universe")
     run("downloader.download_prices")
-    run("downloader.download_fundamentals")
+    # Fundamentals optional for CMVS v3 — enable with: run("downloader.download_fundamentals")
+    # run("downloader.download_fundamentals")
 
     import pickle
 
