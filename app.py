@@ -10,6 +10,7 @@ Streamlit Community Cloud:
 
 from __future__ import annotations
 
+import json
 import os
 import pickle
 import subprocess
@@ -30,6 +31,8 @@ EQUITY_CSV = ROOT / "cache" / "equity_curve.csv"
 EQUITY_PNG = ROOT / "cache" / "equity_curve_v5.png"
 RESEARCH_REPORT = ROOT / "cache" / "research_report.txt"
 TRADE_JOURNAL = ROOT / "cache" / "trade_journal.csv"
+RANK_DIAG_JSON = ROOT / "cache" / "rank_diagnostics.json"
+RANK_DIAG_TXT = ROOT / "cache" / "rank_diagnostics_report.txt"
 
 
 st.set_page_config(page_title="Quant Backtest", page_icon="📈", layout="wide")
@@ -305,9 +308,52 @@ with tab_bt:
         if EQUITY_PNG.exists():
             st.image(str(EQUITY_PNG))
 
+    # Rank diagnostics (observation-only; written at end of StandaloneEngine.run)
+    rank_diag = None
+    if RANK_DIAG_JSON.exists():
+        try:
+            rank_diag = json.loads(RANK_DIAG_JSON.read_text(encoding="utf-8"))
+        except Exception:
+            rank_diag = None
+    if rank_diag is not None or RANK_DIAG_TXT.exists():
+        st.subheader("Rank diagnostics")
+        st.caption("Observation only — does not change trading behavior.")
+        if rank_diag is not None:
+            c1, c2 = st.columns(2)
+            c1.metric(
+                "rank_exit_candidates",
+                f"{int(rank_diag.get('rank_exit_candidates', 0))}",
+            )
+            c2.metric(
+                "ema_preempted_rank_exit",
+                f"{int(rank_diag.get('ema_preempted_rank_exit', 0))}",
+            )
+            dist = rank_diag.get("holding_rank_distribution") or {}
+            st.markdown("**holding_rank_distribution**")
+            if not dist or dist.get("n", 0) == 0:
+                st.info("No holding-rank observations recorded.")
+            else:
+                d1, d2, d3, d4, d5, d6 = st.columns(6)
+                d1.metric("min", f"{float(dist['min']):.2f}")
+                d2.metric("median", f"{float(dist['median']):.2f}")
+                d3.metric("p75", f"{float(dist['p75']):.2f}")
+                d4.metric("p90", f"{float(dist['p90']):.2f}")
+                d5.metric("p95", f"{float(dist['p95']):.2f}")
+                d6.metric("max", f"{float(dist['max']):.2f}")
+                st.caption(f"n holding-day rank observations: {int(dist.get('n', 0))}")
+        if RANK_DIAG_TXT.exists():
+            st.code(RANK_DIAG_TXT.read_text(encoding="utf-8"), language="text")
+            st.download_button(
+                "Download rank_diagnostics_report.txt",
+                data=RANK_DIAG_TXT.read_bytes(),
+                file_name="rank_diagnostics_report.txt",
+                mime="text/plain",
+            )
+
     if RESEARCH_REPORT.exists():
         st.subheader("Research report")
-        st.code(RESEARCH_REPORT.read_text(encoding="utf-8")[:12000], language="text")
+        # Full report (rank diagnostics also appear at the end when present)
+        st.code(RESEARCH_REPORT.read_text(encoding="utf-8"), language="text")
         st.download_button(
             "Download research_report.txt",
             data=RESEARCH_REPORT.read_bytes(),
@@ -345,5 +391,6 @@ MASSIVE_API_KEY = "your_key"
 - Free Streamlit Cloud often **times out** on long Massive downloads. Use **500 sample** locally, or download on a VPS/Colab then upload `data/` into the app environment.
 - CMVS v3 needs **universe + prices** only. Fundamentals download is optional / off by default.
 - Backtest-only is fast once `data/` exists.
+- After a backtest, **Rank diagnostics** shows `rank_exit_candidates`, `ema_preempted_rank_exit`, and `holding_rank_distribution` from `cache/rank_diagnostics.json` (observation only).
 """
     )
