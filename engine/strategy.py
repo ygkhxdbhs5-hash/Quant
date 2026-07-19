@@ -152,35 +152,87 @@ class StandaloneEngine:
         self.pending_orders = []
         self.equity_curve = []
         self._prior_invested_for_log = set()
-        # Trailing stop: peak price since purchase; exit if close falls 20% below peak
+        # Peak close since entry (used by CMVS dynamic ATR trailing stop)
         self.highest_prices = {}
-        self.TRAILING_STOP_PCT = float(cfg.get("trailing_stop_pct", 0.20))
+        self._cmvs_forced_exits = set()
+        # Prior % trailing stop (replaced by CMVS exits; kept for revert):
+        # self.TRAILING_STOP_PCT = float(cfg.get("trailing_stop_pct", 0.20))
+
+        # CMVS v3 component weights (optimizable)
+        self.w1 = float(cfg.get("cmvs_w1", 0.2))  # BBS
+        self.w2 = float(cfg.get("cmvs_w2", 0.2))  # VZS
+        self.w3 = float(cfg.get("cmvs_w3", 0.2))  # CPS
+        self.w4 = float(cfg.get("cmvs_w4", 0.2))  # RSIS
+        self.w5 = float(cfg.get("cmvs_w5", 0.2))  # RSS
+        self.atr_multiplier = float(cfg.get("atr_multiplier", 2.0))
 
     # -------------------------------------------------------------
     def _precompute_matrices(self):
-        print(">> 벡터화 매트릭스(ATR/모멘텀/변동성/스프레드) 사전 계산...")
+        print(">> 벡터화 매트릭스(ATR/모멘텀/변동성/스프레드/CMVS) 사전 계산...")
         close_m, high_m, low_m = self.close_m, self.high_m, self.low_m
+        volume_m = self.dvol_m  # dollar-volume panel used as volume proxy
 
-        self.adv20_m = self.dvol_m.rolling(20, min_periods=5).mean()
+        self.adv20_m = volume_m.rolling(20, min_periods=5).mean()
         ret_m = close_m.pct_change()
         self.vol20_m = ret_m.rolling(20, min_periods=10).std()
         self.vol60_m = ret_m.rolling(self.LOWVOL_WINDOW, min_periods=20).std()
         self.sma50_m = close_m.rolling(50, min_periods=50).mean()
         self.sma200_m = close_m.rolling(200, min_periods=200).mean()
 
-        # 20-day ATR for volatility-adjusted position sizing (allocate_weights)
+        # ATR (Wilder-style) for exits (14) and optional sizing (20)
         prev_close = close_m.shift(1)
         tr = (high_m - low_m).combine((high_m - prev_close).abs(), np.maximum).combine(
             (low_m - prev_close).abs(), np.maximum
         )
         self.atr20_m = tr.rolling(20, min_periods=10).mean()
+        self.atr14_m = tr.ewm(alpha=1.0 / 14.0, min_periods=14, adjust=False).mean()
 
         # [버그 수정 계승] 12-1 모멘텀: t-252~t-21 구간의 누적수익률
         self.mom_12_1_m = close_m.shift(21) / close_m.shift(self.MOM_WINDOW) - 1
 
-        # Swing / short-term technicals (price + dollar-volume only)
-        self.short_term_mom_m = close_m / close_m.shift(20) - 1  # 20-day return
-        self.rel_vol_m = self.dvol_m / self.adv20_m.replace(0, np.nan)  # vol / 20d ADV
+        # --- Prior swing technicals (replaced by CMVS; kept for revert) ---
+        # self.short_term_mom_m = close_m / close_m.shift(20) - 1
+        # self.rel_vol_m = self.dvol_m / self.adv20_m.replace(0, np.nan)
+
+        # --- CMVS v3 matrices ---
+        # Bollinger (20, 2σ)
+        bb_middle = close_m.rolling(20, min_periods=20).mean()
+        bb_std = close_m.rolling(20, min_periods=20).std()
+        bb_upper = bb_middle + 2.0 * bb_std
+        bb_lower = bb_middle - 2.0 * bb_std
+        bb_range = (bb_upper - bb_lower).replace(0, np.nan)
+        percent_b = (close_m - bb_lower) / bb_range
+        bbw = bb_range / bb_middle.replace(0, np.nan)
+        bbw_ma20 = bbw.rolling(20, min_periods=20).mean().replace(0, np.nan)
+        bbw_expansion = bbw / bbw_ma20
+        bbs_raw = percent_b * np.log1p(bbw_expansion.clip(lower=0.0))
+        self.bbs_m = bbs_raw.clip(lower=0.0, upper=1.0)
+
+        # Volume Z-Score (normalized)
+        vol_mean20 = volume_m.rolling(20, min_periods=20).mean()
+        vol_std20 = volume_m.rolling(20, min_periods=20).std().replace(0, np.nan)
+        vol_z = (volume_m - vol_mean20) / vol_std20
+        self.vzs_m = (vol_z / 3.0).clip(lower=0.0, upper=1.0)
+
+        # Close Position Score
+        self.daily_cp_m = (close_m - low_m) / (high_m - low_m + 1e-8)
+        self.cps_m = self.daily_cp_m.rolling(3, min_periods=1).mean().clip(lower=0.0, upper=1.0)
+
+        # RSI(14) + RSIS
+        delta = close_m.diff()
+        gain = delta.clip(lower=0.0)
+        loss = (-delta).clip(lower=0.0)
+        avg_gain = gain.ewm(alpha=1.0 / 14.0, min_periods=14, adjust=False).mean()
+        avg_loss = loss.ewm(alpha=1.0 / 14.0, min_periods=14, adjust=False).mean()
+        rs = avg_gain / avg_loss.replace(0, np.nan)
+        self.rsi14_m = 100.0 - (100.0 / (1.0 + rs))
+        self.rsis_m = ((self.rsi14_m - 50.0) / 30.0).clip(lower=0.0, upper=1.0)
+
+        # EMA(9) for trend-breakdown exits
+        self.ema9_m = close_m.ewm(span=9, adjust=False).mean()
+
+        # 20-day returns for RSS (relative strength vs benchmark)
+        self.ret20_m = close_m / close_m.shift(20) - 1.0
 
         hl = np.log(high_m / low_m) ** 2
         hl2_high = high_m.rolling(2, min_periods=2).max()
@@ -366,201 +418,100 @@ class StandaloneEngine:
         return RegimeState(exposure=exposure, breadth=breadth, benchmark_above_ma200=above_ma)
 
     def build_factors(self, date_idx, active_symbols) -> pd.DataFrame:
-        """Aggressive swing factors from price (close_m) and volume (dvol_m) only."""
+        """CMVS v3 factors: BBS, VZS, CPS, RSIS, RSS (all clipped to [0, 1])."""
         current_date = self.close_m.index[date_idx]
-        rows = []
-        # n_price_only = 0
-        # n_full = 0
+        bm = self.BENCHMARK_TICKER
+        qqq_ret_20 = (
+            self.ret20_m[bm].iloc[date_idx]
+            if bm in self.ret20_m.columns
+            else np.nan
+        )
+
+        # Relative strength vs benchmark, then cross-sectional Z across today's universe
+        rs_map = {}
         for sym in active_symbols:
-            price = self.close_m[sym].iloc[date_idx]
+            price = self.close_m[sym].iloc[date_idx] if sym in self.close_m.columns else np.nan
             if pd.isna(price) or price <= 0:
                 continue
+            stock_ret_20 = (
+                self.ret20_m[sym].iloc[date_idx] if sym in self.ret20_m.columns else np.nan
+            )
+            if pd.isna(stock_ret_20) or pd.isna(qqq_ret_20):
+                continue
+            rs_map[sym] = float(stock_ret_20) - float(qqq_ret_20)
 
-            # --- Price / volume technicals (active) ---
-            short_mom = (
-                self.short_term_mom_m[sym].iloc[date_idx]
-                if sym in self.short_term_mom_m.columns
-                else np.nan
-            )
-            rel_vol = (
-                self.rel_vol_m[sym].iloc[date_idx]
-                if sym in self.rel_vol_m.columns
-                else np.nan
-            )
-            if pd.isna(short_mom) or pd.isna(rel_vol) or float(rel_vol) <= 0:
+        rs_series = pd.Series(rs_map, dtype=float)
+        if len(rs_series) >= 2 and float(rs_series.std(ddof=0) or 0.0) > 0:
+            rs_z = (rs_series - rs_series.mean()) / rs_series.std(ddof=0)
+        else:
+            rs_z = pd.Series(0.0, index=rs_series.index, dtype=float)
+        rss_map = (rs_z / 3.0).clip(lower=0.0, upper=1.0).to_dict()
+
+        rows = []
+        for sym in active_symbols:
+            price = self.close_m[sym].iloc[date_idx] if sym in self.close_m.columns else np.nan
+            if pd.isna(price) or price <= 0:
+                continue
+            if sym not in rss_map:
                 continue
 
-            # vol_raw kept for inverse-vol / risk sizing downstream (not used in final_score)
-            vol60 = self.vol60_m[sym].iloc[date_idx]
-            if pd.isna(vol60) or vol60 <= 0:
+            bbs = self.bbs_m[sym].iloc[date_idx] if sym in self.bbs_m.columns else np.nan
+            vzs = self.vzs_m[sym].iloc[date_idx] if sym in self.vzs_m.columns else np.nan
+            cps = self.cps_m[sym].iloc[date_idx] if sym in self.cps_m.columns else np.nan
+            rsis = self.rsis_m[sym].iloc[date_idx] if sym in self.rsis_m.columns else np.nan
+            rss = rss_map[sym]
+
+            if any(pd.isna(x) for x in (bbs, vzs, cps, rsis, rss)):
                 continue
 
-            # --- Prior long-horizon / vol-expansion factors (commented; kept for revert) ---
-            # mom = self.mom_12_1_m[sym].iloc[date_idx]
-            # if pd.isna(mom) or pd.isna(vol60) or vol60 <= 0:
-            #     continue
-            # # Volatility expansion score for ranking: (close - open) / ATR_20
-            # o_price = self.open_m[sym].iloc[date_idx] if sym in self.open_m.columns else np.nan
-            # atr20 = (
-            #     self.atr20_m[sym].iloc[date_idx]
-            #     if hasattr(self, "atr20_m") and sym in self.atr20_m.columns
-            #     else np.nan
-            # )
-            # if pd.notna(o_price) and pd.notna(atr20) and float(atr20) > 0:
-            #     vol_expansion = (float(price) - float(o_price)) / float(atr20)
-            # else:
-            #     vol_expansion = np.nan
-
-            # --- Fundamental lookups disabled (commented; kept for revert) ---
-            # fundamentals = self.get_latest_available_fundamentals(sym, current_date)
-            # if fundamentals is None:
-            #     rows.append({
-            #         "symbol": sym,
-            #         "mom_raw": mom,
-            #         "vol_raw": vol60,
-            #         "vol_expansion_raw": vol_expansion,
-            #         "rev_growth_raw": np.nan,
-            #         "op_margin_raw": np.nan,
-            #         "roic_raw": np.nan,
-            #         "gross_prof_raw": np.nan,
-            #         "op_cf": np.nan,
-            #         "capex": np.nan,
-            #         "revenue": np.nan,
-            #         "industry": self.profile_meta.get(sym, {}).get("industry", "Unknown"),
-            #         "has_fundamentals": False,
-            #     })
-            #     n_price_only += 1
-            #     continue
-            #
-            # def _fget(key, default=np.nan):
-            #     try:
-            #         val = fundamentals[key]
-            #         return default if pd.isna(val) else val
-            #     except Exception:
-            #         return default
-            #
-            # # Aggressive Growth: YoY revenue growth from PIT (stored or derived)
-            # rev_growth = _fget("revenue_growth_yoy")
-            # if pd.isna(rev_growth):
-            #     rev_growth = self._revenue_growth_yoy(sym, current_date)
-            #
-            # rows.append({
-            #     "symbol": sym,
-            #     "mom_raw": mom,
-            #     "vol_raw": vol60,
-            #     "vol_expansion_raw": vol_expansion,
-            #     "rev_growth_raw": rev_growth,
-            #     "op_margin_raw": _fget("op_margin"),
-            #     "roic_raw": _fget("roic"),
-            #     "gross_prof_raw": _fget("gross_profitability"),
-            #     "op_cf": _fget("op_cf"),
-            #     "capex": _fget("capex"),
-            #     "revenue": _fget("revenue"),
-            #     "industry": self.profile_meta.get(sym, {}).get("industry", "Unknown"),
-            #     "has_fundamentals": True,
-            # })
-            # n_full += 1
+            # vol_raw retained for optional inverse-vol sizing revert path
+            vol60 = self.vol60_m[sym].iloc[date_idx] if sym in self.vol60_m.columns else np.nan
 
             rows.append({
                 "symbol": sym,
-                "short_term_momentum": short_mom,
-                "relative_volume": rel_vol,
-                "vol_raw": vol60,  # sizing only
-                # "mom_raw": mom,
-                # "vol_expansion_raw": vol_expansion,
-                # "rev_growth_raw": np.nan,
-                # "op_margin_raw": np.nan,
-                # "roic_raw": np.nan,
-                # "gross_prof_raw": np.nan,
-                # "op_cf": np.nan,
-                # "capex": np.nan,
-                # "revenue": np.nan,
+                "bbs": float(np.clip(bbs, 0.0, 1.0)),
+                "vzs": float(np.clip(vzs, 0.0, 1.0)),
+                "cps": float(np.clip(cps, 0.0, 1.0)),
+                "rsis": float(np.clip(rsis, 0.0, 1.0)),
+                "rss": float(np.clip(rss, 0.0, 1.0)),
+                "vol_raw": vol60,
                 "industry": self.profile_meta.get(sym, {}).get("industry", "Unknown"),
-                "has_fundamentals": False,
             })
 
         df = pd.DataFrame(rows)
         if df.empty:
             return df
-        # Require swing technicals only (no ROIC / GP / margin / debt / revenue).
-        df = df.dropna(subset=["short_term_momentum", "relative_volume", "vol_raw"])
-        # Prior: df = df.dropna(subset=["mom_raw", "vol_raw"])
+        df = df.dropna(subset=["bbs", "vzs", "cps", "rsis", "rss"])
         print(
-            f"    [FACTORS] {current_date.date()} swing_tech={len(df)} "
-            f"(price+volume only; fundamentals ignored)"
+            f"    [FACTORS] {current_date.date()} cmvs_v3={len(df)} "
+            f"(BBS/VZS/CPS/RSIS/RSS; fundamentals ignored)"
         )
-        # if n_price_only > 0:
-        #     print(
-        #         f"    [FACTORS] {current_date.date()} full={n_full} "
-        #         f"price_volume_fallback={n_price_only}"
-        #     )
         return df
 
     def rank_universe(self, df: pd.DataFrame) -> pd.DataFrame:
+        """CMVS v3 composite score; Top-N selection uses final_score ordering."""
         if df.empty:
             return df
         df = df.copy()
-        industry_counts = df.groupby("industry")["symbol"].transform("count")
-        df["_group_key"] = np.where(industry_counts >= self.MIN_INDUSTRY_SIZE, df["industry"], "__GLOBAL_FALLBACK__")
-
-        def _rank(col):
-            return df.groupby("_group_key")[col].rank(pct=True)
-
-        # --- Aggressive swing score: short-term momentum + relative volume ---
-        df["rank_short_term_momentum"] = _rank("short_term_momentum")
-        df["rank_relative_volume"] = _rank("relative_volume")
         df["final_score"] = (
-            (df["rank_short_term_momentum"] * 0.7) + (df["rank_relative_volume"] * 0.3)
+            (self.w1 * df["bbs"])
+            + (self.w2 * df["vzs"])
+            + (self.w3 * df["cps"])
+            + (self.w4 * df["rsis"])
+            + (self.w5 * df["rss"])
         )
-        df["factor_mode"] = "swing_price_volume"
-        # --- Prior ranking / scores (commented; kept for revert) ---
-        # df["rank_mom"] = _rank("mom_raw")
-        # df["neg_vol"] = -df["vol_raw"]
-        # df["rank_lowvol"] = _rank("neg_vol")
-        #
-        # # Volatility expansion: (close - open) / ATR_20 (computed in build_factors)
-        # if "vol_expansion_raw" not in df.columns:
-        #     df["vol_expansion_raw"] = np.nan
-        # df["rank_vol_expansion"] = _rank("vol_expansion_raw")
-        #
-        # # Aggressive Growth: YoY revenue growth from PIT fundamentals
-        # if "rev_growth_raw" not in df.columns:
-        #     df["rev_growth_raw"] = np.nan
-        # df["rank_rev_growth"] = _rank("rev_growth_raw")
-        #
-        # has_quality = (
-        #     df["roic_raw"].notna() & df["gross_prof_raw"].notna() & df["op_margin_raw"].notna()
+        df["factor_mode"] = "cmvs_v3"
+        # --- Prior swing / fundamental scores (commented; kept for revert) ---
+        # industry_counts = df.groupby("industry")["symbol"].transform("count")
+        # df["_group_key"] = np.where(
+        #     industry_counts >= self.MIN_INDUSTRY_SIZE, df["industry"], "__GLOBAL_FALLBACK__"
         # )
-        # has_rev_growth = df["rev_growth_raw"].notna()
-        # # Quality ranks: NaN inputs stay NaN (pandas rank skips them within group).
-        # df["rank_roic"] = _rank("roic_raw")
-        # df["rank_gp"] = _rank("gross_prof_raw")
-        # df["rank_op"] = _rank("op_margin_raw")
-        # df["rank_quality"] = (df["rank_roic"] * 0.50) + (df["rank_gp"] * 0.30) + (df["rank_op"] * 0.20)
-        #
-        # # Aggressive growth-tilted score (high momentum + high revenue growth).
-        # # full_score = (df["rank_mom"] * 0.45) + (df["rank_quality"] * 0.45) + (df["rank_lowvol"] * 0.10)
-        # # full_score = (df["rank_mom"] * 0.40) + (df["rank_quality"] * 0.40) + (df["rank_vol_expansion"] * 0.20)
-        # # fallback_score = (df["rank_mom"] * 0.80) + (df["rank_lowvol"] * 0.20)
-        # # Prior: mom 0.60 + rev_growth 0.30 + quality 0.10
-        # full_score = (
-        #     (df["rank_mom"] * 0.65) + (df["rank_rev_growth"] * 0.32) + (df["rank_quality"] * 0.03)
-        # )
-        # growth_score = (df["rank_mom"] * 0.70) + (df["rank_rev_growth"] * 0.30)
-        # fallback_score = (df["rank_mom"] * 0.80) + (df["rank_vol_expansion"] * 0.20)
-        # fallback_score = fallback_score.fillna(
-        #     (df["rank_mom"] * 0.80) + (df["rank_lowvol"] * 0.20)
-        # )
-        #
-        # df["final_score"] = np.where(
-        #     has_quality & has_rev_growth,
-        #     full_score,
-        #     np.where(has_rev_growth, growth_score, fallback_score),
-        # )
-        # df["factor_mode"] = np.where(
-        #     has_quality & has_rev_growth,
-        #     "full",
-        #     np.where(has_rev_growth, "mom_growth", "price_volume_fallback"),
+        # def _rank(col):
+        #     return df.groupby("_group_key")[col].rank(pct=True)
+        # df["rank_short_term_momentum"] = _rank("short_term_momentum")
+        # df["rank_relative_volume"] = _rank("relative_volume")
+        # df["final_score"] = (
+        #     (df["rank_short_term_momentum"] * 0.7) + (df["rank_relative_volume"] * 0.3)
         # )
         return df.sort_values("final_score", ascending=False).reset_index(drop=True)
 
@@ -778,7 +729,7 @@ class StandaloneEngine:
                     was_held = self.portfolio.get(sym, 0) > 0
                     self.portfolio[sym] = self.portfolio.get(sym, 0) + exec_qty
                     self.cash -= total_cost
-                    # Re-purchase (new position): reset trailing-stop peak to entry price
+                    # New position: seed peak with entry open (updated to closes in exit check)
                     if not was_held:
                         self.highest_prices[sym] = float(o_price)
             else:
@@ -795,37 +746,83 @@ class StandaloneEngine:
                         self.highest_prices.pop(sym, None)
         self.pending_orders = []
 
-    def check_trailing_stops(self, date_idx):
-        """Daily trailing-stop exit: sell if close is 20% below peak since purchase."""
+    def check_cmvs_exits(self, date_idx):
+        """CMVS v3 daily exits: ATR trail, EMA9 breakdown, or RSI exhaustion.
+
+        Queues SELL orders (filled next open via ``execute_pending_orders`` / ``_cost_ratio``).
+        """
         current_date = self.close_m.index[date_idx]
         current_closes = self.close_m.loc[current_date]
-        current_highs = self.high_m.loc[current_date]
+        pending_sell_syms = {
+            o["symbol"] for o in self.pending_orders if o.get("type") == "SELL"
+        }
 
         for sym in list(self.portfolio.keys()):
+            if sym in pending_sell_syms:
+                continue
             price = current_closes.get(sym, np.nan)
             if pd.isna(price) or price <= 0:
                 continue
+            close_px = float(price)
 
-            high = current_highs.get(sym, np.nan)
-            peak_candidate = float(high) if pd.notna(high) and high > 0 else float(price)
+            # Track highest close since entry
             if sym not in self.highest_prices:
-                self.highest_prices[sym] = peak_candidate
+                self.highest_prices[sym] = close_px
             else:
-                self.highest_prices[sym] = max(self.highest_prices[sym], peak_candidate)
+                self.highest_prices[sym] = max(float(self.highest_prices[sym]), close_px)
+            peak = float(self.highest_prices[sym])
 
-            peak = self.highest_prices[sym]
-            stop_level = peak * (1.0 - self.TRAILING_STOP_PCT)
-            if float(price) <= stop_level:
-                qty = self.portfolio[sym]
-                # Immediate SELL at close; remove from portfolio (additional daily exit only)
-                self.cash += qty * float(price)
-                del self.portfolio[sym]
-                self.highest_prices.pop(sym, None)
-                self.previous_target_symbols.discard(sym)
-                print(
-                    f"    🛑 [TRAILING STOP] {sym} close={float(price):.2f} "
-                    f"peak={peak:.2f} stop={stop_level:.2f} (−{self.TRAILING_STOP_PCT:.0%})"
-                )
+            atr14 = (
+                self.atr14_m[sym].iloc[date_idx]
+                if sym in self.atr14_m.columns
+                else np.nan
+            )
+            ema9 = (
+                self.ema9_m[sym].iloc[date_idx]
+                if sym in self.ema9_m.columns
+                else np.nan
+            )
+            rsi14 = (
+                self.rsi14_m[sym].iloc[date_idx]
+                if sym in self.rsi14_m.columns
+                else np.nan
+            )
+            daily_cp = (
+                self.daily_cp_m[sym].iloc[date_idx]
+                if sym in self.daily_cp_m.columns
+                else np.nan
+            )
+
+            reasons = []
+            # 1) Dynamic trailing stop: close < peak_close - atr_multiplier * atr_14
+            if pd.notna(atr14) and atr14 > 0:
+                stop_level = peak - (self.atr_multiplier * float(atr14))
+                if close_px < stop_level:
+                    reasons.append(f"atr_trail(stop={stop_level:.2f})")
+            # 2) Trend breakdown: close < ema_9
+            if pd.notna(ema9) and close_px < float(ema9):
+                reasons.append("ema9_break")
+            # 3) Exhaustion: rsi_14 > 80 AND daily_cp < 0.3
+            if pd.notna(rsi14) and pd.notna(daily_cp) and float(rsi14) > 80.0 and float(daily_cp) < 0.3:
+                reasons.append(f"exhaustion(rsi={float(rsi14):.1f},cp={float(daily_cp):.2f})")
+
+            if not reasons:
+                continue
+
+            qty = int(self.portfolio[sym])
+            if qty <= 0:
+                continue
+            self.pending_orders.append({"symbol": sym, "qty": qty, "type": "SELL"})
+            self.previous_target_symbols.discard(sym)
+            self._cmvs_forced_exits.add(sym)
+            print(
+                f"    🛑 [CMVS EXIT] {sym} close={close_px:.2f} peak={peak:.2f} "
+                f"reasons={','.join(reasons)} -> SELL queued"
+            )
+
+        # --- Prior hardcoded % trailing stop (commented; kept for revert) ---
+        # def check_trailing_stops(self, date_idx):
+        #     ... sell if close <= peak * (1 - TRAILING_STOP_PCT) ...
 
     def handle_official_delisting(self, date_idx):
         """공식 상장폐지일 도래 시 즉시(당일 종가) 강제 청산 - LEAN의 Delisting.Warning 대응."""
@@ -882,8 +879,10 @@ class StandaloneEngine:
             self.handle_official_delisting(idx)
             self.handle_silent_delisting(idx)
             self.execute_pending_orders(idx)
-            # Additional daily exit: trailing stop (does not alter monthly rebalance / bear regime)
-            self.check_trailing_stops(idx)
+            # CMVS v3 daily exits (ATR trail / EMA9 / RSI exhaustion) -> SELL orders
+            self._cmvs_forced_exits = set()
+            self.check_cmvs_exits(idx)
+            # Prior: self.check_trailing_stops(idx)
 
             current_closes = self.close_m.loc[current_date]
             portfolio_value = sum(
@@ -938,8 +937,14 @@ class StandaloneEngine:
                     continue
 
                 ctx.ranked_df = self.rank_universe(ctx.factor_df)
+                # Top-N by CMVS final_score (construct_portfolio still applies buffer/corr caps)
                 ctx.targets_df = self.construct_portfolio(ctx.ranked_df, idx, ctx)
-                # Volatility-adjusted sizing: inverse 20-day ATR (selection/cadence unchanged)
+                # Do not re-buy names that triggered a CMVS exit today
+                if getattr(self, "_cmvs_forced_exits", None) and not ctx.targets_df.empty:
+                    ctx.targets_df = ctx.targets_df[
+                        ~ctx.targets_df["symbol"].isin(self._cmvs_forced_exits)
+                    ].copy()
+                # Portfolio sizing infrastructure preserved (equal-weight / optional ATR)
                 ctx.targets_df = self.allocate_weights(ctx.targets_df, idx, ctx.regime.exposure)
                 final_targets = self.construct_final_targets_with_industry_cap(ctx.targets_df, ctx.regime.exposure, ctx)
 
