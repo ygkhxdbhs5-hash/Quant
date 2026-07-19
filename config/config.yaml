@@ -54,8 +54,9 @@ min_fcf_sales_yield: -0.05   # was 0.0 — allow mildly negative FCF/Sales
 max_debt_to_equity: 3.0      # was 1.50 — D/E must be below 300% when available
 min_revenue_growth_yoy: -0.15  # was 0.0 — allow up to -15% YoY revenue change
 
-# Daily trailing-stop exit (peak since purchase); does not change monthly rebalance
-trailing_stop_pct: 0.20    # Sell if close falls 20% below highest_price
+# Legacy % trailing stop (unused by CMVS v3; exits use atr_multiplier / EMA9 / RSI)
+# trailing_stop_pct: 0.20
+atr_multiplier: 2.0        # CMVS: sell if close < peak_close - atr_multiplier * ATR(14)
 
 # Volatility expansion is scored in rank_universe as (close-open)/ATR20
 # (vol_breakout_atr_mult kept unused; was the old hard filter threshold)

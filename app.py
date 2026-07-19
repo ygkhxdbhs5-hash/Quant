@@ -106,16 +106,18 @@ def stream_command(cmd: list[str], env: dict, log_box) -> int:
 def apply_ui_config(
     sample_size: int | None,
     request_interval: float,
-    trailing_stop: float,
     max_portfolio: int,
     api_key: str,
     download_workers: int = 8,
+    atr_multiplier: float = 2.0,
 ) -> None:
     cfg = load_yaml(CONFIG_PATH)
     cfg["universe_sample_size"] = sample_size
     cfg["request_interval_sec"] = float(request_interval)
     cfg["download_workers"] = int(download_workers)
-    cfg["trailing_stop_pct"] = float(trailing_stop)
+    # CMVS v3 exit parameter (old trailing_stop_pct UI removed — unused by engine)
+    cfg["atr_multiplier"] = float(atr_multiplier)
+    # cfg["trailing_stop_pct"] = ...  # legacy % trail; replaced by CMVS exits
     cfg["max_portfolio_size"] = int(max_portfolio)
     cfg["selection_buffer_size"] = max(int(max_portfolio) + 20, int(cfg.get("selection_buffer_size", 70)))
     if api_key and api_key != "unused":
@@ -146,7 +148,15 @@ with st.sidebar:
     sample_size = sample_map[sample_mode]
     download_workers = st.slider("Download workers", 1, 16, 8, 1)
     request_interval = st.slider("API interval (sec)", 0.05, 0.50, 0.08, 0.01)
-    trailing_stop = st.slider("Trailing stop", 0.05, 0.40, 0.20, 0.01)
+    # Old % trailing-stop slider removed — CMVS uses ATR trail / EMA9 / RSI exits
+    atr_multiplier = st.slider(
+        "ATR trail multiplier",
+        1.0,
+        4.0,
+        2.0,
+        0.1,
+        help="CMVS exit: sell if close < peak_close − multiplier × ATR(14)",
+    )
     max_portfolio = st.number_input("Max portfolio size", min_value=10, max_value=100, value=50, step=5)
     clear_cache = st.checkbox("Clear HTTP cache before download", value=False)
     st.divider()
@@ -179,7 +189,12 @@ with tab_dl:
 
     if st.button("Start download", type="primary", disabled=not bool(api_key)):
         apply_ui_config(
-            sample_size, request_interval, trailing_stop, max_portfolio, api_key, download_workers
+            sample_size,
+            request_interval,
+            max_portfolio,
+            api_key,
+            download_workers,
+            atr_multiplier,
         )
         env = dict(os.environ)
         env["MASSIVE_API_KEY"] = api_key
@@ -228,10 +243,10 @@ with tab_bt:
         apply_ui_config(
             sample_size,
             request_interval,
-            trailing_stop,
             max_portfolio,
             api_key or "unused",
             download_workers,
+            atr_multiplier,
         )
         env = dict(os.environ)
         if api_key:
