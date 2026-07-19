@@ -1,0 +1,14 @@
+{
+  "architecture_audit": true,
+  "baseline_verification": true,
+  "exp1_report": true,
+  "delta_report": true,
+  "research_recommendation": true,
+  "decision": true,
+  "exit_rank_validation": true,
+  "abort_reasons": [],
+  "decision_value": "REPEAT",
+  "only_exit_rank_changed": true,
+  "benchmark_note": "Configured benchmark QQQ missing from local panel; both arms use SPY so ONLY EXIT_RANK differs between arms.",
+  "complete": true
+}

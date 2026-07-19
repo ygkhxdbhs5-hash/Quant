@@ -1,0 +1,5 @@
+{
+  "journal_hooks": "post-fill observation in execute_pending_orders / delist handlers",
+  "order_generation_depends_on_journal": false,
+  "shadow_horizon_days": 20
+}

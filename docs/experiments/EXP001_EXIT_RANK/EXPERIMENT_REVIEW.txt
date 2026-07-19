@@ -1,0 +1,42 @@
+================================================================
+ EXPERIMENT REVIEW TEMPLATE
+================================================================
+Hypothesis:
+  Widening EXIT_RANK from 70 to 80 (ENTRY_RANK fixed) changes turnover / holding / exit-efficiency metrics.
+
+Changed Variables:
+  {'EXIT_RANK': '70 → 80'}
+
+Baseline:
+  - ENTRY_RANK: 50
+  - EXIT_RANK: 70
+  - n_closed_trades: 733
+  - cagr: -0.03404721323709459
+  - avg_missed_upside: 0.0678120660479028
+  - avg_saved_drawdown: 0.048854318105744636
+
+Experiment:
+  - ENTRY_RANK: 50
+  - EXIT_RANK: 80
+  - n_closed_trades: 733
+  - cagr: -0.03404721323709459
+  - avg_missed_upside: 0.0678120660479028
+  - avg_saved_drawdown: 0.048854318105744636
+
+Δ(Delta):
+  - n_closed_trades: baseline=733 exp=733 Δ=0.0
+  - turnover_trades_per_year: baseline=97.53306010928962 exp=97.53306010928962 Δ=0.0
+  - avg_holding_period_days: baseline=7.68212824010914 exp=7.68212824010914 Δ=0.0
+  - cagr: baseline=-0.03404721323709459 exp=-0.03404721323709459 Δ=0.0
+  - mdd: baseline=-0.31482263067041805 exp=-0.31482263067041805 Δ=0.0
+  - total_return: baseline=-0.2292073532865645 exp=-0.2292073532865645 Δ=0.0
+  - avg_missed_upside: baseline=0.0678120660479028 exp=0.0678120660479028 Δ=0.0
+  - avg_saved_drawdown: baseline=0.048854318105744636 exp=0.048854318105744636 Δ=0.0
+  - efficiency_ratio: baseline=4.790720978831097 exp=4.790720978831097 Δ=0.0
+
+새롭게 얻은 Fact:
+  On this fingerprint (git=b35fc25a30, universe_tickers=12, benchmark=SPY), changing EXIT_RANK 70→80 with ENTRY_RANK fixed at 50 produced Δn_closed_trades=0.0, Δturnover/yr=0.0, Δavg_hold_days=0.0, Δavg_missed_upside=0.0, Δavg_saved_drawdown=0.0.
+
+Decision (PASS / REPEAT / REJECT):
+  REPEAT
+================================================================

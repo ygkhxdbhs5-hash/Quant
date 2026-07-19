@@ -1,0 +1,130 @@
+================================================================
+ HIERARCHICAL KPI SUMMARY
+================================================================
+1) Research Metrics
+   - n_closed_trades: 733
+   - avg_holding_period_days: 7.6821
+   - avg_missed_upside: 0.0678 (6.78%)
+   - avg_saved_drawdown: 0.0489 (4.89%)
+   - efficiency_ratio: 4.7907
+   - turnover_trades_per_year: 97.5331
+2) Risk Metrics
+   - cagr: -0.0340 (-3.40%)
+   - mdd: -0.3148 (-31.48%)
+   - sharpe: -0.4197 (-41.97%)
+   - sortino: -0.3446 (-34.46%)
+   - calmar: -0.1081 (-10.81%)
+3) Return Metrics
+   - total_return: -0.2292 (-22.92%)
+   - alpha: -0.1914 (-19.14%)
+   - win_rate: 0.4584 (45.84%)
+   - profit_factor: 1.4072 (140.72%)
+================================================================
+
+================================================================
+ HIERARCHICAL KPI SUMMARY
+================================================================
+1) Research Metrics
+   - n_closed_trades: 733
+   - avg_holding_period_days: 7.6821
+   - avg_missed_upside: 0.0678 (6.78%)
+   - avg_saved_drawdown: 0.0489 (4.89%)
+   - efficiency_ratio: 4.7907
+   - turnover_trades_per_year: 97.5331
+2) Risk Metrics
+   - cagr: -0.0340 (-3.40%)
+   - mdd: -0.3148 (-31.48%)
+   - sharpe: -0.4197 (-41.97%)
+   - sortino: -0.3446 (-34.46%)
+   - calmar: -0.1081 (-10.81%)
+3) Return Metrics
+   - total_return: -0.2292 (-22.92%)
+   - alpha: -0.1914 (-19.14%)
+   - win_rate: 0.4584 (45.84%)
+   - profit_factor: 1.4072 (140.72%)
+================================================================
+
+================================================================
+ DELTA REPORT (Experiment − Baseline)
+================================================================
+baseline_n_trades=733  experiment_n_trades=733
+
+metric                             baseline     experiment          delta
+----------------------------------------------------------------
+n_closed_trades                         733            733       0.000000
+turnover_trades_per_year          97.533060      97.533060       0.000000
+avg_holding_period_days            7.682128       7.682128       0.000000
+cagr                              -0.034047      -0.034047       0.000000
+mdd                               -0.314823      -0.314823       0.000000
+total_return                      -0.229207      -0.229207       0.000000
+avg_missed_upside                  0.067812       0.067812       0.000000
+avg_saved_drawdown                 0.048854       0.048854       0.000000
+efficiency_ratio                   4.790721       4.790721       0.000000
+================================================================
+
+================================================================
+ RESEARCH RECOMMENDATION TEMPLATE
+================================================================
+Fact:
+  On this fingerprint (git=b35fc25a30, universe_tickers=12, benchmark=SPY), changing EXIT_RANK 70→80 with ENTRY_RANK fixed at 50 produced Δn_closed_trades=0.0, Δturnover/yr=0.0, Δavg_hold_days=0.0, Δavg_missed_upside=0.0, Δavg_saved_drawdown=0.0.
+
+Interpretation:
+  No measurable change in trade count / holding period. With price-column universe smaller than both EXIT_RANK values, hysteresis buffers are saturating (top-K equals full ranked set).
+
+Confidence:
+  High for 'no effect on this sample'; Low for generalization
+
+Evidence:
+  only_exit_rank_changed=True; changed={'EXIT_RANK': (70, 80)}; baseline_knobs={'USE_EMA9_EXIT': True, 'ATR_MULTIPLIER': 2.0, 'ENTRY_RANK': 50, 'EXIT_RANK': 70, 'MIN_HOLD_DAYS': 0, 'USE_TIME_STOP': False, 'TIME_STOP_DAYS': 20, 'BENCHMARK_TICKER': 'SPY', 'TOP_ADV_POOL': 250, 'CORR_THRESHOLD': 0.95, 'MAX_INDUSTRY_WEIGHT': 0.4, 'COMMISSION_RATE': 0.0005, 'SLIPPAGE_RATE': 0.0002}; exp_knobs={'USE_EMA9_EXIT': True, 'ATR_MULTIPLIER': 2.0, 'ENTRY_RANK': 50, 'EXIT_RANK': 80, 'MIN_HOLD_DAYS': 0, 'USE_TIME_STOP': False, 'TIME_STOP_DAYS': 20, 'BENCHMARK_TICKER': 'SPY', 'TOP_ADV_POOL': 250, 'CORR_THRESHOLD': 0.95, 'MAX_INDUSTRY_WEIGHT': 0.4, 'COMMISSION_RATE': 0.0005, 'SLIPPAGE_RATE': 0.0002}; Configured benchmark QQQ missing from local panel; both arms use SPY so ONLY EXIT_RANK differs between arms.
+
+Next Recommended Experiment:
+  Repeat EXIT_RANK experiment on a universe where ranked set size > EXIT_RANK (need >80 names in factor universe), keeping ENTRY_RANK=50.
+
+Why this experiment maximizes Information Gain:
+  Information gain is blocked while EXIT_RANK exceeds the ranked-set size; a larger universe makes the EXIT_RANK margin observable.
+================================================================
+
+================================================================
+ EXPERIMENT REVIEW TEMPLATE
+================================================================
+Hypothesis:
+  Widening EXIT_RANK from 70 to 80 (ENTRY_RANK fixed) changes turnover / holding / exit-efficiency metrics.
+
+Changed Variables:
+  {'EXIT_RANK': '70 → 80'}
+
+Baseline:
+  - ENTRY_RANK: 50
+  - EXIT_RANK: 70
+  - n_closed_trades: 733
+  - cagr: -0.03404721323709459
+  - avg_missed_upside: 0.0678120660479028
+  - avg_saved_drawdown: 0.048854318105744636
+
+Experiment:
+  - ENTRY_RANK: 50
+  - EXIT_RANK: 80
+  - n_closed_trades: 733
+  - cagr: -0.03404721323709459
+  - avg_missed_upside: 0.0678120660479028
+  - avg_saved_drawdown: 0.048854318105744636
+
+Δ(Delta):
+  - n_closed_trades: baseline=733 exp=733 Δ=0.0
+  - turnover_trades_per_year: baseline=97.53306010928962 exp=97.53306010928962 Δ=0.0
+  - avg_holding_period_days: baseline=7.68212824010914 exp=7.68212824010914 Δ=0.0
+  - cagr: baseline=-0.03404721323709459 exp=-0.03404721323709459 Δ=0.0
+  - mdd: baseline=-0.31482263067041805 exp=-0.31482263067041805 Δ=0.0
+  - total_return: baseline=-0.2292073532865645 exp=-0.2292073532865645 Δ=0.0
+  - avg_missed_upside: baseline=0.0678120660479028 exp=0.0678120660479028 Δ=0.0
+  - avg_saved_drawdown: baseline=0.048854318105744636 exp=0.048854318105744636 Δ=0.0
+  - efficiency_ratio: baseline=4.790720978831097 exp=4.790720978831097 Δ=0.0
+
+새롭게 얻은 Fact:
+  On this fingerprint (git=b35fc25a30, universe_tickers=12, benchmark=SPY), changing EXIT_RANK 70→80 with ENTRY_RANK fixed at 50 produced Δn_closed_trades=0.0, Δturnover/yr=0.0, Δavg_hold_days=0.0, Δavg_missed_upside=0.0, Δavg_saved_drawdown=0.0.
+
+Decision (PASS / REPEAT / REJECT):
+  REPEAT
+================================================================
+
+Decision=REPEAT complete=True

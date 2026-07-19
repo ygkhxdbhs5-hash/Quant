@@ -1,0 +1,23 @@
+{
+  "research": {
+    "n_closed_trades": 733,
+    "avg_holding_period_days": 7.68212824010914,
+    "avg_missed_upside": 0.0678120660479028,
+    "avg_saved_drawdown": 0.048854318105744636,
+    "efficiency_ratio": 4.790720978831097,
+    "turnover_trades_per_year": 97.53306010928962
+  },
+  "risk": {
+    "cagr": -0.03404721323709459,
+    "mdd": -0.31482263067041805,
+    "sharpe": -0.41972745189791755,
+    "sortino": -0.34461509888037833,
+    "calmar": -0.10814728650412041
+  },
+  "return": {
+    "total_return": -0.2292073532865645,
+    "alpha": -0.1913555139392327,
+    "win_rate": 0.4583901773533424,
+    "profit_factor": 1.4071973229341532
+  }
+}

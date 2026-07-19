@@ -10,6 +10,12 @@ from engine.research.kpi_report import build_hierarchical_kpi_report
 from engine.research.recommendations import build_research_recommendation_report
 from engine.research.experiment_history import ExperimentHistory
 from engine.research.validation import run_research_validation_checklist
+from engine.research.fingerprint import build_experiment_fingerprint, discover_baseline_values
+from engine.research.delta_report import build_delta_report
+from engine.research.experiment_templates import (
+    format_experiment_review,
+    format_research_recommendation,
+)
 
 __all__ = [
     "ResearchToggles",
@@ -19,4 +25,9 @@ __all__ = [
     "build_research_recommendation_report",
     "ExperimentHistory",
     "run_research_validation_checklist",
+    "build_experiment_fingerprint",
+    "discover_baseline_values",
+    "build_delta_report",
+    "format_experiment_review",
+    "format_research_recommendation",
 ]

@@ -1,0 +1,16 @@
+================================================================
+ RESEARCH VALIDATION CHECKLIST (EXP001)
+================================================================
+[PASS] architecture_audit: True
+[PASS] baseline_verification: True
+[PASS] exp1_report: True
+[PASS] delta_report: True
+[PASS] research_recommendation: True
+[PASS] decision: True
+[PASS] exit_rank_validation: True
+[FAIL] abort_reasons: []
+[PASS] decision_value: REPEAT
+[PASS] only_exit_rank_changed: True
+[PASS] benchmark_note: Configured benchmark QQQ missing from local panel; both arms use SPY so ONLY EXIT_RANK differs between arms.
+[PASS] complete: True
+================================================================

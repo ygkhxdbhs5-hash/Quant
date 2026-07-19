@@ -1,0 +1,83 @@
+[
+  {
+    "id": "EXP-20260719-8c2eb234",
+    "parent_exp": null,
+    "changed_variables": {
+      "EXIT_RANK": 80,
+      "ENTRY_RANK_fixed": 50
+    },
+    "hypothesis": "EXIT_RANK 70\u219280 changes turnover/holding/exit efficiency",
+    "expected_outcome": "Measurable \u0394 in research metrics if ranked set > EXIT_RANK",
+    "actual_outcome": "On this fingerprint (git=b35fc25a30, universe_tickers=12, benchmark=SPY), changing EXIT_RANK 70\u219280 with ENTRY_RANK fixed at 50 produced \u0394n_closed_trades=0.0, \u0394turnover/yr=0.0, \u0394avg_hold_days=0.0, \u0394avg_missed_upside=0.0, \u0394avg_saved_drawdown=0.0.",
+    "decision": "REPEAT",
+    "metrics": {
+      "delta": {
+        "metrics": {
+          "n_closed_trades": {
+            "baseline": 733,
+            "experiment": 733,
+            "delta": 0.0
+          },
+          "turnover_trades_per_year": {
+            "baseline": 97.53306010928962,
+            "experiment": 97.53306010928962,
+            "delta": 0.0
+          },
+          "avg_holding_period_days": {
+            "baseline": 7.68212824010914,
+            "experiment": 7.68212824010914,
+            "delta": 0.0
+          },
+          "cagr": {
+            "baseline": -0.03404721323709459,
+            "experiment": -0.03404721323709459,
+            "delta": 0.0
+          },
+          "mdd": {
+            "baseline": -0.31482263067041805,
+            "experiment": -0.31482263067041805,
+            "delta": 0.0
+          },
+          "total_return": {
+            "baseline": -0.2292073532865645,
+            "experiment": -0.2292073532865645,
+            "delta": 0.0
+          },
+          "avg_missed_upside": {
+            "baseline": 0.0678120660479028,
+            "experiment": 0.0678120660479028,
+            "delta": 0.0
+          },
+          "avg_saved_drawdown": {
+            "baseline": 0.048854318105744636,
+            "experiment": 0.048854318105744636,
+            "delta": 0.0
+          },
+          "efficiency_ratio": {
+            "baseline": 4.790720978831097,
+            "experiment": 4.790720978831097,
+            "delta": 0.0
+          }
+        },
+        "baseline_n_trades": 733,
+        "experiment_n_trades": 733
+      },
+      "checklist": {
+        "architecture_audit": true,
+        "baseline_verification": true,
+        "exp1_report": true,
+        "delta_report": true,
+        "research_recommendation": true,
+        "decision": true,
+        "exit_rank_validation": true,
+        "abort_reasons": [],
+        "decision_value": "REPEAT",
+        "only_exit_rank_changed": true,
+        "benchmark_note": "Configured benchmark QQQ missing from local panel; both arms use SPY so ONLY EXIT_RANK differs between arms.",
+        "complete": true
+      }
+    },
+    "notes": "Configured benchmark QQQ missing from local panel; both arms use SPY so ONLY EXIT_RANK differs between arms.",
+    "created_at_utc": "2026-07-19T04:32:25.989467+00:00"
+  }
+]
