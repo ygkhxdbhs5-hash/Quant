@@ -178,6 +178,10 @@ class StandaloneEngine:
         # [버그 수정 계승] 12-1 모멘텀: t-252~t-21 구간의 누적수익률
         self.mom_12_1_m = close_m.shift(21) / close_m.shift(self.MOM_WINDOW) - 1
 
+        # Swing / short-term technicals (price + dollar-volume only)
+        self.short_term_mom_m = close_m / close_m.shift(20) - 1  # 20-day return
+        self.rel_vol_m = self.dvol_m / self.adv20_m.replace(0, np.nan)  # vol / 20d ADV
+
         hl = np.log(high_m / low_m) ** 2
         hl2_high = high_m.rolling(2, min_periods=2).max()
         hl2_low = low_m.rolling(2, min_periods=2).min()
@@ -223,8 +227,9 @@ class StandaloneEngine:
         return (float(latest_rev) - prior_rev) / abs(prior_rev)
 
     def get_universe(self, candidate_symbols, date_idx):
-        """Soft fundamental screens (loosened). Missing metrics do not reject.
+        """Price/volume universe only — fundamental screens disabled (commented).
 
+        Prior (soft fundamental screens; missing metrics did not reject):
         Quality: ROIC > min_roic when ROIC is available.
         Value: FCF/Sales (or Sales/MCap approx) > min when available.
         Debt: D/E < max when available.
@@ -232,94 +237,103 @@ class StandaloneEngine:
         No PIT fundamentals -> keep name for price/volume ranking fallback.
         """
         current_date = self.close_m.index[date_idx]
-        current_closes = self.close_m.loc[current_date]
-        filtered = []
-        n_fail_quality = 0
-        n_fail_value = 0
-        n_fail_debt = 0
-        n_fail_growth = 0
-        n_value_approx = 0
-        n_pass_no_fundamentals = 0
-
-        for sym in candidate_symbols:
-            fundamentals = self.get_latest_available_fundamentals(sym, current_date)
-            if fundamentals is None:
-                # Loosened: keep price-only names instead of hard-rejecting
-                filtered.append(sym)
-                n_pass_no_fundamentals += 1
-                continue
-
-            def _fget(key, default=np.nan):
-                try:
-                    val = fundamentals[key]
-                    return default if pd.isna(val) else float(val)
-                except Exception:
-                    return default
-
-            # --- Quality: only reject when ROIC is present and too low ---
-            roic = _fget("roic")
-            if pd.notna(roic) and roic <= self.MIN_ROIC:
-                n_fail_quality += 1
-                continue
-
-            # --- Value: FCF/Sales (fallback Sales/MCap); missing -> pass ---
-            revenue = _fget("revenue")
-            op_cf = _fget("op_cf")
-            capex = _fget("capex")
-            value_yield = np.nan
-            if pd.notna(revenue) and revenue != 0 and pd.notna(op_cf) and pd.notna(capex):
-                value_yield = (op_cf - capex) / revenue
-            else:
-                shares = _fget("diluted_shares_outstanding")
-                if pd.isna(shares) or shares <= 0:
-                    shares = _fget("basic_shares_outstanding")
-                price = current_closes.get(sym, np.nan)
-                if (
-                    pd.notna(revenue)
-                    and revenue > 0
-                    and pd.notna(shares)
-                    and shares > 0
-                    and pd.notna(price)
-                    and price > 0
-                ):
-                    market_cap = float(price) * float(shares)
-                    if market_cap > 0:
-                        value_yield = float(revenue) / market_cap
-                        n_value_approx += 1
-
-            if pd.notna(value_yield) and value_yield <= self.MIN_FCF_SALES_YIELD:
-                n_fail_value += 1
-                continue
-
-            # --- Debt: only reject when D/E is present and too high ---
-            debt_to_equity = _fget("debt_to_equity")
-            if pd.isna(debt_to_equity):
-                total_debt = _fget("total_debt")
-                total_equity = _fget("total_equity")
-                if pd.notna(total_debt) and pd.notna(total_equity) and total_equity != 0:
-                    debt_to_equity = float(total_debt) / float(total_equity)
-            if pd.notna(debt_to_equity) and debt_to_equity >= self.MAX_DEBT_TO_EQUITY:
-                n_fail_debt += 1
-                continue
-
-            # --- Growth: only reject when YoY is present and too weak ---
-            rev_growth = _fget("revenue_growth_yoy")
-            if pd.isna(rev_growth):
-                rev_growth = self._revenue_growth_yoy(sym, current_date)
-            if pd.notna(rev_growth) and rev_growth <= self.MIN_REVENUE_GROWTH_YOY:
-                n_fail_growth += 1
-                continue
-
-            filtered.append(sym)
-
+        # --- Aggressive swing mode: pass all price-active candidates ---
+        filtered = list(candidate_symbols)
         print(
             f"    [UNIVERSE] {current_date.date()} in={len(candidate_symbols)} "
-            f"out={len(filtered)} fail_quality={n_fail_quality} fail_value={n_fail_value} "
-            f"fail_debt={n_fail_debt} fail_growth={n_fail_growth} "
-            f"pass_no_fundamentals={n_pass_no_fundamentals} "
-            f"value_approx_mcap_sales={n_value_approx}"
+            f"out={len(filtered)} mode=price_volume_only (fundamentals ignored)"
         )
         return filtered
+
+        # --- Prior fundamental soft screens (kept for revert) ---
+        # current_closes = self.close_m.loc[current_date]
+        # filtered = []
+        # n_fail_quality = 0
+        # n_fail_value = 0
+        # n_fail_debt = 0
+        # n_fail_growth = 0
+        # n_value_approx = 0
+        # n_pass_no_fundamentals = 0
+        #
+        # for sym in candidate_symbols:
+        #     fundamentals = self.get_latest_available_fundamentals(sym, current_date)
+        #     if fundamentals is None:
+        #         # Loosened: keep price-only names instead of hard-rejecting
+        #         filtered.append(sym)
+        #         n_pass_no_fundamentals += 1
+        #         continue
+        #
+        #     def _fget(key, default=np.nan):
+        #         try:
+        #             val = fundamentals[key]
+        #             return default if pd.isna(val) else float(val)
+        #         except Exception:
+        #             return default
+        #
+        #     # --- Quality: only reject when ROIC is present and too low ---
+        #     roic = _fget("roic")
+        #     if pd.notna(roic) and roic <= self.MIN_ROIC:
+        #         n_fail_quality += 1
+        #         continue
+        #
+        #     # --- Value: FCF/Sales (fallback Sales/MCap); missing -> pass ---
+        #     revenue = _fget("revenue")
+        #     op_cf = _fget("op_cf")
+        #     capex = _fget("capex")
+        #     value_yield = np.nan
+        #     if pd.notna(revenue) and revenue != 0 and pd.notna(op_cf) and pd.notna(capex):
+        #         value_yield = (op_cf - capex) / revenue
+        #     else:
+        #         shares = _fget("diluted_shares_outstanding")
+        #         if pd.isna(shares) or shares <= 0:
+        #             shares = _fget("basic_shares_outstanding")
+        #         price = current_closes.get(sym, np.nan)
+        #         if (
+        #             pd.notna(revenue)
+        #             and revenue > 0
+        #             and pd.notna(shares)
+        #             and shares > 0
+        #             and pd.notna(price)
+        #             and price > 0
+        #         ):
+        #             market_cap = float(price) * float(shares)
+        #             if market_cap > 0:
+        #                 value_yield = float(revenue) / market_cap
+        #                 n_value_approx += 1
+        #
+        #     if pd.notna(value_yield) and value_yield <= self.MIN_FCF_SALES_YIELD:
+        #         n_fail_value += 1
+        #         continue
+        #
+        #     # --- Debt: only reject when D/E is present and too high ---
+        #     debt_to_equity = _fget("debt_to_equity")
+        #     if pd.isna(debt_to_equity):
+        #         total_debt = _fget("total_debt")
+        #         total_equity = _fget("total_equity")
+        #         if pd.notna(total_debt) and pd.notna(total_equity) and total_equity != 0:
+        #             debt_to_equity = float(total_debt) / float(total_equity)
+        #     if pd.notna(debt_to_equity) and debt_to_equity >= self.MAX_DEBT_TO_EQUITY:
+        #         n_fail_debt += 1
+        #         continue
+        #
+        #     # --- Growth: only reject when YoY is present and too weak ---
+        #     rev_growth = _fget("revenue_growth_yoy")
+        #     if pd.isna(rev_growth):
+        #         rev_growth = self._revenue_growth_yoy(sym, current_date)
+        #     if pd.notna(rev_growth) and rev_growth <= self.MIN_REVENUE_GROWTH_YOY:
+        #         n_fail_growth += 1
+        #         continue
+        #
+        #     filtered.append(sym)
+        #
+        # print(
+        #     f"    [UNIVERSE] {current_date.date()} in={len(candidate_symbols)} "
+        #     f"out={len(filtered)} fail_quality={n_fail_quality} fail_value={n_fail_value} "
+        #     f"fail_debt={n_fail_debt} fail_growth={n_fail_growth} "
+        #     f"pass_no_fundamentals={n_pass_no_fundamentals} "
+        #     f"value_approx_mcap_sales={n_value_approx}"
+        # )
+        # return filtered
 
     # -------------------------------------------------------------
     def determine_market_regime(self, date_idx, active_symbols) -> Optional[RegimeState]:
@@ -352,93 +366,134 @@ class StandaloneEngine:
         return RegimeState(exposure=exposure, breadth=breadth, benchmark_above_ma200=above_ma)
 
     def build_factors(self, date_idx, active_symbols) -> pd.DataFrame:
+        """Aggressive swing factors from price (close_m) and volume (dvol_m) only."""
         current_date = self.close_m.index[date_idx]
         rows = []
-        n_price_only = 0
-        n_full = 0
+        # n_price_only = 0
+        # n_full = 0
         for sym in active_symbols:
             price = self.close_m[sym].iloc[date_idx]
             if pd.isna(price) or price <= 0:
                 continue
 
-            mom = self.mom_12_1_m[sym].iloc[date_idx]
-            vol60 = self.vol60_m[sym].iloc[date_idx]
-            if pd.isna(mom) or pd.isna(vol60) or vol60 <= 0:
-                continue
-
-            # Volatility expansion score for ranking: (close - open) / ATR_20
-            # (not a hard filter — high-momentum names without a breakout are kept)
-            o_price = self.open_m[sym].iloc[date_idx] if sym in self.open_m.columns else np.nan
-            atr20 = (
-                self.atr20_m[sym].iloc[date_idx]
-                if hasattr(self, "atr20_m") and sym in self.atr20_m.columns
+            # --- Price / volume technicals (active) ---
+            short_mom = (
+                self.short_term_mom_m[sym].iloc[date_idx]
+                if sym in self.short_term_mom_m.columns
                 else np.nan
             )
-            if pd.notna(o_price) and pd.notna(atr20) and float(atr20) > 0:
-                vol_expansion = (float(price) - float(o_price)) / float(atr20)
-            else:
-                vol_expansion = np.nan
-
-            fundamentals = self.get_latest_available_fundamentals(sym, current_date)
-            if fundamentals is None:
-                # Fallback: keep ticker with price/volume factors only.
-                rows.append({
-                    "symbol": sym,
-                    "mom_raw": mom,
-                    "vol_raw": vol60,
-                    "vol_expansion_raw": vol_expansion,
-                    "rev_growth_raw": np.nan,
-                    "op_margin_raw": np.nan,
-                    "roic_raw": np.nan,
-                    "gross_prof_raw": np.nan,
-                    "op_cf": np.nan,
-                    "capex": np.nan,
-                    "revenue": np.nan,
-                    "industry": self.profile_meta.get(sym, {}).get("industry", "Unknown"),
-                    "has_fundamentals": False,
-                })
-                n_price_only += 1
+            rel_vol = (
+                self.rel_vol_m[sym].iloc[date_idx]
+                if sym in self.rel_vol_m.columns
+                else np.nan
+            )
+            if pd.isna(short_mom) or pd.isna(rel_vol) or float(rel_vol) <= 0:
                 continue
 
-            def _fget(key, default=np.nan):
-                try:
-                    val = fundamentals[key]
-                    return default if pd.isna(val) else val
-                except Exception:
-                    return default
+            # vol_raw kept for inverse-vol / risk sizing downstream (not used in final_score)
+            vol60 = self.vol60_m[sym].iloc[date_idx]
+            if pd.isna(vol60) or vol60 <= 0:
+                continue
 
-            # Aggressive Growth: YoY revenue growth from PIT (stored or derived)
-            rev_growth = _fget("revenue_growth_yoy")
-            if pd.isna(rev_growth):
-                rev_growth = self._revenue_growth_yoy(sym, current_date)
+            # --- Prior long-horizon / vol-expansion factors (commented; kept for revert) ---
+            # mom = self.mom_12_1_m[sym].iloc[date_idx]
+            # if pd.isna(mom) or pd.isna(vol60) or vol60 <= 0:
+            #     continue
+            # # Volatility expansion score for ranking: (close - open) / ATR_20
+            # o_price = self.open_m[sym].iloc[date_idx] if sym in self.open_m.columns else np.nan
+            # atr20 = (
+            #     self.atr20_m[sym].iloc[date_idx]
+            #     if hasattr(self, "atr20_m") and sym in self.atr20_m.columns
+            #     else np.nan
+            # )
+            # if pd.notna(o_price) and pd.notna(atr20) and float(atr20) > 0:
+            #     vol_expansion = (float(price) - float(o_price)) / float(atr20)
+            # else:
+            #     vol_expansion = np.nan
+
+            # --- Fundamental lookups disabled (commented; kept for revert) ---
+            # fundamentals = self.get_latest_available_fundamentals(sym, current_date)
+            # if fundamentals is None:
+            #     rows.append({
+            #         "symbol": sym,
+            #         "mom_raw": mom,
+            #         "vol_raw": vol60,
+            #         "vol_expansion_raw": vol_expansion,
+            #         "rev_growth_raw": np.nan,
+            #         "op_margin_raw": np.nan,
+            #         "roic_raw": np.nan,
+            #         "gross_prof_raw": np.nan,
+            #         "op_cf": np.nan,
+            #         "capex": np.nan,
+            #         "revenue": np.nan,
+            #         "industry": self.profile_meta.get(sym, {}).get("industry", "Unknown"),
+            #         "has_fundamentals": False,
+            #     })
+            #     n_price_only += 1
+            #     continue
+            #
+            # def _fget(key, default=np.nan):
+            #     try:
+            #         val = fundamentals[key]
+            #         return default if pd.isna(val) else val
+            #     except Exception:
+            #         return default
+            #
+            # # Aggressive Growth: YoY revenue growth from PIT (stored or derived)
+            # rev_growth = _fget("revenue_growth_yoy")
+            # if pd.isna(rev_growth):
+            #     rev_growth = self._revenue_growth_yoy(sym, current_date)
+            #
+            # rows.append({
+            #     "symbol": sym,
+            #     "mom_raw": mom,
+            #     "vol_raw": vol60,
+            #     "vol_expansion_raw": vol_expansion,
+            #     "rev_growth_raw": rev_growth,
+            #     "op_margin_raw": _fget("op_margin"),
+            #     "roic_raw": _fget("roic"),
+            #     "gross_prof_raw": _fget("gross_profitability"),
+            #     "op_cf": _fget("op_cf"),
+            #     "capex": _fget("capex"),
+            #     "revenue": _fget("revenue"),
+            #     "industry": self.profile_meta.get(sym, {}).get("industry", "Unknown"),
+            #     "has_fundamentals": True,
+            # })
+            # n_full += 1
 
             rows.append({
                 "symbol": sym,
-                "mom_raw": mom,
-                "vol_raw": vol60,
-                "vol_expansion_raw": vol_expansion,
-                "rev_growth_raw": rev_growth,
-                "op_margin_raw": _fget("op_margin"),
-                "roic_raw": _fget("roic"),
-                "gross_prof_raw": _fget("gross_profitability"),
-                "op_cf": _fget("op_cf"),
-                "capex": _fget("capex"),
-                "revenue": _fget("revenue"),
+                "short_term_momentum": short_mom,
+                "relative_volume": rel_vol,
+                "vol_raw": vol60,  # sizing only
+                # "mom_raw": mom,
+                # "vol_expansion_raw": vol_expansion,
+                # "rev_growth_raw": np.nan,
+                # "op_margin_raw": np.nan,
+                # "roic_raw": np.nan,
+                # "gross_prof_raw": np.nan,
+                # "op_cf": np.nan,
+                # "capex": np.nan,
+                # "revenue": np.nan,
                 "industry": self.profile_meta.get(sym, {}).get("industry", "Unknown"),
-                "has_fundamentals": True,
+                "has_fundamentals": False,
             })
-            n_full += 1
 
         df = pd.DataFrame(rows)
         if df.empty:
             return df
-        # Require only price-based factors; quality may be missing (fallback mode).
-        df = df.dropna(subset=["mom_raw", "vol_raw"])
-        if n_price_only > 0:
-            print(
-                f"    [FACTORS] {current_date.date()} full={n_full} "
-                f"price_volume_fallback={n_price_only}"
-            )
+        # Require swing technicals only (no ROIC / GP / margin / debt / revenue).
+        df = df.dropna(subset=["short_term_momentum", "relative_volume", "vol_raw"])
+        # Prior: df = df.dropna(subset=["mom_raw", "vol_raw"])
+        print(
+            f"    [FACTORS] {current_date.date()} swing_tech={len(df)} "
+            f"(price+volume only; fundamentals ignored)"
+        )
+        # if n_price_only > 0:
+        #     print(
+        #         f"    [FACTORS] {current_date.date()} full={n_full} "
+        #         f"price_volume_fallback={n_price_only}"
+        #     )
         return df
 
     def rank_universe(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -451,57 +506,62 @@ class StandaloneEngine:
         def _rank(col):
             return df.groupby("_group_key")[col].rank(pct=True)
 
-        df["rank_mom"] = _rank("mom_raw")
-        df["neg_vol"] = -df["vol_raw"]
-        df["rank_lowvol"] = _rank("neg_vol")
-
-        # Volatility expansion: (close - open) / ATR_20 (computed in build_factors)
-        if "vol_expansion_raw" not in df.columns:
-            df["vol_expansion_raw"] = np.nan
-        df["rank_vol_expansion"] = _rank("vol_expansion_raw")
-
-        # Aggressive Growth: YoY revenue growth from PIT fundamentals
-        if "rev_growth_raw" not in df.columns:
-            df["rev_growth_raw"] = np.nan
-        df["rank_rev_growth"] = _rank("rev_growth_raw")
-
-        has_quality = (
-            df["roic_raw"].notna() & df["gross_prof_raw"].notna() & df["op_margin_raw"].notna()
+        # --- Aggressive swing score: short-term momentum + relative volume ---
+        df["rank_short_term_momentum"] = _rank("short_term_momentum")
+        df["rank_relative_volume"] = _rank("relative_volume")
+        df["final_score"] = (
+            (df["rank_short_term_momentum"] * 0.7) + (df["rank_relative_volume"] * 0.3)
         )
-        has_rev_growth = df["rev_growth_raw"].notna()
-        # Quality ranks: NaN inputs stay NaN (pandas rank skips them within group).
-        df["rank_roic"] = _rank("roic_raw")
-        df["rank_gp"] = _rank("gross_prof_raw")
-        df["rank_op"] = _rank("op_margin_raw")
-        df["rank_quality"] = (df["rank_roic"] * 0.50) + (df["rank_gp"] * 0.30) + (df["rank_op"] * 0.20)
-
-        # Aggressive growth-tilted score (high momentum + high revenue growth).
-        # Prior formulas kept commented for easy revert:
-        # full_score = (df["rank_mom"] * 0.45) + (df["rank_quality"] * 0.45) + (df["rank_lowvol"] * 0.10)
-        # full_score = (df["rank_mom"] * 0.40) + (df["rank_quality"] * 0.40) + (df["rank_vol_expansion"] * 0.20)
-        # fallback_score = (df["rank_mom"] * 0.80) + (df["rank_lowvol"] * 0.20)
-        # Quality reduced to 3%; freed weight goes to momentum (+5%) and rev growth (+2%)
-        # Prior: mom 0.60 + rev_growth 0.30 + quality 0.10
-        full_score = (
-            (df["rank_mom"] * 0.65) + (df["rank_rev_growth"] * 0.32) + (df["rank_quality"] * 0.03)
-        )
-        # Mom + growth when quality missing; mom + vol-expansion when growth also missing
-        growth_score = (df["rank_mom"] * 0.70) + (df["rank_rev_growth"] * 0.30)
-        fallback_score = (df["rank_mom"] * 0.80) + (df["rank_vol_expansion"] * 0.20)
-        fallback_score = fallback_score.fillna(
-            (df["rank_mom"] * 0.80) + (df["rank_lowvol"] * 0.20)
-        )
-
-        df["final_score"] = np.where(
-            has_quality & has_rev_growth,
-            full_score,
-            np.where(has_rev_growth, growth_score, fallback_score),
-        )
-        df["factor_mode"] = np.where(
-            has_quality & has_rev_growth,
-            "full",
-            np.where(has_rev_growth, "mom_growth", "price_volume_fallback"),
-        )
+        df["factor_mode"] = "swing_price_volume"
+        # --- Prior ranking / scores (commented; kept for revert) ---
+        # df["rank_mom"] = _rank("mom_raw")
+        # df["neg_vol"] = -df["vol_raw"]
+        # df["rank_lowvol"] = _rank("neg_vol")
+        #
+        # # Volatility expansion: (close - open) / ATR_20 (computed in build_factors)
+        # if "vol_expansion_raw" not in df.columns:
+        #     df["vol_expansion_raw"] = np.nan
+        # df["rank_vol_expansion"] = _rank("vol_expansion_raw")
+        #
+        # # Aggressive Growth: YoY revenue growth from PIT fundamentals
+        # if "rev_growth_raw" not in df.columns:
+        #     df["rev_growth_raw"] = np.nan
+        # df["rank_rev_growth"] = _rank("rev_growth_raw")
+        #
+        # has_quality = (
+        #     df["roic_raw"].notna() & df["gross_prof_raw"].notna() & df["op_margin_raw"].notna()
+        # )
+        # has_rev_growth = df["rev_growth_raw"].notna()
+        # # Quality ranks: NaN inputs stay NaN (pandas rank skips them within group).
+        # df["rank_roic"] = _rank("roic_raw")
+        # df["rank_gp"] = _rank("gross_prof_raw")
+        # df["rank_op"] = _rank("op_margin_raw")
+        # df["rank_quality"] = (df["rank_roic"] * 0.50) + (df["rank_gp"] * 0.30) + (df["rank_op"] * 0.20)
+        #
+        # # Aggressive growth-tilted score (high momentum + high revenue growth).
+        # # full_score = (df["rank_mom"] * 0.45) + (df["rank_quality"] * 0.45) + (df["rank_lowvol"] * 0.10)
+        # # full_score = (df["rank_mom"] * 0.40) + (df["rank_quality"] * 0.40) + (df["rank_vol_expansion"] * 0.20)
+        # # fallback_score = (df["rank_mom"] * 0.80) + (df["rank_lowvol"] * 0.20)
+        # # Prior: mom 0.60 + rev_growth 0.30 + quality 0.10
+        # full_score = (
+        #     (df["rank_mom"] * 0.65) + (df["rank_rev_growth"] * 0.32) + (df["rank_quality"] * 0.03)
+        # )
+        # growth_score = (df["rank_mom"] * 0.70) + (df["rank_rev_growth"] * 0.30)
+        # fallback_score = (df["rank_mom"] * 0.80) + (df["rank_vol_expansion"] * 0.20)
+        # fallback_score = fallback_score.fillna(
+        #     (df["rank_mom"] * 0.80) + (df["rank_lowvol"] * 0.20)
+        # )
+        #
+        # df["final_score"] = np.where(
+        #     has_quality & has_rev_growth,
+        #     full_score,
+        #     np.where(has_rev_growth, growth_score, fallback_score),
+        # )
+        # df["factor_mode"] = np.where(
+        #     has_quality & has_rev_growth,
+        #     "full",
+        #     np.where(has_rev_growth, "mom_growth", "price_volume_fallback"),
+        # )
         return df.sort_values("final_score", ascending=False).reset_index(drop=True)
 
     def construct_portfolio(self, ranked_df, date_idx, ctx: RebalanceContext) -> pd.DataFrame:
