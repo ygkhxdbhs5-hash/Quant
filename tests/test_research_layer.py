@@ -116,18 +116,20 @@ def test_rank_diagnostics_counts_and_distribution():
     assert len(d.holding_ranks) == 4
 
     summary = d.summary()
-    pct = summary["rank_distribution_while_holding"]["percentile_summary"]
-    assert pct["n"] == 4
-    assert pct["min"] == 5
-    assert pct["max"] == 90
-    assert "histogram" in summary["rank_distribution_while_holding"]
-    assert summary["interpretation"]
-    # Interpretation is observational only (no strategy advice keywords required,
-    # but report must surface the three totals).
+    dist = summary["holding_rank_distribution"]
+    assert dist["n"] == 4
+    assert dist["min"] == 5
+    assert dist["median"] is not None
+    assert dist["p75"] is not None
+    assert dist["p90"] is not None
+    assert dist["p95"] is not None
+    assert dist["max"] == 90
+
     report = d.format_report()
-    assert "Total rank_exit_candidates: 2" in report
-    assert "Total ema_preempted_rank_exit: 1" in report
-    assert "rank_distribution_while_holding" in report
+    assert "rank_exit_candidates: 2" in report
+    assert "ema_preempted_rank_exit: 1" in report
+    assert "holding_rank_distribution:" in report
+    assert "recommend" not in report.lower()
 
 
 if __name__ == "__main__":
