@@ -28,7 +28,7 @@ CONFIG = "config/config.yaml"
 CLEAR_CACHE = True
 RUN_UNIVERSE = True
 RUN_PRICES = True
-RUN_FUNDAMENTALS = True
+RUN_FUNDAMENTALS = False  # optional; CMVS v3 needs universe + prices only
 SAVE_TO_DRIVE = False
 DRIVE_DATA_DIR = Path("/content/drive/MyDrive/Quant_data")
 
