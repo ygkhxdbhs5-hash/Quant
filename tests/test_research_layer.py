@@ -7,6 +7,7 @@ import pandas as pd
 
 from engine.research.config_toggles import ResearchToggles, load_research_toggles
 from engine.research.kpi_report import build_hierarchical_kpi_report
+from engine.research.rank_diagnostics import RankDiagnostics
 from engine.research.recommendations import build_research_recommendation_report
 from engine.research.trade_journal import TradeJournal
 from engine.research.validation import run_research_validation_checklist
@@ -98,8 +99,40 @@ def test_recommendation_and_kpi_smoke():
     assert val["all_pass"] is True, val
 
 
+def test_rank_diagnostics_counts_and_distribution():
+    d = RankDiagnostics(exit_rank=70)
+    # Holding ranks below threshold — distribution only
+    d.observe(date="2020-01-02", ticker="AAA", rank=5, ema9_break=False)
+    d.observe(date="2020-01-03", ticker="AAA", rank=12, ema9_break=True)
+    # Candidate without ema overlap
+    d.observe(date="2020-01-06", ticker="BBB", rank=71, ema9_break=False)
+    # Candidate with ema preempt (counts even if another exit also fired)
+    d.observe(date="2020-01-07", ticker="CCC", rank=90, ema9_break=True)
+    # Missing rank ignored
+    d.observe(date="2020-01-08", ticker="DDD", rank=None, ema9_break=True)
+
+    assert d.rank_exit_candidates == 2
+    assert d.ema_preempted_rank_exit == 1
+    assert len(d.holding_ranks) == 4
+
+    summary = d.summary()
+    pct = summary["rank_distribution_while_holding"]["percentile_summary"]
+    assert pct["n"] == 4
+    assert pct["min"] == 5
+    assert pct["max"] == 90
+    assert "histogram" in summary["rank_distribution_while_holding"]
+    assert summary["interpretation"]
+    # Interpretation is observational only (no strategy advice keywords required,
+    # but report must surface the three totals).
+    report = d.format_report()
+    assert "Total rank_exit_candidates: 2" in report
+    assert "Total ema_preempted_rank_exit: 1" in report
+    assert "rank_distribution_while_holding" in report
+
+
 if __name__ == "__main__":
     test_toggles_baseline_defaults()
     test_shadow_exit_counterfactuals()
     test_recommendation_and_kpi_smoke()
+    test_rank_diagnostics_counts_and_distribution()
     print("OK")

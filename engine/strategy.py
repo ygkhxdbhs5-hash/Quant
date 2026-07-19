@@ -44,6 +44,7 @@ import yaml
 from engine.research.config_toggles import load_research_toggles
 from engine.research.experiment_history import ExperimentHistory
 from engine.research.kpi_report import build_hierarchical_kpi_report, format_kpi_report
+from engine.research.rank_diagnostics import RankDiagnostics
 from engine.research.recommendations import (
     build_research_recommendation_report,
     format_recommendation_report,
@@ -207,6 +208,8 @@ class StandaloneEngine:
         self.trade_journal = TradeJournal(
             shadow_horizon_days=int(self.research_toggles.SHADOW_HORIZON_DAYS)
         )
+        # Observation-only counters; never used to queue orders or alter targets.
+        self.rank_diagnostics = RankDiagnostics(exit_rank=float(self.EXIT_RANK))
         self._last_rank_map: dict = {}
         self._last_cmvs_map: dict = {}
         self.research_artifacts: dict = {}
@@ -328,7 +331,7 @@ class StandaloneEngine:
             return np.nan
         return (float(latest_rev) - prior_rev) / abs(prior_rev)
 
-    def get_universe(self, candidate_symbols, date_idx):
+    def get_universe(self, candidate_symbols, date_idx, quiet: bool = False):
         """Price/volume universe only — fundamental screens disabled (commented).
 
         Prior (soft fundamental screens; missing metrics did not reject):
@@ -341,10 +344,11 @@ class StandaloneEngine:
         current_date = self.close_m.index[date_idx]
         # --- Aggressive swing mode: pass all price-active candidates ---
         filtered = list(candidate_symbols)
-        print(
-            f"    [UNIVERSE] {current_date.date()} in={len(candidate_symbols)} "
-            f"out={len(filtered)} mode=price_volume_only (fundamentals ignored)"
-        )
+        if not quiet:
+            print(
+                f"    [UNIVERSE] {current_date.date()} in={len(candidate_symbols)} "
+                f"out={len(filtered)} mode=price_volume_only (fundamentals ignored)"
+            )
         return filtered
 
         # --- Prior fundamental soft screens (kept for revert) ---
@@ -467,7 +471,7 @@ class StandaloneEngine:
 
         return RegimeState(exposure=exposure, breadth=breadth, benchmark_above_ma200=above_ma)
 
-    def build_factors(self, date_idx, active_symbols) -> pd.DataFrame:
+    def build_factors(self, date_idx, active_symbols, quiet: bool = False) -> pd.DataFrame:
         """CMVS v3 factors: BBS, VZS, CPS, RSIS, RSS (all clipped to [0, 1])."""
         current_date = self.close_m.index[date_idx]
         bm = self.BENCHMARK_TICKER
@@ -532,10 +536,11 @@ class StandaloneEngine:
         if df.empty:
             return df
         df = df.dropna(subset=["bbs", "vzs", "cps", "rsis", "rss"])
-        print(
-            f"    [FACTORS] {current_date.date()} cmvs_v3={len(df)} "
-            f"(BBS/VZS/CPS/RSIS/RSS; fundamentals ignored)"
-        )
+        if not quiet:
+            print(
+                f"    [FACTORS] {current_date.date()} cmvs_v3={len(df)} "
+                f"(BBS/VZS/CPS/RSIS/RSS; fundamentals ignored)"
+            )
         return df
 
     def rank_universe(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -944,6 +949,72 @@ class StandaloneEngine:
         # def check_trailing_stops(self, date_idx):
         #     ... sell if close <= peak * (1 - TRAILING_STOP_PCT) ...
 
+    def _ema9_break_signal(self, sym: str, date_idx: int) -> bool:
+        """Raw ema9_break Fact for diagnostics (independent of exit queuing)."""
+        current_date = self.close_m.index[date_idx]
+        price = self.close_m.loc[current_date].get(sym, np.nan)
+        if pd.isna(price) or price <= 0:
+            return False
+        ema9 = (
+            self.ema9_m[sym].iloc[date_idx]
+            if sym in self.ema9_m.columns
+            else np.nan
+        )
+        return bool(pd.notna(ema9) and float(price) < float(ema9))
+
+    def _observe_rank_diagnostics(self, date_idx: int) -> None:
+        """Daily observation-only rank diagnostics for current holdings.
+
+        Does not queue orders, mutate targets, or change exit decisions.
+        Counts ``rank > EXIT_RANK`` even when another exit rule also fired.
+        """
+        if not self.portfolio:
+            return
+        current_date = self.close_m.index[date_idx]
+        current_closes = self.close_m.loc[current_date]
+        holdings = [s for s, qty in self.portfolio.items() if int(qty) > 0]
+        if not holdings:
+            return
+
+        active_symbols = [
+            s
+            for s in self.close_m.columns
+            if s != self.BENCHMARK_TICKER
+            and pd.notna(current_closes.get(s))
+            and not self.profile_meta.get(s, {}).get("isEtf", False)
+        ]
+        if not active_symbols:
+            return
+
+        top_adv_symbols = (
+            self.dvol_m.loc[current_date, active_symbols]
+            .nlargest(min(self.TOP_ADV_POOL, len(active_symbols)))
+            .index.tolist()
+        )
+        # Union holdings so held names remain rankable on non-rebalance days.
+        pool = list(dict.fromkeys(list(top_adv_symbols) + holdings))
+        universe_symbols = self.get_universe(pool, date_idx, quiet=True)
+        for h in holdings:
+            if h not in universe_symbols:
+                universe_symbols.append(h)
+
+        factor_df = self.build_factors(date_idx, universe_symbols, quiet=True)
+        if factor_df.empty:
+            return
+        ranked_df = self.rank_universe(factor_df)
+        rank_map = {
+            str(sym): int(i + 1)
+            for i, sym in enumerate(ranked_df["symbol"].tolist())
+        }
+
+        for sym in holdings:
+            self.rank_diagnostics.observe(
+                date=current_date,
+                ticker=str(sym),
+                rank=rank_map.get(str(sym)),
+                ema9_break=self._ema9_break_signal(sym, date_idx),
+            )
+
     def handle_official_delisting(self, date_idx):
         """공식 상장폐지일 도래 시 즉시(당일 종가) 강제 청산 - LEAN의 Delisting.Warning 대응."""
         current_date = self.close_m.index[date_idx]
@@ -1033,6 +1104,8 @@ class StandaloneEngine:
             self._cmvs_forced_exits = set()
             self.check_cmvs_exits(idx)
             # Prior: self.check_trailing_stops(idx)
+            # Observation only — after exits are decided so same-day overlap is visible.
+            self._observe_rank_diagnostics(idx)
 
             current_closes = self.close_m.loc[current_date]
             portfolio_value = sum(
@@ -1211,6 +1284,16 @@ class StandaloneEngine:
             notes="Auto-logged proposal from single backtest — do not adopt without confirmation.",
         )
 
+        rank_diag_summary = self.rank_diagnostics.summary()
+        rank_diag_path = self.rank_diagnostics.write_report(
+            out / "rank_diagnostics_report.txt"
+        )
+        (out / "rank_diagnostics.json").write_text(
+            json.dumps(rank_diag_summary, indent=2, default=str),
+            encoding="utf-8",
+        )
+        rank_diag_txt = self.rank_diagnostics.format_report()
+
         report_txt = "\n\n".join(
             [
                 format_kpi_report(kpi),
@@ -1218,6 +1301,7 @@ class StandaloneEngine:
                 format_validation_checklist(validation),
                 f"Experiment History entry: {exp_id} -> {hist.path}",
                 f"Trade journal: {trades_path} (n={len(trades)})",
+                rank_diag_txt,
             ]
         )
         report_path = out / "research_report.txt"
@@ -1231,6 +1315,8 @@ class StandaloneEngine:
             "experiment_id": exp_id,
             "trades_path": str(trades_path),
             "report_path": str(report_path),
+            "rank_diagnostics": rank_diag_summary,
+            "rank_diagnostics_path": str(rank_diag_path),
         }
         (out / "research_artifacts.json").write_text(
             json.dumps(artifacts, indent=2, default=str), encoding="utf-8"
