@@ -41,8 +41,12 @@ def main(argv: list[str] | None = None) -> int:
     print(f"▶ 최대 낙폭       : {mdd:.2f}%")
     print(f"▶ 최종 자산가치   : {result['Total_Equity'].iloc[-1]:,.0f}")
     print("=" * 60)
-    print("주의: Value(FCF/Sales Yield) 팩터는 발행주식수 데이터 부재로 이번 버전에 미포함.")
-    print("      ROIC은 21% 고정세율 가정 하의 근사치. 상세 한계는 코드 주석 참고.")
+    # Research Facts are emitted by StandaloneEngine.emit_research_reports at end of run()
+    arts = getattr(engine, "research_artifacts", None) or {}
+    if arts.get("report_path"):
+        print(f"▶ Research report : {arts['report_path']}")
+    if arts.get("trades_path"):
+        print(f"▶ Trade journal   : {arts['trades_path']}")
 
     equity_out = Path(args.equity_out)
     equity_out.parent.mkdir(parents=True, exist_ok=True)

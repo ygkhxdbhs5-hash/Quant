@@ -29,6 +29,7 @@ LEAN -> 순수 파이썬 대응관계:
 
 from __future__ import annotations
 
+import json
 import os
 import pickle
 from dataclasses import dataclass, field
@@ -39,6 +40,19 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import yaml
+
+from engine.research.config_toggles import load_research_toggles
+from engine.research.experiment_history import ExperimentHistory
+from engine.research.kpi_report import build_hierarchical_kpi_report, format_kpi_report
+from engine.research.recommendations import (
+    build_research_recommendation_report,
+    format_recommendation_report,
+)
+from engine.research.trade_journal import TradeJournal
+from engine.research.validation import (
+    format_validation_checklist,
+    run_research_validation_checklist,
+)
 
 
 # =====================================================================
@@ -89,6 +103,9 @@ class StandaloneEngine:
         self.BENCHMARK_TICKER = cfg.get("benchmark", "QQQ")
         self.MAX_PORTFOLIO_SIZE = int(cfg.get("max_portfolio_size", 50))
         self.SELECTION_BUFFER_SIZE = int(cfg.get("selection_buffer_size", 70))
+        # Fingerprint of config portfolio knobs before research aliases bind
+        self._baseline_max_n = self.MAX_PORTFOLIO_SIZE
+        self._baseline_buf_n = self.SELECTION_BUFFER_SIZE
         # Aggressive test default 0.40 (was 0.20); override via config
         self.MAX_INDUSTRY_WEIGHT = float(cfg.get("max_industry_weight", 0.40))
         self.MIN_INDUSTRY_SIZE = int(cfg.get("min_industry_size", 8))
@@ -171,6 +188,33 @@ class StandaloneEngine:
         self.w4 = float(cfg.get("cmvs_w4", 0.2))  # RSIS
         self.w5 = float(cfg.get("cmvs_w5", 0.2))  # RSS
         self.atr_multiplier = float(cfg.get("atr_multiplier", 2.0))
+
+        # --- Research toggles (defaults reproduce current trade identity) ---
+        # Spec examples ENTRY_RANK=30 / EXIT_RANK=80 are NOT silent defaults;
+        # they would change baseline vs max_portfolio_size / selection_buffer_size.
+        self.research_toggles = load_research_toggles(cfg)
+        self.USE_EMA9_EXIT = bool(self.research_toggles.USE_EMA9_EXIT)
+        self.atr_multiplier = float(self.research_toggles.ATR_MULTIPLIER)
+        self.ENTRY_RANK = int(self.research_toggles.ENTRY_RANK)
+        self.EXIT_RANK = int(self.research_toggles.EXIT_RANK)
+        self.MIN_HOLD_DAYS = int(self.research_toggles.MIN_HOLD_DAYS)
+        self.USE_TIME_STOP = bool(self.research_toggles.USE_TIME_STOP)
+        self.TIME_STOP_DAYS = int(self.research_toggles.TIME_STOP_DAYS)
+        # Keep legacy names synchronized with research aliases (no behavior change at defaults)
+        self.MAX_PORTFOLIO_SIZE = self.ENTRY_RANK
+        self.SELECTION_BUFFER_SIZE = self.EXIT_RANK
+
+        self.trade_journal = TradeJournal(
+            shadow_horizon_days=int(self.research_toggles.SHADOW_HORIZON_DAYS)
+        )
+        self._last_rank_map: dict = {}
+        self._last_cmvs_map: dict = {}
+        self.research_artifacts: dict = {}
+        print(
+            f"    [RESEARCH] toggles={self.research_toggles.as_dict()} "
+            f"baseline_defaults="
+            f"{self.research_toggles.is_baseline_defaults(self._baseline_max_n, self._baseline_buf_n)}"
+        )
 
     # -------------------------------------------------------------
     def _precompute_matrices(self):
@@ -524,15 +568,16 @@ class StandaloneEngine:
     def construct_portfolio(self, ranked_df, date_idx, ctx: RebalanceContext) -> pd.DataFrame:
         if ranked_df.empty:
             return ranked_df
-        top_core = set(ranked_df.head(self.MAX_PORTFOLIO_SIZE)["symbol"].tolist())
-        top_buffer = set(ranked_df.head(self.SELECTION_BUFFER_SIZE)["symbol"].tolist())
+        # ENTRY_RANK / EXIT_RANK are research aliases; at defaults == max_portfolio / buffer
+        top_core = set(ranked_df.head(self.ENTRY_RANK)["symbol"].tolist())
+        top_buffer = set(ranked_df.head(self.EXIT_RANK)["symbol"].tolist())
 
         keep = self.previous_target_symbols & top_buffer
         new_candidates = ranked_df[ranked_df["symbol"].isin(top_core) & ~ranked_df["symbol"].isin(keep)]
 
         selected = list(keep)
         for _, row in new_candidates.iterrows():
-            if len(selected) >= self.MAX_PORTFOLIO_SIZE:
+            if len(selected) >= self.ENTRY_RANK:
                 break
             selected.append(row["symbol"])
 
@@ -639,12 +684,12 @@ class StandaloneEngine:
         issues = []
         if final_targets["symbol"].duplicated().any():
             issues.append("중복 심볼")
-        if len(final_targets) > self.MAX_PORTFOLIO_SIZE:
+        if len(final_targets) > self.ENTRY_RANK:
             issues.append(f"포트폴리오 크기 초과 {len(final_targets)}")
         total_w = final_targets["final_weight"].sum()
         if abs(total_w - exposure) > self.WEIGHT_SUM_TOLERANCE:
             issues.append(f"총비중 불일치 {total_w:.3f} vs {exposure:.3f}")
-        max_single = (1.0 / self.MAX_PORTFOLIO_SIZE) * 2.0
+        max_single = (1.0 / max(self.ENTRY_RANK, 1)) * 2.0
         if (final_targets["final_weight"] > max_single + 1e-6).any():
             issues.append("개별 상한 초과")
         ind_exp = final_targets.groupby("industry")["final_weight"].sum()
@@ -693,7 +738,32 @@ class StandaloneEngine:
             if qty <= 0:
                 continue
             order_type = "BUY" if delta_value > 0 else "SELL"
-            self.pending_orders.append({"symbol": sym, "qty": qty, "type": order_type})
+            self.pending_orders.append(
+                {
+                    "symbol": sym,
+                    "qty": qty,
+                    "type": order_type,
+                    "reason": "rebalance_entry" if order_type == "BUY" else "rebalance_exit",
+                }
+            )
+
+    def _symbol_snapshot(self, symbol: str, date_idx: int) -> dict:
+        rsi = (
+            float(self.rsi14_m[symbol].iloc[date_idx])
+            if symbol in self.rsi14_m.columns and pd.notna(self.rsi14_m[symbol].iloc[date_idx])
+            else None
+        )
+        atr = (
+            float(self.atr14_m[symbol].iloc[date_idx])
+            if symbol in self.atr14_m.columns and pd.notna(self.atr14_m[symbol].iloc[date_idx])
+            else None
+        )
+        return {
+            "rank": self._last_rank_map.get(symbol),
+            "cmvs": self._last_cmvs_map.get(symbol),
+            "rsi": rsi,
+            "atr": atr,
+        }
 
     def _cost_ratio(self, symbol, date_idx, qty, price):
         adv = self.adv20_m[symbol].iloc[date_idx]
@@ -738,6 +808,19 @@ class StandaloneEngine:
                     # New position: seed peak with entry open (updated to closes in exit check)
                     if not was_held:
                         self.highest_prices[sym] = float(o_price)
+                    # Research Fact: journal entry (observation only)
+                    snap = self._symbol_snapshot(sym, date_idx)
+                    self.trade_journal.on_entry(
+                        symbol=sym,
+                        date=current_date,
+                        date_idx=date_idx,
+                        price=float(o_price),
+                        qty=int(exec_qty),
+                        rank=snap["rank"],
+                        cmvs=snap["cmvs"],
+                        rsi=snap["rsi"],
+                        atr=snap["atr"],
+                    )
             else:
                 if sym in self.portfolio:
                     cap = self._max_shares_participation(sym, date_idx, o_price, self.PARTICIPATION_CAP_SELL)
@@ -750,12 +833,28 @@ class StandaloneEngine:
                     if self.portfolio[sym] <= 0:
                         del self.portfolio[sym]
                         self.highest_prices.pop(sym, None)
+                        # Research Fact: full exit + shadow counterfactual
+                        snap = self._symbol_snapshot(sym, date_idx)
+                        self.trade_journal.on_exit(
+                            symbol=sym,
+                            date=current_date,
+                            date_idx=date_idx,
+                            price=float(o_price),
+                            exit_reason=str(order.get("reason") or "sell"),
+                            close_m=self.close_m,
+                            exit_rank=snap["rank"],
+                            exit_cmvs=snap["cmvs"],
+                            exit_rsi=snap["rsi"],
+                            exit_atr=snap["atr"],
+                        )
         self.pending_orders = []
 
     def check_cmvs_exits(self, date_idx):
         """CMVS v3 daily exits: ATR trail, EMA9 breakdown, or RSI exhaustion.
 
         Queues SELL orders (filled next open via ``execute_pending_orders`` / ``_cost_ratio``).
+        Research toggles may disable EMA9 / enforce min-hold / optional time-stop.
+        At baseline defaults this matches prior CMVS exit behavior.
         """
         current_date = self.close_m.index[date_idx]
         current_closes = self.close_m.loc[current_date]
@@ -777,6 +876,13 @@ class StandaloneEngine:
             else:
                 self.highest_prices[sym] = max(float(self.highest_prices[sym]), close_px)
             peak = float(self.highest_prices[sym])
+            self.trade_journal.mark_peak(sym, close_px)
+
+            # Min-hold gate (default 0 → no change)
+            if self.MIN_HOLD_DAYS > 0:
+                held = self.trade_journal.holding_days(sym, current_date)
+                if held < self.MIN_HOLD_DAYS:
+                    continue
 
             atr14 = (
                 self.atr14_m[sym].iloc[date_idx]
@@ -805,12 +911,17 @@ class StandaloneEngine:
                 stop_level = peak - (self.atr_multiplier * float(atr14))
                 if close_px < stop_level:
                     reasons.append(f"atr_trail(stop={stop_level:.2f})")
-            # 2) Trend breakdown: close < ema_9
-            if pd.notna(ema9) and close_px < float(ema9):
+            # 2) Trend breakdown: close < ema_9 (toggleable; default ON)
+            if self.USE_EMA9_EXIT and pd.notna(ema9) and close_px < float(ema9):
                 reasons.append("ema9_break")
             # 3) Exhaustion: rsi_14 > 80 AND daily_cp < 0.3
             if pd.notna(rsi14) and pd.notna(daily_cp) and float(rsi14) > 80.0 and float(daily_cp) < 0.3:
                 reasons.append(f"exhaustion(rsi={float(rsi14):.1f},cp={float(daily_cp):.2f})")
+            # 4) Optional time stop (default OFF — no baseline impact)
+            if self.USE_TIME_STOP and self.TIME_STOP_DAYS > 0:
+                held = self.trade_journal.holding_days(sym, current_date)
+                if held >= self.TIME_STOP_DAYS:
+                    reasons.append(f"time_stop(days={held})")
 
             if not reasons:
                 continue
@@ -818,12 +929,15 @@ class StandaloneEngine:
             qty = int(self.portfolio[sym])
             if qty <= 0:
                 continue
-            self.pending_orders.append({"symbol": sym, "qty": qty, "type": "SELL"})
+            reason = ",".join(reasons)
+            self.pending_orders.append(
+                {"symbol": sym, "qty": qty, "type": "SELL", "reason": reason}
+            )
             self.previous_target_symbols.discard(sym)
             self._cmvs_forced_exits.add(sym)
             print(
                 f"    🛑 [CMVS EXIT] {sym} close={close_px:.2f} peak={peak:.2f} "
-                f"reasons={','.join(reasons)} -> SELL queued"
+                f"reasons={reason} -> SELL queued"
             )
 
         # --- Prior hardcoded % trailing stop (commented; kept for revert) ---
@@ -841,6 +955,19 @@ class StandaloneEngine:
                     last_close = self.close_m[sym].iloc[date_idx]
                     if pd.notna(last_close):
                         self.cash += self.portfolio[sym] * last_close
+                        snap = self._symbol_snapshot(sym, date_idx)
+                        self.trade_journal.on_exit(
+                            symbol=sym,
+                            date=current_date,
+                            date_idx=date_idx,
+                            price=float(last_close),
+                            exit_reason="official_delist",
+                            close_m=self.close_m,
+                            exit_rank=snap["rank"],
+                            exit_cmvs=snap["cmvs"],
+                            exit_rsi=snap["rsi"],
+                            exit_atr=snap["atr"],
+                        )
                     del self.portfolio[sym]
                     self.highest_prices.pop(sym, None)
                     print(f"    ⚠️ [DELISTING] {sym} 공식 상장폐지일 강제청산")
@@ -852,6 +979,19 @@ class StandaloneEngine:
                 last_valid = self.close_m[sym].iloc[self.close_m.index.get_loc(last_date)]
                 if pd.notna(last_valid):
                     self.cash += self.portfolio[sym] * last_valid * self.SILENT_DELIST_RECOVERY
+                    snap = self._symbol_snapshot(sym, date_idx)
+                    self.trade_journal.on_exit(
+                        symbol=sym,
+                        date=current_date,
+                        date_idx=date_idx,
+                        price=float(last_valid) * self.SILENT_DELIST_RECOVERY,
+                        exit_reason="silent_delist",
+                        close_m=self.close_m,
+                        exit_rank=snap["rank"],
+                        exit_cmvs=snap["cmvs"],
+                        exit_rsi=snap["rsi"],
+                        exit_atr=snap["atr"],
+                    )
                 del self.portfolio[sym]
                 self.highest_prices.pop(sym, None)
                 print(f"    ⚠️ [조용한 상장폐지] {sym} haircut({self.SILENT_DELIST_RECOVERY:.0%}) 청산")
@@ -859,7 +999,11 @@ class StandaloneEngine:
     def log_rebalance_summary(self, ctx: RebalanceContext):
         entries = set(ctx.actually_invested.keys()) - self._prior_invested_for_log
         exits = self._prior_invested_for_log - set(ctx.actually_invested.keys())
-        turnover = (len(entries) + len(exits)) / max(len(self._prior_invested_for_log), 1)
+        prior_n = len(self._prior_invested_for_log)
+        turnover = (len(entries) + len(exits)) / max(prior_n, 1)
+        self.trade_journal.record_rebalance_turnover(
+            ctx.as_of_date, len(entries), len(exits), prior_n
+        )
         self._prior_invested_for_log = set(ctx.actually_invested.keys())
         print(
             f"[REBALANCE] date={ctx.as_of_date.date()} exposure={ctx.regime.exposure:.2f} "
@@ -923,7 +1067,14 @@ class StandaloneEngine:
                 if ctx.regime.exposure == 0.0:
                     print(f"🚨 [BEAR MARKET] {current_date.date()} 노출도 0% (breadth={ctx.regime.breadth:.2f})")
                     for s in list(self.portfolio.keys()):
-                        self.pending_orders.append({"symbol": s, "qty": self.portfolio[s], "type": "SELL"})
+                        self.pending_orders.append(
+                            {
+                                "symbol": s,
+                                "qty": self.portfolio[s],
+                                "type": "SELL",
+                                "reason": "bear_flatten",
+                            }
+                        )
                     self.previous_target_symbols = set()
                     self.log_rebalance_summary(ctx)
                     continue
@@ -943,6 +1094,19 @@ class StandaloneEngine:
                     continue
 
                 ctx.ranked_df = self.rank_universe(ctx.factor_df)
+                # Research Fact: persist ranks/CMVS for entry/exit journals
+                self._last_rank_map = {
+                    str(sym): int(i + 1)
+                    for i, sym in enumerate(ctx.ranked_df["symbol"].tolist())
+                }
+                if "final_score" in ctx.ranked_df.columns:
+                    self._last_cmvs_map = {
+                        str(sym): float(score)
+                        for sym, score in zip(
+                            ctx.ranked_df["symbol"].tolist(),
+                            ctx.ranked_df["final_score"].tolist(),
+                        )
+                    }
                 # Top-N by CMVS final_score (construct_portfolio still applies buffer/corr caps)
                 ctx.targets_df = self.construct_portfolio(ctx.ranked_df, idx, ctx)
                 # Do not re-buy names that triggered a CMVS exit today
@@ -962,4 +1126,113 @@ class StandaloneEngine:
                 self.previous_target_symbols = set(ctx.actually_invested.keys())
                 self.log_rebalance_summary(ctx)
 
-        return pd.DataFrame(self.equity_curve).set_index("Date")
+        equity = pd.DataFrame(self.equity_curve).set_index("Date")
+        self.research_artifacts = self.emit_research_reports(equity)
+        return equity
+
+    def emit_research_reports(self, equity: pd.DataFrame, out_dir: str | Path = "cache") -> dict:
+        """Build research Facts: trade journal, KPIs, recommendations, validation, experiment log."""
+        out = Path(out_dir)
+        out.mkdir(parents=True, exist_ok=True)
+
+        trades = self.trade_journal.to_frame()
+        trades_path = out / "trade_journal.csv"
+        if not trades.empty:
+            trades.to_csv(trades_path, index=False)
+        else:
+            trades_path.write_text("", encoding="utf-8")
+
+        bm_rets = None
+        if self.BENCHMARK_TICKER in self.close_m.columns and not equity.empty:
+            bm = self.close_m[self.BENCHMARK_TICKER].reindex(equity.index)
+            bm_rets = bm.pct_change()
+
+        kpi = build_hierarchical_kpi_report(equity, trades, benchmark_returns=bm_rets)
+        reco = build_research_recommendation_report(trades, self.research_toggles.as_dict())
+
+        observed_turnover = None
+        if self.trade_journal.rebalance_events:
+            observed_turnover = float(
+                np.mean([e["turnover"] for e in self.trade_journal.rebalance_events])
+            )
+
+        fingerprint_path = out / "baseline_fingerprint.json"
+        baseline_trade_count = None
+        baseline_turnover = None
+        if fingerprint_path.exists():
+            try:
+                fp = json.loads(fingerprint_path.read_text(encoding="utf-8"))
+                baseline_trade_count = fp.get("n_closed_trades")
+                baseline_turnover = fp.get("avg_rebalance_turnover")
+            except Exception:
+                pass
+
+        validation = run_research_validation_checklist(
+            self.research_toggles,
+            trades,
+            max_portfolio_size=self._baseline_max_n,
+            selection_buffer_size=self._baseline_buf_n,
+            baseline_trade_count=baseline_trade_count,
+            baseline_turnover=baseline_turnover,
+            observed_turnover=observed_turnover,
+        )
+
+        # Record fingerprint when running at baseline defaults (for future Task-6 compares)
+        if self.research_toggles.is_baseline_defaults(self._baseline_max_n, self._baseline_buf_n):
+            fingerprint_path.write_text(
+                json.dumps(
+                    {
+                        "n_closed_trades": int(len(trades)) if trades is not None else 0,
+                        "avg_rebalance_turnover": observed_turnover,
+                        "toggles": self.research_toggles.as_dict(),
+                    },
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
+
+        hist = ExperimentHistory(out / "experiment_history.json")
+        next_exp = reco.get("next_experiment") or {}
+        exp_id = hist.append(
+            parent_exp=None,
+            changed_variables=next_exp.get("changed_variables") or {},
+            hypothesis=str(next_exp.get("hypothesis") or ""),
+            expected_outcome=str(next_exp.get("expected_outcome") or ""),
+            actual_outcome=None,
+            decision="proposed",
+            metrics={
+                "kpi": kpi,
+                "sample_size": reco.get("sample_size"),
+                "statistical_confidence": next_exp.get("statistical_confidence"),
+                "consistency": next_exp.get("consistency"),
+                "estimated_impact": next_exp.get("estimated_impact"),
+                "risk_of_overfitting": next_exp.get("risk_of_overfitting"),
+            },
+            notes="Auto-logged proposal from single backtest — do not adopt without confirmation.",
+        )
+
+        report_txt = "\n\n".join(
+            [
+                format_kpi_report(kpi),
+                format_recommendation_report(reco),
+                format_validation_checklist(validation),
+                f"Experiment History entry: {exp_id} -> {hist.path}",
+                f"Trade journal: {trades_path} (n={len(trades)})",
+            ]
+        )
+        report_path = out / "research_report.txt"
+        report_path.write_text(report_txt, encoding="utf-8")
+        print("\n" + report_txt)
+
+        artifacts = {
+            "kpi": kpi,
+            "recommendations": reco,
+            "validation": validation,
+            "experiment_id": exp_id,
+            "trades_path": str(trades_path),
+            "report_path": str(report_path),
+        }
+        (out / "research_artifacts.json").write_text(
+            json.dumps(artifacts, indent=2, default=str), encoding="utf-8"
+        )
+        return artifacts

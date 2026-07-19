@@ -28,6 +28,8 @@ PX_PATH = ROOT / "data" / "prices" / "panels.pkl"
 FUND_PATH = ROOT / "data" / "fundamentals" / "pit_history.pkl"
 EQUITY_CSV = ROOT / "cache" / "equity_curve.csv"
 EQUITY_PNG = ROOT / "cache" / "equity_curve_v5.png"
+RESEARCH_REPORT = ROOT / "cache" / "research_report.txt"
+TRADE_JOURNAL = ROOT / "cache" / "trade_journal.csv"
 
 
 st.set_page_config(page_title="Quant Backtest", page_icon="📈", layout="wide")
@@ -302,6 +304,23 @@ with tab_bt:
             )
         if EQUITY_PNG.exists():
             st.image(str(EQUITY_PNG))
+
+    if RESEARCH_REPORT.exists():
+        st.subheader("Research report")
+        st.code(RESEARCH_REPORT.read_text(encoding="utf-8")[:12000], language="text")
+        st.download_button(
+            "Download research_report.txt",
+            data=RESEARCH_REPORT.read_bytes(),
+            file_name="research_report.txt",
+            mime="text/plain",
+        )
+    if TRADE_JOURNAL.exists() and TRADE_JOURNAL.stat().st_size > 0:
+        st.download_button(
+            "Download trade_journal.csv",
+            data=TRADE_JOURNAL.read_bytes(),
+            file_name="trade_journal.csv",
+            mime="text/csv",
+        )
 
 with tab_help:
     st.markdown(

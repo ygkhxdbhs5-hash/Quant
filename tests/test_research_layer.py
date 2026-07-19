@@ -1,0 +1,105 @@
+"""Unit tests for research infrastructure (no full backtest required)."""
+
+from __future__ import annotations
+
+import numpy as np
+import pandas as pd
+
+from engine.research.config_toggles import ResearchToggles, load_research_toggles
+from engine.research.kpi_report import build_hierarchical_kpi_report
+from engine.research.recommendations import build_research_recommendation_report
+from engine.research.trade_journal import TradeJournal
+from engine.research.validation import run_research_validation_checklist
+
+
+def test_toggles_baseline_defaults():
+    t = load_research_toggles({"max_portfolio_size": 50, "selection_buffer_size": 70})
+    assert t.USE_EMA9_EXIT is True
+    assert t.ATR_MULTIPLIER == 2.0
+    assert t.ENTRY_RANK == 50
+    assert t.EXIT_RANK == 70
+    assert t.MIN_HOLD_DAYS == 0
+    assert t.USE_TIME_STOP is False
+    assert t.is_baseline_defaults(50, 70)
+
+
+def test_shadow_exit_counterfactuals():
+    idx = pd.bdate_range("2020-01-02", periods=40)
+    close = pd.DataFrame({"AAA": np.linspace(100, 120, len(idx))}, index=idx)
+    # Exit at day 10 price, then rises then dips
+    close.loc[idx[11:16], "AAA"] = [105, 110, 115, 112, 108]
+    j = TradeJournal(shadow_horizon_days=20)
+    j.on_entry("AAA", idx[5], 5, 100.0, 10, rank=1, cmvs=0.8, rsi=55.0, atr=2.0)
+    j.mark_peak("AAA", 104.0)
+    rec = j.on_exit(
+        "AAA",
+        idx[10],
+        10,
+        float(close["AAA"].iloc[10]),
+        "ema9_break",
+        close,
+        exit_rank=5,
+        exit_cmvs=0.4,
+        exit_rsi=45.0,
+        exit_atr=2.1,
+    )
+    assert rec is not None
+    assert rec.missed_upside is not None
+    assert rec.saved_drawdown is not None
+    assert rec.days_to_peak is not None
+    assert rec.holding_days >= 0
+    df = j.to_frame()
+    assert "missed_upside" in df.columns
+    assert "forward_return_20d" in df.columns
+
+
+def test_recommendation_and_kpi_smoke():
+    idx = pd.bdate_range("2020-01-02", periods=60)
+    close = pd.DataFrame({"AAA": np.linspace(100, 130, len(idx))}, index=idx)
+    j = TradeJournal(shadow_horizon_days=20)
+    for k in range(40):
+        # staggered synthetic round-trips with post-exit upside
+        e = 1 + k
+        x = e + 3
+        j.on_entry("AAA", idx[e], e, float(close["AAA"].iloc[e]), 1, 1, 0.7, 55.0, 2.0)
+        j.on_exit(
+            "AAA",
+            idx[x],
+            x,
+            float(close["AAA"].iloc[x]),
+            "ema9_break",
+            close,
+            exit_rank=10,
+            exit_cmvs=0.4,
+            exit_rsi=48.0,
+            exit_atr=2.1,
+        )
+    trades = j.to_frame()
+    assert len(trades) == 40
+
+    toggles = ResearchToggles().as_dict()
+    reco = build_research_recommendation_report(trades, toggles)
+    assert reco["sample_size"] == 40
+    assert reco["next_experiment"]["statistical_confidence"] in {"High", "Medium", "Low"}
+
+    eq = pd.DataFrame(
+        {"Total_Equity": np.linspace(1e6, 1.2e6, 252)},
+        index=pd.bdate_range("2020-01-01", periods=252),
+    )
+    kpi = build_hierarchical_kpi_report(eq, trades)
+    assert "research" in kpi and "risk" in kpi and "return" in kpi
+
+    val = run_research_validation_checklist(
+        ResearchToggles(),
+        trades,
+        max_portfolio_size=50,
+        selection_buffer_size=70,
+    )
+    assert val["all_pass"] is True, val
+
+
+if __name__ == "__main__":
+    test_toggles_baseline_defaults()
+    test_shadow_exit_counterfactuals()
+    test_recommendation_and_kpi_smoke()
+    print("OK")
