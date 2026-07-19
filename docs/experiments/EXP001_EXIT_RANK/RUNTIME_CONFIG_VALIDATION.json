@@ -1,0 +1,9 @@
+{
+  "baseline_ENTRY_RANK": 50,
+  "baseline_EXIT_RANK": 70,
+  "experiment_ENTRY_RANK": 50,
+  "experiment_EXIT_RANK": 80,
+  "required_experiment_EXIT_RANK": 80,
+  "experiment_exit_rank_is_80": true,
+  "baseline_exit_rank_is_70": true
+}

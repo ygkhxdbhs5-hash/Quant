@@ -2,7 +2,7 @@
  RESEARCH RECOMMENDATION TEMPLATE
 ================================================================
 Fact:
-  On this fingerprint (git=b35fc25a30, universe_tickers=12, benchmark=SPY), changing EXIT_RANK 70→80 with ENTRY_RANK fixed at 50 produced Δn_closed_trades=0.0, Δturnover/yr=0.0, Δavg_hold_days=0.0, Δavg_missed_upside=0.0, Δavg_saved_drawdown=0.0.
+  On this fingerprint (git=7036dd1130, universe_tickers=12, benchmark=SPY), changing EXIT_RANK 70→80 with ENTRY_RANK fixed at 50 produced Δn_closed_trades=0.0, Δturnover/yr=0.0, Δavg_hold_days=0.0, Δavg_missed_upside=0.0, Δavg_saved_drawdown=0.0.
 
 Interpretation:
   No measurable change in trade count / holding period. With price-column universe smaller than both EXIT_RANK values, hysteresis buffers are saturating (top-K equals full ranked set).

@@ -231,10 +231,41 @@ def main() -> int:
     print("\n=== Running EXP1 EXIT_RANK=80 ===")
     exp = _run_arm(cfg_exp, "exp1_exit_rank_80", OUT / "exp1")
 
-    # Validate only EXIT_RANK changed
+    # HARD REQUIREMENT: experiment runtime must report EXIT_RANK=80 (not 70)
     b_knobs = dict(base["knobs"])
     e_knobs = dict(exp["knobs"])
-    # Benchmark intentionally same; ignore label field differences none
+    runtime_validation = {
+        "baseline_ENTRY_RANK": b_knobs["ENTRY_RANK"],
+        "baseline_EXIT_RANK": b_knobs["EXIT_RANK"],
+        "experiment_ENTRY_RANK": e_knobs["ENTRY_RANK"],
+        "experiment_EXIT_RANK": e_knobs["EXIT_RANK"],
+        "required_experiment_EXIT_RANK": exp_exit,
+        "experiment_exit_rank_is_80": e_knobs["EXIT_RANK"] == exp_exit,
+        "baseline_exit_rank_is_70": b_knobs["EXIT_RANK"] == baseline_exit,
+    }
+    (OUT / "RUNTIME_CONFIG_VALIDATION.json").write_text(
+        json.dumps(runtime_validation, indent=2), encoding="utf-8"
+    )
+    print(
+        f"[RUNTIME] baseline EXIT_RANK={b_knobs['EXIT_RANK']} | "
+        f"experiment EXIT_RANK={e_knobs['EXIT_RANK']} (required {exp_exit})"
+    )
+    if e_knobs["EXIT_RANK"] != exp_exit:
+        abort_reasons.append(
+            f"ABORT: experiment runtime EXIT_RANK={e_knobs['EXIT_RANK']} "
+            f"(required {exp_exit}). Validation must not still show EXIT_RANK=70."
+        )
+    if b_knobs["EXIT_RANK"] != baseline_exit:
+        abort_reasons.append(
+            f"ABORT: baseline runtime EXIT_RANK={b_knobs['EXIT_RANK']} (required {baseline_exit})"
+        )
+    if e_knobs["ENTRY_RANK"] != baseline_entry or b_knobs["ENTRY_RANK"] != baseline_entry:
+        abort_reasons.append(
+            f"ABORT: ENTRY_RANK drifted (baseline={b_knobs['ENTRY_RANK']}, "
+            f"exp={e_knobs['ENTRY_RANK']}, required={baseline_entry})"
+        )
+
+    # Validate only EXIT_RANK changed
     changed = {k: (b_knobs[k], e_knobs[k]) for k in b_knobs if b_knobs[k] != e_knobs[k]}
     only_exit = set(changed.keys()) == {"EXIT_RANK"} and changed.get("EXIT_RANK") == (
         baseline_exit,
@@ -262,6 +293,25 @@ def main() -> int:
         _write(OUT / "ABORT.txt", "\n".join(abort_reasons))
         print("ABORT:", abort_reasons)
         decision = "REJECT"
+        # Still attempt delta only if both arms ran; otherwise stop
+        if e_knobs.get("EXIT_RANK") != exp_exit:
+            _write(
+                OUT / "EXPERIMENT1_RESULT.md",
+                "\n".join(
+                    [
+                        "# Experiment 1 RESULT — ABORTED",
+                        "",
+                        f"Runtime experiment EXIT_RANK={e_knobs.get('EXIT_RANK')} (required 80).",
+                        "",
+                        "Abort reasons:",
+                        *[f"- {r}" for r in abort_reasons],
+                        "",
+                        "**Decision: REJECT**",
+                    ]
+                ),
+            )
+            return 2
+
     else:
         decision = None
 
@@ -426,9 +476,87 @@ def main() -> int:
         ]
     )
     _write(OUT / "EXP001_FULL_REPORT.txt", summary)
+
+    # Concise Exp1-only result (mandatory fields)
+    def _m(kpi, section, key):
+        return (kpi.get(section) or {}).get(key)
+
+    def _d(name):
+        return (delta.get("metrics") or {}).get(name, {}).get("delta")
+
+    result_md = [
+        "# Experiment 1 ONLY — EXIT_RANK 70 → 80",
+        "",
+        "## Runtime configuration (verified)",
+        f"- Baseline: ENTRY_RANK={b_knobs['ENTRY_RANK']}, EXIT_RANK={b_knobs['EXIT_RANK']}",
+        f"- Experiment: ENTRY_RANK={e_knobs['ENTRY_RANK']}, EXIT_RANK={e_knobs['EXIT_RANK']}",
+        f"- only_exit_rank_changed: {only_exit}",
+        f"- changed_knobs: {changed}",
+        f"- abort_reasons: {abort_reasons or []}",
+        "",
+        "## 1) Baseline metrics",
+        f"- Turnover (trades/yr): {_m(base['kpi'], 'research', 'turnover_trades_per_year')}",
+        f"- Avg Holding Period (days): {_m(base['kpi'], 'research', 'avg_holding_period_days')}",
+        f"- CAGR: {_m(base['kpi'], 'risk', 'cagr')}",
+        f"- MDD: {_m(base['kpi'], 'risk', 'mdd')}",
+        f"- Win Rate: {_m(base['kpi'], 'return', 'win_rate')}",
+        f"- Avg Missed Upside: {_m(base['kpi'], 'research', 'avg_missed_upside')}",
+        f"- Avg Saved Drawdown: {_m(base['kpi'], 'research', 'avg_saved_drawdown')}",
+        f"- Closed trades: {len(base['trades'])}",
+        "",
+        "## 2) Experiment metrics (EXIT_RANK=80)",
+        f"- Turnover (trades/yr): {_m(exp['kpi'], 'research', 'turnover_trades_per_year')}",
+        f"- Avg Holding Period (days): {_m(exp['kpi'], 'research', 'avg_holding_period_days')}",
+        f"- CAGR: {_m(exp['kpi'], 'risk', 'cagr')}",
+        f"- MDD: {_m(exp['kpi'], 'risk', 'mdd')}",
+        f"- Win Rate: {_m(exp['kpi'], 'return', 'win_rate')}",
+        f"- Avg Missed Upside: {_m(exp['kpi'], 'research', 'avg_missed_upside')}",
+        f"- Avg Saved Drawdown: {_m(exp['kpi'], 'research', 'avg_saved_drawdown')}",
+        f"- Closed trades: {len(exp['trades'])}",
+        "",
+        "## 3) Delta Report (Experiment − Baseline)",
+        f"- Δ Turnover: {_d('turnover_trades_per_year')}",
+        f"- Δ Holding Period: {_d('avg_holding_period_days')}",
+        f"- Δ CAGR: {_d('cagr')}",
+        f"- Δ MDD: {_d('mdd')}",
+        f"- Δ Win Rate: {_d('win_rate')}",
+        f"- Δ Missed Upside: {_d('avg_missed_upside')}",
+        f"- Δ Saved Drawdown: {_d('avg_saved_drawdown')}",
+        "",
+        "### Δ Exit Breakdown",
+    ]
+    for fam, row in (delta.get("exit_breakdown") or {}).items():
+        result_md.append(
+            f"- {fam}: count Δ={row.get('delta_count')} "
+            f"({row.get('baseline_count')} → {row.get('experiment_count')}); "
+            f"share Δ={row.get('delta_share')} "
+            f"({row.get('baseline_share')} → {row.get('experiment_share')})"
+        )
+    result_md += [
+        "",
+        "## 4) Single-variable verification",
+        f"- PASS: experiment EXIT_RANK == 80 → {e_knobs['EXIT_RANK'] == 80}",
+        f"- PASS: baseline EXIT_RANK == 70 → {b_knobs['EXIT_RANK'] == 70}",
+        f"- PASS: only EXIT_RANK changed → {only_exit}",
+        "",
+        f"## Decision",
+        "",
+        f"**{decision}**",
+        "",
+    ]
+    _write(OUT / "EXPERIMENT1_RESULT.md", "\n".join(result_md))
+    print("\n".join(result_md))
     print(summary)
     print(f"\nArtifacts written under {OUT}")
-    return 0 if checklist["complete"] or decision in {"PASS", "REPEAT", "REJECT"} else 1
+    # Success criteria: runtime EXIT_RANK=80 + delta report produced
+    success = (
+        e_knobs["EXIT_RANK"] == 80
+        and only_exit
+        and (OUT / "DELTA_REPORT.txt").exists()
+        and (OUT / "EXPERIMENT1_RESULT.md").exists()
+        and decision in {"PASS", "REPEAT", "REJECT"}
+    )
+    return 0 if success else 2
 
 
 if __name__ == "__main__":

@@ -2,71 +2,78 @@
  HIERARCHICAL KPI SUMMARY
 ================================================================
 1) Research Metrics
-   - n_closed_trades: 733
-   - avg_holding_period_days: 7.6821
-   - avg_missed_upside: 0.0678 (6.78%)
-   - avg_saved_drawdown: 0.0489 (4.89%)
-   - efficiency_ratio: 4.7907
-   - turnover_trades_per_year: 97.5331
+   - n_closed_trades: 740
+   - avg_holding_period_days: 7.3081
+   - avg_missed_upside: 0.0707 (7.07%)
+   - avg_saved_drawdown: 0.0513 (5.13%)
+   - efficiency_ratio: 4.8139
+   - turnover_trades_per_year: 98.4645
 2) Risk Metrics
-   - cagr: -0.0340 (-3.40%)
-   - mdd: -0.3148 (-31.48%)
-   - sharpe: -0.4197 (-41.97%)
-   - sortino: -0.3446 (-34.46%)
-   - calmar: -0.1081 (-10.81%)
+   - cagr: -0.0522 (-5.22%)
+   - mdd: -0.3818 (-38.18%)
+   - sharpe: -0.6428 (-64.28%)
+   - sortino: -0.5076 (-50.76%)
+   - calmar: -0.1368 (-13.68%)
 3) Return Metrics
-   - total_return: -0.2292 (-22.92%)
-   - alpha: -0.1914 (-19.14%)
-   - win_rate: 0.4584 (45.84%)
-   - profit_factor: 1.4072 (140.72%)
+   - total_return: -0.3318 (-33.18%)
+   - alpha: -0.2102 (-21.02%)
+   - win_rate: 0.4365 (43.65%)
+   - profit_factor: 1.2660 (126.60%)
 ================================================================
 
 ================================================================
  HIERARCHICAL KPI SUMMARY
 ================================================================
 1) Research Metrics
-   - n_closed_trades: 733
-   - avg_holding_period_days: 7.6821
-   - avg_missed_upside: 0.0678 (6.78%)
-   - avg_saved_drawdown: 0.0489 (4.89%)
-   - efficiency_ratio: 4.7907
-   - turnover_trades_per_year: 97.5331
+   - n_closed_trades: 740
+   - avg_holding_period_days: 7.3081
+   - avg_missed_upside: 0.0707 (7.07%)
+   - avg_saved_drawdown: 0.0513 (5.13%)
+   - efficiency_ratio: 4.8139
+   - turnover_trades_per_year: 98.4645
 2) Risk Metrics
-   - cagr: -0.0340 (-3.40%)
-   - mdd: -0.3148 (-31.48%)
-   - sharpe: -0.4197 (-41.97%)
-   - sortino: -0.3446 (-34.46%)
-   - calmar: -0.1081 (-10.81%)
+   - cagr: -0.0522 (-5.22%)
+   - mdd: -0.3818 (-38.18%)
+   - sharpe: -0.6428 (-64.28%)
+   - sortino: -0.5076 (-50.76%)
+   - calmar: -0.1368 (-13.68%)
 3) Return Metrics
-   - total_return: -0.2292 (-22.92%)
-   - alpha: -0.1914 (-19.14%)
-   - win_rate: 0.4584 (45.84%)
-   - profit_factor: 1.4072 (140.72%)
+   - total_return: -0.3318 (-33.18%)
+   - alpha: -0.2102 (-21.02%)
+   - win_rate: 0.4365 (43.65%)
+   - profit_factor: 1.2660 (126.60%)
 ================================================================
 
 ================================================================
  DELTA REPORT (Experiment − Baseline)
 ================================================================
-baseline_n_trades=733  experiment_n_trades=733
+baseline_n_trades=740  experiment_n_trades=740
 
 metric                             baseline     experiment          delta
 ----------------------------------------------------------------
-n_closed_trades                         733            733       0.000000
-turnover_trades_per_year          97.533060      97.533060       0.000000
-avg_holding_period_days            7.682128       7.682128       0.000000
-cagr                              -0.034047      -0.034047       0.000000
-mdd                               -0.314823      -0.314823       0.000000
-total_return                      -0.229207      -0.229207       0.000000
-avg_missed_upside                  0.067812       0.067812       0.000000
-avg_saved_drawdown                 0.048854       0.048854       0.000000
-efficiency_ratio                   4.790721       4.790721       0.000000
+turnover_trades_per_year          98.464481      98.464481       0.000000
+avg_holding_period_days            7.308108       7.308108       0.000000
+cagr                              -0.052240      -0.052240       0.000000
+mdd                               -0.381819      -0.381819       0.000000
+win_rate                           0.436486       0.436486       0.000000
+avg_missed_upside                  0.070704       0.070704       0.000000
+avg_saved_drawdown                 0.051284       0.051284       0.000000
+n_closed_trades                         740            740       0.000000
+total_return                      -0.331843      -0.331843       0.000000
+efficiency_ratio                   4.813906       4.813906       0.000000
+
+Exit Breakdown (count / share)
+----------------------------------------------------------------
+atr_trail            count 4.000000 → 4.000000 (Δ 0.000000) | share 0.005405 → 0.005405 (Δ 0.000000)
+ema9_break           count 724.000000 → 724.000000 (Δ 0.000000) | share 0.978378 → 0.978378 (Δ 0.000000)
+exhaustion           count 12.000000 → 12.000000 (Δ 0.000000) | share 0.016216 → 0.016216 (Δ 0.000000)
 ================================================================
 
 ================================================================
  RESEARCH RECOMMENDATION TEMPLATE
 ================================================================
 Fact:
-  On this fingerprint (git=b35fc25a30, universe_tickers=12, benchmark=SPY), changing EXIT_RANK 70→80 with ENTRY_RANK fixed at 50 produced Δn_closed_trades=0.0, Δturnover/yr=0.0, Δavg_hold_days=0.0, Δavg_missed_upside=0.0, Δavg_saved_drawdown=0.0.
+  On this fingerprint (git=7036dd1130, universe_tickers=12, benchmark=SPY), changing EXIT_RANK 70→80 with ENTRY_RANK fixed at 50 produced Δn_closed_trades=0.0, Δturnover/yr=0.0, Δavg_hold_days=0.0, Δavg_missed_upside=0.0, Δavg_saved_drawdown=0.0.
 
 Interpretation:
   No measurable change in trade count / holding period. With price-column universe smaller than both EXIT_RANK values, hysteresis buffers are saturating (top-K equals full ranked set).
@@ -96,32 +103,33 @@ Changed Variables:
 Baseline:
   - ENTRY_RANK: 50
   - EXIT_RANK: 70
-  - n_closed_trades: 733
-  - cagr: -0.03404721323709459
-  - avg_missed_upside: 0.0678120660479028
-  - avg_saved_drawdown: 0.048854318105744636
+  - n_closed_trades: 740
+  - cagr: -0.05224010395993939
+  - avg_missed_upside: 0.07070414309922131
+  - avg_saved_drawdown: 0.051284119863297756
 
 Experiment:
   - ENTRY_RANK: 50
   - EXIT_RANK: 80
-  - n_closed_trades: 733
-  - cagr: -0.03404721323709459
-  - avg_missed_upside: 0.0678120660479028
-  - avg_saved_drawdown: 0.048854318105744636
+  - n_closed_trades: 740
+  - cagr: -0.05224010395993939
+  - avg_missed_upside: 0.07070414309922131
+  - avg_saved_drawdown: 0.051284119863297756
 
 Δ(Delta):
-  - n_closed_trades: baseline=733 exp=733 Δ=0.0
-  - turnover_trades_per_year: baseline=97.53306010928962 exp=97.53306010928962 Δ=0.0
-  - avg_holding_period_days: baseline=7.68212824010914 exp=7.68212824010914 Δ=0.0
-  - cagr: baseline=-0.03404721323709459 exp=-0.03404721323709459 Δ=0.0
-  - mdd: baseline=-0.31482263067041805 exp=-0.31482263067041805 Δ=0.0
-  - total_return: baseline=-0.2292073532865645 exp=-0.2292073532865645 Δ=0.0
-  - avg_missed_upside: baseline=0.0678120660479028 exp=0.0678120660479028 Δ=0.0
-  - avg_saved_drawdown: baseline=0.048854318105744636 exp=0.048854318105744636 Δ=0.0
-  - efficiency_ratio: baseline=4.790720978831097 exp=4.790720978831097 Δ=0.0
+  - n_closed_trades: baseline=740 exp=740 Δ=0.0
+  - turnover_trades_per_year: baseline=98.46448087431695 exp=98.46448087431695 Δ=0.0
+  - avg_holding_period_days: baseline=7.308108108108108 exp=7.308108108108108 Δ=0.0
+  - cagr: baseline=-0.05224010395993939 exp=-0.05224010395993939 Δ=0.0
+  - mdd: baseline=-0.3818193415306011 exp=-0.3818193415306011 Δ=0.0
+  - total_return: baseline=-0.33184287604750407 exp=-0.33184287604750407 Δ=0.0
+  - avg_missed_upside: baseline=0.07070414309922131 exp=0.07070414309922131 Δ=0.0
+  - avg_saved_drawdown: baseline=0.051284119863297756 exp=0.051284119863297756 Δ=0.0
+  - win_rate: baseline=0.43648648648648647 exp=0.43648648648648647 Δ=0.0
+  - efficiency_ratio: baseline=4.813906434077477 exp=4.813906434077477 Δ=0.0
 
 새롭게 얻은 Fact:
-  On this fingerprint (git=b35fc25a30, universe_tickers=12, benchmark=SPY), changing EXIT_RANK 70→80 with ENTRY_RANK fixed at 50 produced Δn_closed_trades=0.0, Δturnover/yr=0.0, Δavg_hold_days=0.0, Δavg_missed_upside=0.0, Δavg_saved_drawdown=0.0.
+  On this fingerprint (git=7036dd1130, universe_tickers=12, benchmark=SPY), changing EXIT_RANK 70→80 with ENTRY_RANK fixed at 50 produced Δn_closed_trades=0.0, Δturnover/yr=0.0, Δavg_hold_days=0.0, Δavg_missed_upside=0.0, Δavg_saved_drawdown=0.0.
 
 Decision (PASS / REPEAT / REJECT):
   REPEAT

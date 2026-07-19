@@ -1,55 +1,55 @@
 {
   "kpi": {
     "research": {
-      "n_closed_trades": 733,
-      "avg_holding_period_days": 7.68212824010914,
-      "avg_missed_upside": 0.0678120660479028,
-      "avg_saved_drawdown": 0.048854318105744636,
-      "efficiency_ratio": 4.790720978831097,
-      "turnover_trades_per_year": 97.53306010928962
+      "n_closed_trades": 740,
+      "avg_holding_period_days": 7.308108108108108,
+      "avg_missed_upside": 0.07070414309922131,
+      "avg_saved_drawdown": 0.051284119863297756,
+      "efficiency_ratio": 4.813906434077477,
+      "turnover_trades_per_year": 98.46448087431695
     },
     "risk": {
-      "cagr": -0.03404721323709459,
-      "mdd": -0.31482263067041805,
-      "sharpe": -0.41972745189791755,
-      "sortino": -0.34461509888037833,
-      "calmar": -0.10814728650412041
+      "cagr": -0.05224010395993939,
+      "mdd": -0.3818193415306011,
+      "sharpe": -0.6428417676539906,
+      "sortino": -0.5075631780411082,
+      "calmar": -0.13681890432926794
     },
     "return": {
-      "total_return": -0.2292073532865645,
-      "alpha": -0.1913555139392327,
-      "win_rate": 0.4583901773533424,
-      "profit_factor": 1.4071973229341532
+      "total_return": -0.33184287604750407,
+      "alpha": -0.21018934979054846,
+      "win_rate": 0.43648648648648647,
+      "profit_factor": 1.2659963828305092
     }
   },
   "recommendations": {
-    "sample_size": 733,
+    "sample_size": 740,
     "exit_family_stats": [
       {
         "exit_family": "EMA9",
-        "n": 718,
-        "share": 0.9795361527967258,
-        "avg_missed_upside": 0.0662117969494528,
-        "avg_saved_drawdown": 0.04864890214963877,
-        "avg_final_return": 0.002762642865872531,
+        "n": 724,
+        "share": 0.9783783783783784,
+        "avg_missed_upside": 0.06961599393824883,
+        "avg_saved_drawdown": 0.051053213689236855,
+        "avg_final_return": 0.001000031384516893,
         "confidence": "High"
       },
       {
         "exit_family": "ATR_trail",
-        "n": 59,
-        "share": 0.08049113233287858,
-        "avg_missed_upside": 0.06104829143603384,
-        "avg_saved_drawdown": 0.06732258533613258,
-        "avg_final_return": 0.005425357338956758,
+        "n": 56,
+        "share": 0.07567567567567568,
+        "avg_missed_upside": 0.048003807382243066,
+        "avg_saved_drawdown": 0.07372652582473378,
+        "avg_final_return": -0.001209167969929471,
         "confidence": "Medium"
       },
       {
         "exit_family": "Exhaustion",
-        "n": 10,
-        "share": 0.013642564802182811,
-        "avg_missed_upside": 0.130642016403071,
-        "avg_saved_drawdown": 0.04524037300179727,
-        "avg_final_return": 0.15436913640668543,
+        "n": 12,
+        "share": 0.016216216216216217,
+        "avg_missed_upside": 0.14519058116015995,
+        "avg_saved_drawdown": 0.042852217017592294,
+        "avg_final_return": 0.15157451592190477,
         "confidence": "Low"
       },
       {
@@ -64,31 +64,21 @@
     ],
     "findings": [
       {
-        "bottleneck": "ATR tightness",
-        "evidence": "ATR exits=59 (8.0%); avg missed upside=0.0610 at atr_multiplier=2.0",
-        "suggestion": "A/B: ATR_MULTIPLIER 2.0 \u2192 2.5",
-        "confidence": "Medium",
-        "sample_size": 59,
-        "consistency": "single-backtest \u2014 requires multi-period confirmation",
-        "estimated_impact": "Fewer stop-outs; watch avg saved drawdown decline",
-        "risk_of_overfitting": "Medium"
-      },
-      {
         "bottleneck": "Turnover / short holding period",
-        "evidence": "avg holding days=7.7; closed trades=733",
+        "evidence": "avg holding days=7.3; closed trades=740",
         "suggestion": "A/B: MIN_HOLD_DAYS=3 (block same-week churn exits)",
         "confidence": "High",
-        "sample_size": 733,
+        "sample_size": 740,
         "consistency": "single-backtest",
         "estimated_impact": "Lower turnover/costs; may delay valid stops",
         "risk_of_overfitting": "Medium-High"
       },
       {
         "bottleneck": "Exit efficiency snapshot",
-        "evidence": "avg missed upside=0.0678, avg saved drawdown=0.0489, efficiency_ratio\u22484.791",
+        "evidence": "avg missed upside=0.0707, avg saved drawdown=0.0513, efficiency_ratio\u22484.814",
         "suggestion": "Track efficiency_ratio across experiments; do not optimize on one run",
         "confidence": "High",
-        "sample_size": 733,
+        "sample_size": 740,
         "consistency": "descriptive only",
         "estimated_impact": "n/a (diagnostic)",
         "risk_of_overfitting": "Low if used only as monitor"
@@ -100,7 +90,7 @@
         "MIN_HOLD_DAYS": 3
       },
       "expected_outcome": "Lower turnover/costs; may delay valid stops",
-      "sample_size": 733,
+      "sample_size": 740,
       "statistical_confidence": "High",
       "consistency": "single-backtest",
       "estimated_impact": "Lower turnover/costs; may delay valid stops",
@@ -110,7 +100,7 @@
     "protocol_note": "Never recommend strategy modifications based on a single backtest. Every recommendation must include sample size, confidence, consistency, estimated impact, and overfitting risk. Log results in Experiment History."
   },
   "validation": {
-    "all_pass": true,
+    "all_pass": false,
     "checks": [
       {
         "name": "toggles_reproduce_baseline_defaults",
@@ -129,20 +119,18 @@
       },
       {
         "name": "baseline_trade_count_unchanged",
-        "pass": true,
+        "pass": false,
         "detail": {
-          "observed": 733,
-          "baseline": null,
-          "note": "No prior baseline fingerprint on disk; recorded for next run."
+          "observed": 740,
+          "baseline": 733
         }
       },
       {
         "name": "baseline_turnover_unchanged",
-        "pass": true,
+        "pass": false,
         "detail": {
-          "observed": 1.066408529741863,
-          "baseline": null,
-          "note": "Fingerprint absent; skip strict compare."
+          "observed": 1.06665544332211,
+          "baseline": 1.066408529741863
         }
       },
       {
@@ -151,12 +139,12 @@
         "detail": {
           "missing_columns": [],
           "counterfactual_any": "True",
-          "n": 733
+          "n": 740
         }
       }
     ]
   },
-  "experiment_id": "EXP-20260719-2f798491",
+  "experiment_id": "EXP-20260719-f8e9e900",
   "trades_path": "/workspace/docs/experiments/EXP001_EXIT_RANK/baseline/trade_journal.csv",
   "report_path": "/workspace/docs/experiments/EXP001_EXIT_RANK/baseline/research_report.txt"
 }

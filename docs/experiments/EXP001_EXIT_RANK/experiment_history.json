@@ -79,5 +79,117 @@
     },
     "notes": "Configured benchmark QQQ missing from local panel; both arms use SPY so ONLY EXIT_RANK differs between arms.",
     "created_at_utc": "2026-07-19T04:32:25.989467+00:00"
+  },
+  {
+    "id": "EXP-20260719-1ba6c6b3",
+    "parent_exp": null,
+    "changed_variables": {
+      "EXIT_RANK": 80,
+      "ENTRY_RANK_fixed": 50
+    },
+    "hypothesis": "EXIT_RANK 70\u219280 changes turnover/holding/exit efficiency",
+    "expected_outcome": "Measurable \u0394 in research metrics if ranked set > EXIT_RANK",
+    "actual_outcome": "On this fingerprint (git=7036dd1130, universe_tickers=12, benchmark=SPY), changing EXIT_RANK 70\u219280 with ENTRY_RANK fixed at 50 produced \u0394n_closed_trades=0.0, \u0394turnover/yr=0.0, \u0394avg_hold_days=0.0, \u0394avg_missed_upside=0.0, \u0394avg_saved_drawdown=0.0.",
+    "decision": "REPEAT",
+    "metrics": {
+      "delta": {
+        "metrics": {
+          "n_closed_trades": {
+            "baseline": 740,
+            "experiment": 740,
+            "delta": 0.0
+          },
+          "turnover_trades_per_year": {
+            "baseline": 98.46448087431695,
+            "experiment": 98.46448087431695,
+            "delta": 0.0
+          },
+          "avg_holding_period_days": {
+            "baseline": 7.308108108108108,
+            "experiment": 7.308108108108108,
+            "delta": 0.0
+          },
+          "cagr": {
+            "baseline": -0.05224010395993939,
+            "experiment": -0.05224010395993939,
+            "delta": 0.0
+          },
+          "mdd": {
+            "baseline": -0.3818193415306011,
+            "experiment": -0.3818193415306011,
+            "delta": 0.0
+          },
+          "total_return": {
+            "baseline": -0.33184287604750407,
+            "experiment": -0.33184287604750407,
+            "delta": 0.0
+          },
+          "avg_missed_upside": {
+            "baseline": 0.07070414309922131,
+            "experiment": 0.07070414309922131,
+            "delta": 0.0
+          },
+          "avg_saved_drawdown": {
+            "baseline": 0.051284119863297756,
+            "experiment": 0.051284119863297756,
+            "delta": 0.0
+          },
+          "win_rate": {
+            "baseline": 0.43648648648648647,
+            "experiment": 0.43648648648648647,
+            "delta": 0.0
+          },
+          "efficiency_ratio": {
+            "baseline": 4.813906434077477,
+            "experiment": 4.813906434077477,
+            "delta": 0.0
+          }
+        },
+        "exit_breakdown": {
+          "atr_trail": {
+            "baseline_count": 4.0,
+            "experiment_count": 4.0,
+            "delta_count": 0.0,
+            "baseline_share": 0.005405405405405406,
+            "experiment_share": 0.005405405405405406,
+            "delta_share": 0.0
+          },
+          "ema9_break": {
+            "baseline_count": 724.0,
+            "experiment_count": 724.0,
+            "delta_count": 0.0,
+            "baseline_share": 0.9783783783783784,
+            "experiment_share": 0.9783783783783784,
+            "delta_share": 0.0
+          },
+          "exhaustion": {
+            "baseline_count": 12.0,
+            "experiment_count": 12.0,
+            "delta_count": 0.0,
+            "baseline_share": 0.016216216216216217,
+            "experiment_share": 0.016216216216216217,
+            "delta_share": 0.0
+          }
+        },
+        "baseline_n_trades": 740,
+        "experiment_n_trades": 740
+      },
+      "checklist": {
+        "architecture_audit": true,
+        "baseline_verification": true,
+        "exp1_report": true,
+        "delta_report": true,
+        "research_recommendation": true,
+        "decision": true,
+        "exit_rank_validation": true,
+        "abort_reasons": [],
+        "decision_value": "REPEAT",
+        "only_exit_rank_changed": true,
+        "benchmark_note": "Configured benchmark QQQ missing from local panel; both arms use SPY so ONLY EXIT_RANK differs between arms.",
+        "complete": true
+      }
+    },
+    "notes": "Configured benchmark QQQ missing from local panel; both arms use SPY so ONLY EXIT_RANK differs between arms.",
+    "created_at_utc": "2026-07-19T04:48:34.473653+00:00"
   }
 ]
