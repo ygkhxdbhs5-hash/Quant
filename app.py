@@ -33,6 +33,14 @@ RESEARCH_REPORT = ROOT / "cache" / "research_report.txt"
 TRADE_JOURNAL = ROOT / "cache" / "trade_journal.csv"
 RANK_DIAG_JSON = ROOT / "cache" / "rank_diagnostics.json"
 RANK_DIAG_TXT = ROOT / "cache" / "rank_diagnostics_report.txt"
+EXP001_DIR = ROOT / "docs" / "experiments" / "EXP001_EXIT_RANK"
+EXP001_FULL_REPORT = EXP001_DIR / "EXP001_FULL_REPORT.txt"
+EXP001_RESULT = EXP001_DIR / "EXPERIMENT1_RESULT.md"
+EXP001_DELTA = EXP001_DIR / "DELTA_REPORT.txt"
+EXP001_FACTS = EXP001_DIR / "FACTS.txt"
+EXP001_RECO = EXP001_DIR / "RESEARCH_RECOMMENDATION.txt"
+EXP001_VALIDATION = EXP001_DIR / "RUNTIME_CONFIG_VALIDATION.json"
+EXP001_CHECKLIST = EXP001_DIR / "VALIDATION_CHECKLIST.json"
 
 
 st.set_page_config(page_title="Quant Backtest", page_icon="📈", layout="wide")
@@ -191,7 +199,9 @@ c4.metric("Price panel", str(status["prices_shape"]) if status["prices_shape"] e
 if status["price_range"]:
     st.write(f"Price history: `{status['price_range']}`")
 
-tab_dl, tab_bt, tab_help = st.tabs(["1) Download data", "2) Run backtest", "Help"])
+tab_dl, tab_bt, tab_exp, tab_help = st.tabs(
+    ["1) Download data", "2) Run backtest", "3) Experiment 1", "Help"]
+)
 
 with tab_dl:
     st.subheader("Download from Massive.com")
@@ -368,6 +378,111 @@ with tab_bt:
             mime="text/csv",
         )
 
+with tab_exp:
+    st.subheader("Experiment 1 — EXIT_RANK only")
+    st.caption(
+        "Research Rule #1: only EXIT_RANK changes (discovered baseline → 80). "
+        "Baseline runs first, experiment second. No trading-logic edits."
+    )
+    ready_exp = UNI_PATH.exists() and PX_PATH.exists()
+    if not ready_exp:
+        st.warning("Missing universe/prices data. Run Download first.")
+    else:
+        st.write(
+            "Runs `scripts/run_exp1_exit_rank.py`: "
+            "baseline EXIT_RANK → experiment EXIT_RANK=80, then prints the "
+            "8-section report (Architecture Audit → Decision)."
+        )
+
+    if st.button("Run Experiment 1", type="primary", disabled=not ready_exp):
+        env = dict(os.environ)
+        if api_key:
+            env["MASSIVE_API_KEY"] = api_key
+        env["PYTHONUNBUFFERED"] = "1"
+        log = st.empty()
+        code = stream_command(
+            [sys.executable, "-u", str(ROOT / "scripts" / "run_exp1_exit_rank.py")],
+            env,
+            log,
+        )
+        if code != 0:
+            st.error(f"Experiment 1 failed (exit {code})")
+            abort = EXP001_DIR / "ABORT.txt"
+            if abort.exists():
+                st.code(abort.read_text(encoding="utf-8"), language="text")
+        else:
+            st.success("Experiment 1 finished")
+            st.rerun()
+
+    # --- Show preserved Exp1 artifacts ---
+    if EXP001_VALIDATION.exists():
+        try:
+            val = json.loads(EXP001_VALIDATION.read_text(encoding="utf-8"))
+            v = val.get("validation") or {}
+            passed = bool(v.get("passed"))
+            st.markdown("### Validation")
+            if passed:
+                st.success("PASS — EXIT_RANK is the only behavioral change")
+            else:
+                st.error("FAIL — unexpected behavioral differences")
+                unexpected = v.get("unexpected_diffs") or {}
+                if unexpected:
+                    st.json(unexpected)
+            b_id = val.get("baseline_identity") or {}
+            e_id = val.get("experiment_identity") or {}
+            c1, c2 = st.columns(2)
+            c1.metric("Baseline EXIT_RANK", f"{b_id.get('EXIT_RANK', 'n/a')}")
+            c2.metric("Experiment EXIT_RANK", f"{e_id.get('EXIT_RANK', 'n/a')}")
+            c1.metric("Baseline ENTRY_RANK", f"{b_id.get('ENTRY_RANK', 'n/a')}")
+            c2.metric("Experiment ENTRY_RANK", f"{e_id.get('ENTRY_RANK', 'n/a')}")
+        except Exception as exc:
+            st.warning(f"Could not parse validation JSON: {exc}")
+
+    if EXP001_CHECKLIST.exists():
+        try:
+            checklist = json.loads(EXP001_CHECKLIST.read_text(encoding="utf-8"))
+            decision = checklist.get("decision")
+            if decision:
+                st.markdown("### Decision")
+                st.info(str(decision))
+            reco = None
+            if EXP001_RECO.exists():
+                reco = EXP001_RECO.read_text(encoding="utf-8").strip()
+            if reco:
+                st.markdown("### Research Recommendation")
+                st.code(reco, language="text")
+        except Exception:
+            pass
+
+    if EXP001_DELTA.exists():
+        st.markdown("### Delta Report")
+        st.code(EXP001_DELTA.read_text(encoding="utf-8"), language="text")
+        st.download_button(
+            "Download DELTA_REPORT.txt",
+            data=EXP001_DELTA.read_bytes(),
+            file_name="DELTA_REPORT.txt",
+            mime="text/plain",
+            key="dl_exp1_delta",
+        )
+
+    if EXP001_FACTS.exists():
+        st.markdown("### Fact Generation")
+        st.code(EXP001_FACTS.read_text(encoding="utf-8"), language="text")
+
+    report_path = EXP001_RESULT if EXP001_RESULT.exists() else EXP001_FULL_REPORT
+    if report_path.exists():
+        st.markdown("### Full Experiment 1 Report (8 sections)")
+        st.code(report_path.read_text(encoding="utf-8"), language="text")
+        st.download_button(
+            "Download Experiment 1 report",
+            data=report_path.read_bytes(),
+            file_name=report_path.name,
+            mime="text/plain",
+            key="dl_exp1_full",
+        )
+    elif ready_exp:
+        st.info("No Experiment 1 artifacts yet. Click **Run Experiment 1**.")
+
 with tab_help:
     st.markdown(
         """
@@ -382,7 +497,8 @@ streamlit run app.py
 1. Push this repo to GitHub  
 2. [share.streamlit.io](https://share.streamlit.io) → New app  
 3. Main file: `app.py`  
-4. Secrets:
+4. Branch: `cursor/webapp-cb1c`  
+5. Secrets:
 ```toml
 MASSIVE_API_KEY = "your_key"
 ```
@@ -392,5 +508,6 @@ MASSIVE_API_KEY = "your_key"
 - CMVS v3 needs **universe + prices** only. Fundamentals download is optional / off by default.
 - Backtest-only is fast once `data/` exists.
 - After a backtest, **Rank diagnostics** shows `rank_exit_candidates`, `ema_preempted_rank_exit`, and `holding_rank_distribution` from `cache/rank_diagnostics.json` (observation only).
+- **Experiment 1** tab runs baseline vs `EXIT_RANK=80` (single variable) and shows Validation, Delta Report, Facts, Recommendation, and Decision.
 """
     )
