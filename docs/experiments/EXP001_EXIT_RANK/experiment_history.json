@@ -191,5 +191,188 @@
     },
     "notes": "Configured benchmark QQQ missing from local panel; both arms use SPY so ONLY EXIT_RANK differs between arms.",
     "created_at_utc": "2026-07-19T04:48:34.473653+00:00"
+  },
+  {
+    "id": "EXP-20260720-ae3a0506",
+    "parent_exp": null,
+    "changed_variables": {
+      "EXIT_RANK": "70\u219280"
+    },
+    "hypothesis": "EXIT_RANK single-variable change affects turnover/holding/risk",
+    "expected_outcome": "Measurable \u0394 if ranked universe > EXIT_RANK",
+    "actual_outcome": "Fact: Increasing EXIT_RANK from 70 to 80 produced no change in annual turnover (\u0394=0.000000) on this sample.; Fact: Increasing EXIT_RANK from 70 to 80 produced no change in avg_holding_period_days (\u0394=0.000000) on this sample.; Fact: Increasing EXIT_RANK from 70 to 80 produced no change in n_closed_trades (\u0394=0.000000) on this sample.",
+    "decision": "REPEAT",
+    "metrics": {
+      "delta": {
+        "metrics": {
+          "n_closed_trades": {
+            "baseline": 737,
+            "experiment": 737,
+            "delta": 0.0
+          },
+          "turnover_trades_per_year": {
+            "baseline": 98.06530054644809,
+            "experiment": 98.06530054644809,
+            "delta": 0.0
+          },
+          "avg_holding_period_days": {
+            "baseline": 7.34056987788331,
+            "experiment": 7.34056987788331,
+            "delta": 0.0
+          },
+          "cagr": {
+            "baseline": -0.05393598793147514,
+            "experiment": -0.05393598793147514,
+            "delta": 0.0
+          },
+          "total_return": {
+            "baseline": -0.34077588765969025,
+            "experiment": -0.34077588765969025,
+            "delta": 0.0
+          },
+          "sharpe": {
+            "baseline": -0.6142837696672527,
+            "experiment": -0.6142837696672527,
+            "delta": 0.0
+          },
+          "sortino": {
+            "baseline": -0.47473572163068767,
+            "experiment": -0.47473572163068767,
+            "delta": 0.0
+          },
+          "calmar": {
+            "baseline": -0.14359361816068844,
+            "experiment": -0.14359361816068844,
+            "delta": 0.0
+          },
+          "mdd": {
+            "baseline": -0.3756154947716274,
+            "experiment": -0.3756154947716274,
+            "delta": 0.0
+          },
+          "win_rate": {
+            "baseline": 0.4369063772048847,
+            "experiment": 0.4369063772048847,
+            "delta": 0.0
+          },
+          "profit_factor": {
+            "baseline": 1.2514803661638727,
+            "experiment": 1.2514803661638727,
+            "delta": 0.0
+          },
+          "avg_missed_upside": {
+            "baseline": 0.07438491701136062,
+            "experiment": 0.07438491701136062,
+            "delta": 0.0
+          },
+          "avg_saved_drawdown": {
+            "baseline": 0.05161649061409147,
+            "experiment": 0.05161649061409147,
+            "delta": 0.0
+          },
+          "efficiency_ratio": {
+            "baseline": 4.692215389287168,
+            "experiment": 4.692215389287168,
+            "delta": 0.0
+          },
+          "avg_holding_rank": {
+            "baseline": 4.573901808785529,
+            "experiment": 4.573901808785529,
+            "delta": 0.0
+          },
+          "median_holding_rank": {
+            "baseline": 4.0,
+            "experiment": 4.0,
+            "delta": 0.0
+          },
+          "p75_holding_rank": {
+            "baseline": 7.0,
+            "experiment": 7.0,
+            "delta": 0.0
+          },
+          "p90_holding_rank": {
+            "baseline": 9.0,
+            "experiment": 9.0,
+            "delta": 0.0
+          },
+          "p95_holding_rank": {
+            "baseline": 10.0,
+            "experiment": 10.0,
+            "delta": 0.0
+          },
+          "rank_exit_candidates": {
+            "baseline": 0,
+            "experiment": 0,
+            "delta": 0.0
+          },
+          "ema_preempted_rank_exit": {
+            "baseline": 0,
+            "experiment": 0,
+            "delta": 0.0
+          }
+        },
+        "exit_breakdown": {
+          "atr_trail": {
+            "baseline_count": 6.0,
+            "experiment_count": 6.0,
+            "delta_count": 0.0,
+            "baseline_share": 0.008141112618724558,
+            "experiment_share": 0.008141112618724558,
+            "delta_share": 0.0
+          },
+          "ema9_break": {
+            "baseline_count": 719.0,
+            "experiment_count": 719.0,
+            "delta_count": 0.0,
+            "baseline_share": 0.9755766621438263,
+            "experiment_share": 0.9755766621438263,
+            "delta_share": 0.0
+          },
+          "exhaustion": {
+            "baseline_count": 12.0,
+            "experiment_count": 12.0,
+            "delta_count": 0.0,
+            "baseline_share": 0.016282225237449117,
+            "experiment_share": 0.016282225237449117,
+            "delta_share": 0.0
+          }
+        },
+        "baseline_n_trades": 737,
+        "experiment_n_trades": 737,
+        "baseline_rank_diagnostics": {
+          "exit_rank": 70.0,
+          "rank_exit_candidates": 0,
+          "ema_preempted_rank_exit": 0,
+          "holding_rank_distribution": {
+            "n": 3870,
+            "min": 1.0,
+            "mean": 4.573901808785529,
+            "median": 4.0,
+            "p75": 7.0,
+            "p90": 9.0,
+            "p95": 10.0,
+            "max": 11.0
+          }
+        },
+        "experiment_rank_diagnostics": {
+          "exit_rank": 80.0,
+          "rank_exit_candidates": 0,
+          "ema_preempted_rank_exit": 0,
+          "holding_rank_distribution": {
+            "n": 3870,
+            "min": 1.0,
+            "mean": 4.573901808785529,
+            "median": 4.0,
+            "p75": 7.0,
+            "p90": 9.0,
+            "p95": 10.0,
+            "max": 11.0
+          }
+        }
+      },
+      "recommendation": "INSUFFICIENT EVIDENCE"
+    },
+    "notes": "Configured benchmark QQQ missing from local panel; both arms use SPY so ONLY EXIT_RANK differs between arms.",
+    "created_at_utc": "2026-07-20T11:08:09.670367+00:00"
   }
 ]

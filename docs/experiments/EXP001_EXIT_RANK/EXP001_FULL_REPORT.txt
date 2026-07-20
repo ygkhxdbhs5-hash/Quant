@@ -1,138 +1,353 @@
-================================================================
- HIERARCHICAL KPI SUMMARY
-================================================================
-1) Research Metrics
-   - n_closed_trades: 740
-   - avg_holding_period_days: 7.3081
-   - avg_missed_upside: 0.0707 (7.07%)
-   - avg_saved_drawdown: 0.0513 (5.13%)
-   - efficiency_ratio: 4.8139
-   - turnover_trades_per_year: 98.4645
-2) Risk Metrics
-   - cagr: -0.0522 (-5.22%)
-   - mdd: -0.3818 (-38.18%)
-   - sharpe: -0.6428 (-64.28%)
-   - sortino: -0.5076 (-50.76%)
-   - calmar: -0.1368 (-13.68%)
-3) Return Metrics
-   - total_return: -0.3318 (-33.18%)
-   - alpha: -0.2102 (-21.02%)
-   - win_rate: 0.4365 (43.65%)
-   - profit_factor: 1.2660 (126.60%)
-================================================================
+==================================================
+1. Architecture Audit
+==================================================
+Engine Architecture Audit (discovered, not assumed)
 
-================================================================
- HIERARCHICAL KPI SUMMARY
-================================================================
-1) Research Metrics
-   - n_closed_trades: 740
-   - avg_holding_period_days: 7.3081
-   - avg_missed_upside: 0.0707 (7.07%)
-   - avg_saved_drawdown: 0.0513 (5.13%)
-   - efficiency_ratio: 4.8139
-   - turnover_trades_per_year: 98.4645
-2) Risk Metrics
-   - cagr: -0.0522 (-5.22%)
-   - mdd: -0.3818 (-38.18%)
-   - sharpe: -0.6428 (-64.28%)
-   - sortino: -0.5076 (-50.76%)
-   - calmar: -0.1368 (-13.68%)
-3) Return Metrics
-   - total_return: -0.3318 (-33.18%)
-   - alpha: -0.2102 (-21.02%)
-   - win_rate: 0.4365 (43.65%)
-   - profit_factor: 1.2660 (126.60%)
-================================================================
+{
+  "from_config": {
+    "max_portfolio_size": 50,
+    "selection_buffer_size": 70,
+    "atr_multiplier": 2.0,
+    "benchmark": "QQQ",
+    "universe_sample_size": 500,
+    "universe_sample_seed": 42,
+    "start_date": "2010-01-01",
+    "end_date": "2026-07-20",
+    "research_block": {
+      "USE_EMA9_EXIT": true,
+      "ATR_MULTIPLIER": 2.0,
+      "ENTRY_RANK": 50,
+      "EXIT_RANK": 70,
+      "MIN_HOLD_DAYS": 0,
+      "USE_TIME_STOP": false,
+      "TIME_STOP_DAYS": 20,
+      "SHADOW_HORIZON_DAYS": 20
+    }
+  },
+  "from_engine": {
+    "USE_EMA9_EXIT": true,
+    "ATR_MULTIPLIER": 2.0,
+    "ENTRY_RANK": 50,
+    "EXIT_RANK": 70,
+    "MIN_HOLD_DAYS": 0,
+    "USE_TIME_STOP": false,
+    "TIME_STOP_DAYS": 20,
+    "BENCHMARK_TICKER": "QQQ",
+    "TOP_ADV_POOL": 250,
+    "CORR_THRESHOLD": 0.95
+  },
+  "from_data": {
+    "n_tickers": 12,
+    "n_all_tickers": 30,
+    "n_price_columns": 12,
+    "n_price_rows": 2146,
+    "date_start": "2018-01-02",
+    "date_end": "2026-07-17",
+    "benchmark_in_panel": false
+  }
+}
 
-================================================================
- DELTA REPORT (Experiment − Baseline)
-================================================================
-baseline_n_trades=740  experiment_n_trades=740
+Execution flow:
+  run → delist handlers → execute_pending_orders → check_cmvs_exits
+      → _observe_rank_diagnostics (observation only)
+      → monthly: regime → ADV → universe → factors → rank
+               → construct_portfolio(ENTRY_RANK/EXIT_RANK)
+               → allocate_weights → industry cap → queue_rebalance_orders
 
-metric                             baseline     experiment          delta
-----------------------------------------------------------------
-turnover_trades_per_year          98.464481      98.464481       0.000000
-avg_holding_period_days            7.308108       7.308108       0.000000
-cagr                              -0.052240      -0.052240       0.000000
-mdd                               -0.381819      -0.381819       0.000000
-win_rate                           0.436486       0.436486       0.000000
-avg_missed_upside                  0.070704       0.070704       0.000000
-avg_saved_drawdown                 0.051284       0.051284       0.000000
-n_closed_trades                         740            740       0.000000
-total_return                      -0.331843      -0.331843       0.000000
-efficiency_ratio                   4.813906       4.813906       0.000000
+Distinct rank parameters:
+  ENTRY_RANK — top-core / max portfolio size
+  EXIT_RANK  — hysteresis buffer (keep if still in top EXIT_RANK)
 
-Exit Breakdown (count / share)
-----------------------------------------------------------------
-atr_trail            count 4.000000 → 4.000000 (Δ 0.000000) | share 0.005405 → 0.005405 (Δ 0.000000)
-ema9_break           count 724.000000 → 724.000000 (Δ 0.000000) | share 0.978378 → 0.978378 (Δ 0.000000)
-exhaustion           count 12.000000 → 12.000000 (Δ 0.000000) | share 0.016216 → 0.016216 (Δ 0.000000)
-================================================================
+Logging vs execution: trade journal / rank diagnostics observe only;
+they do not change order qty, price, or timing.
 
-================================================================
- RESEARCH RECOMMENDATION TEMPLATE
-================================================================
-Fact:
-  On this fingerprint (git=7036dd1130, universe_tickers=12, benchmark=SPY), changing EXIT_RANK 70→80 with ENTRY_RANK fixed at 50 produced Δn_closed_trades=0.0, Δturnover/yr=0.0, Δavg_hold_days=0.0, Δavg_missed_upside=0.0, Δavg_saved_drawdown=0.0.
+==================================================
+2. Baseline Verification
+==================================================
+Discovered ENTRY_RANK (baseline) = 50
+Discovered EXIT_RANK (baseline)  = 70
+Experiment EXIT_RANK             = 80
+Benchmark                        = SPY
+Note: Configured benchmark QQQ missing from local panel; both arms use SPY so ONLY EXIT_RANK differs between arms.
+Universe tickers                 = 12
+Price columns                    = 12
+Date range                       = 2018-01-02 → 2026-07-17
+Random seed (universe_sample_seed) = 42
 
-Interpretation:
-  No measurable change in trade count / holding period. With price-column universe smaller than both EXIT_RANK values, hysteresis buffers are saturating (top-K equals full ranked set).
+Pre-flight checks (same for both arms except EXIT_RANK):
+  universe, leverage path, rebalance schedule, entry logic, sizing,
+  risk controls, exits, ATR, EMA, holding rules, random seed
 
-Confidence:
-  High for 'no effect on this sample'; Low for generalization
+==================================================
+3. Experiment 1 Report
+==================================================
+==================================================
+EXPERIMENT 1 REPORT
+==================================================
 
-Evidence:
-  only_exit_rank_changed=True; changed={'EXIT_RANK': (70, 80)}; baseline_knobs={'USE_EMA9_EXIT': True, 'ATR_MULTIPLIER': 2.0, 'ENTRY_RANK': 50, 'EXIT_RANK': 70, 'MIN_HOLD_DAYS': 0, 'USE_TIME_STOP': False, 'TIME_STOP_DAYS': 20, 'BENCHMARK_TICKER': 'SPY', 'TOP_ADV_POOL': 250, 'CORR_THRESHOLD': 0.95, 'MAX_INDUSTRY_WEIGHT': 0.4, 'COMMISSION_RATE': 0.0005, 'SLIPPAGE_RATE': 0.0002}; exp_knobs={'USE_EMA9_EXIT': True, 'ATR_MULTIPLIER': 2.0, 'ENTRY_RANK': 50, 'EXIT_RANK': 80, 'MIN_HOLD_DAYS': 0, 'USE_TIME_STOP': False, 'TIME_STOP_DAYS': 20, 'BENCHMARK_TICKER': 'SPY', 'TOP_ADV_POOL': 250, 'CORR_THRESHOLD': 0.95, 'MAX_INDUSTRY_WEIGHT': 0.4, 'COMMISSION_RATE': 0.0005, 'SLIPPAGE_RATE': 0.0002}; Configured benchmark QQQ missing from local panel; both arms use SPY so ONLY EXIT_RANK differs between arms.
+Baseline
+  ENTRY_RANK = 50
+  EXIT_RANK  = 70
+  identity   = {'USE_EMA9_EXIT': True, 'ATR_MULTIPLIER': 2.0, 'ENTRY_RANK': 50, 'EXIT_RANK': 70, 'MIN_HOLD_DAYS': 0, 'USE_TIME_STOP': False, 'TIME_STOP_DAYS': 20, 'BENCHMARK_TICKER': 'SPY', 'TOP_ADV_POOL': 250, 'CORR_THRESHOLD': 0.95, 'MAX_INDUSTRY_WEIGHT': 0.4, 'COMMISSION_RATE': 0.0005, 'SLIPPAGE_RATE': 0.0002, 'UNIVERSE_SAMPLE_SIZE': 500, 'UNIVERSE_SAMPLE_SEED': 42, 'START_DATE': '2010-01-01', 'END_DATE': '2026-07-20', 'N_PRICE_COLUMNS': 12, 'N_PRICE_ROWS': 2146, 'PANELS_SHA256': 'e97afae603e7ba06d310cac43228c0aca9220397ee60a62e9d8ea9ba1b6405fb', 'UNIVERSE_SHA256': 'b50e144ec6f325a70e913068e0955a275b5c5fe38d09263c58fb2ee0704c1649'}
 
-Next Recommended Experiment:
-  Repeat EXIT_RANK experiment on a universe where ranked set size > EXIT_RANK (need >80 names in factor universe), keeping ENTRY_RANK=50.
+Experiment
+  ENTRY_RANK = 50
+  EXIT_RANK  = 80
+  identity   = {'USE_EMA9_EXIT': True, 'ATR_MULTIPLIER': 2.0, 'ENTRY_RANK': 50, 'EXIT_RANK': 80, 'MIN_HOLD_DAYS': 0, 'USE_TIME_STOP': False, 'TIME_STOP_DAYS': 20, 'BENCHMARK_TICKER': 'SPY', 'TOP_ADV_POOL': 250, 'CORR_THRESHOLD': 0.95, 'MAX_INDUSTRY_WEIGHT': 0.4, 'COMMISSION_RATE': 0.0005, 'SLIPPAGE_RATE': 0.0002, 'UNIVERSE_SAMPLE_SIZE': 500, 'UNIVERSE_SAMPLE_SEED': 42, 'START_DATE': '2010-01-01', 'END_DATE': '2026-07-20', 'N_PRICE_COLUMNS': 12, 'N_PRICE_ROWS': 2146, 'PANELS_SHA256': 'e97afae603e7ba06d310cac43228c0aca9220397ee60a62e9d8ea9ba1b6405fb', 'UNIVERSE_SHA256': 'b50e144ec6f325a70e913068e0955a275b5c5fe38d09263c58fb2ee0704c1649'}
 
-Why this experiment maximizes Information Gain:
-  Information gain is blocked while EXIT_RANK exceeds the ranked-set size; a larger universe makes the EXIT_RANK margin observable.
-================================================================
+Changed Variable
+  EXIT_RANK: 70 → 80
 
-================================================================
- EXPERIMENT REVIEW TEMPLATE
-================================================================
+==================================================
+4. Validation
+==================================================
+Validation: PASS
+EXIT_RANK is the only behavioral change
+
+==================================================
+5. Delta Report
+==================================================
+Delta Report
+
+Closed Trades
+  Baseline:    737.000000
+  Experiment:  737.000000
+  Δ:           0.000000
+
+CAGR
+  Baseline:    -0.053936
+  Experiment:  -0.053936
+  Δ:           0.000000
+
+Total Return
+  Baseline:    -0.340776
+  Experiment:  -0.340776
+  Δ:           0.000000
+
+Sharpe
+  Baseline:    -0.614284
+  Experiment:  -0.614284
+  Δ:           0.000000
+
+Sortino
+  Baseline:    -0.474736
+  Experiment:  -0.474736
+  Δ:           0.000000
+
+Calmar
+  Baseline:    -0.143594
+  Experiment:  -0.143594
+  Δ:           0.000000
+
+Max Drawdown
+  Baseline:    -0.375615
+  Experiment:  -0.375615
+  Δ:           0.000000
+
+Win Rate
+  Baseline:    0.436906
+  Experiment:  0.436906
+  Δ:           0.000000
+
+Profit Factor
+  Baseline:    1.251480
+  Experiment:  1.251480
+  Δ:           0.000000
+
+Average Holding Days
+  Baseline:    7.340570
+  Experiment:  7.340570
+  Δ:           0.000000
+
+Average Missed Upside
+  Baseline:    0.074385
+  Experiment:  0.074385
+  Δ:           0.000000
+
+Average Saved Drawdown
+  Baseline:    0.051616
+  Experiment:  0.051616
+  Δ:           0.000000
+
+Turnover
+  Baseline:    98.065301
+  Experiment:  98.065301
+  Δ:           0.000000
+
+Average Holding Rank
+  Baseline:    4.573902
+  Experiment:  4.573902
+  Δ:           0.000000
+
+Median Holding Rank
+  Baseline:    4.000000
+  Experiment:  4.000000
+  Δ:           0.000000
+
+P75 Holding Rank
+  Baseline:    7.000000
+  Experiment:  7.000000
+  Δ:           0.000000
+
+P90 Holding Rank
+  Baseline:    9.000000
+  Experiment:  9.000000
+  Δ:           0.000000
+
+P95 Holding Rank
+  Baseline:    10.000000
+  Experiment:  10.000000
+  Δ:           0.000000
+
+EMA-preempted Rank Exits
+  Baseline:    0.000000
+  Experiment:  0.000000
+  Δ:           0.000000
+
+Rank Exit Candidates
+  Baseline:    0.000000
+  Experiment:  0.000000
+  Δ:           0.000000
+
+
+==================================================
+6. Fact Generation
+==================================================
+Fact: Increasing EXIT_RANK from 70 to 80 produced no change in annual turnover (Δ=0.000000) on this sample.
+Fact: Increasing EXIT_RANK from 70 to 80 produced no change in avg_holding_period_days (Δ=0.000000) on this sample.
+Fact: Increasing EXIT_RANK from 70 to 80 produced no change in n_closed_trades (Δ=0.000000) on this sample.
+Fact: EXIT_RANK=80 produced no statistically meaningful change in CAGR (Δ=0.000000) on this sample.
+
+==================================================
+7. Research Recommendation
+==================================================
+INSUFFICIENT EVIDENCE
+
+==================================================
+8. PASS / REPEAT / REJECT
+==================================================
+REPEAT
+
+==================================================
+Mandatory Review Template
+==================================================
 Hypothesis:
-  Widening EXIT_RANK from 70 to 80 (ENTRY_RANK fixed) changes turnover / holding / exit-efficiency metrics.
+  Widening EXIT_RANK from 70 to 80 (ENTRY_RANK fixed at 50) changes turnover / holding / risk metrics.
 
-Changed Variables:
-  {'EXIT_RANK': '70 → 80'}
+Changed Variable:
+  EXIT_RANK: 70 → 80
 
 Baseline:
-  - ENTRY_RANK: 50
-  - EXIT_RANK: 70
-  - n_closed_trades: 740
-  - cagr: -0.05224010395993939
-  - avg_missed_upside: 0.07070414309922131
-  - avg_saved_drawdown: 0.051284119863297756
+  ENTRY_RANK: 50
+  EXIT_RANK: 70
+  n_closed_trades: 737
+  cagr: -0.05393598793147514
 
 Experiment:
-  - ENTRY_RANK: 50
-  - EXIT_RANK: 80
-  - n_closed_trades: 740
-  - cagr: -0.05224010395993939
-  - avg_missed_upside: 0.07070414309922131
-  - avg_saved_drawdown: 0.051284119863297756
+  ENTRY_RANK: 50
+  EXIT_RANK: 80
+  n_closed_trades: 737
+  cagr: -0.05393598793147514
 
-Δ(Delta):
-  - n_closed_trades: baseline=740 exp=740 Δ=0.0
-  - turnover_trades_per_year: baseline=98.46448087431695 exp=98.46448087431695 Δ=0.0
-  - avg_holding_period_days: baseline=7.308108108108108 exp=7.308108108108108 Δ=0.0
-  - cagr: baseline=-0.05224010395993939 exp=-0.05224010395993939 Δ=0.0
-  - mdd: baseline=-0.3818193415306011 exp=-0.3818193415306011 Δ=0.0
-  - total_return: baseline=-0.33184287604750407 exp=-0.33184287604750407 Δ=0.0
-  - avg_missed_upside: baseline=0.07070414309922131 exp=0.07070414309922131 Δ=0.0
-  - avg_saved_drawdown: baseline=0.051284119863297756 exp=0.051284119863297756 Δ=0.0
-  - win_rate: baseline=0.43648648648648647 exp=0.43648648648648647 Δ=0.0
-  - efficiency_ratio: baseline=4.813906434077477 exp=4.813906434077477 Δ=0.0
+Delta:
+  n_closed_trades Δ=0.0; turnover_trades_per_year Δ=0.0; avg_holding_period_days Δ=0.0; cagr Δ=0.0; mdd Δ=0.0
 
-새롭게 얻은 Fact:
-  On this fingerprint (git=7036dd1130, universe_tickers=12, benchmark=SPY), changing EXIT_RANK 70→80 with ENTRY_RANK fixed at 50 produced Δn_closed_trades=0.0, Δturnover/yr=0.0, Δavg_hold_days=0.0, Δavg_missed_upside=0.0, Δavg_saved_drawdown=0.0.
+New Fact(s):
+  Fact: Increasing EXIT_RANK from 70 to 80 produced no change in annual turnover (Δ=0.000000) on this sample.
+  Fact: Increasing EXIT_RANK from 70 to 80 produced no change in avg_holding_period_days (Δ=0.000000) on this sample.
+  Fact: Increasing EXIT_RANK from 70 to 80 produced no change in n_closed_trades (Δ=0.000000) on this sample.
+  Fact: EXIT_RANK=80 produced no statistically meaningful change in CAGR (Δ=0.000000) on this sample.
 
-Decision (PASS / REPEAT / REJECT):
+Research Recommendation:
+  INSUFFICIENT EVIDENCE
+
+Decision:
   REPEAT
+
+==================================================
+
+Appendix — Baseline diagnostics (unchanged tooling)
+
+==================================================
+
+================================================================
+ HIERARCHICAL KPI SUMMARY
+================================================================
+1) Research Metrics
+   - n_closed_trades: 737
+   - avg_holding_period_days: 7.3406
+   - avg_missed_upside: 0.0744 (7.44%)
+   - avg_saved_drawdown: 0.0516 (5.16%)
+   - efficiency_ratio: 4.6922
+   - turnover_trades_per_year: 98.0653
+2) Risk Metrics
+   - cagr: -0.0539 (-5.39%)
+   - mdd: -0.3756 (-37.56%)
+   - sharpe: -0.6143 (-61.43%)
+   - sortino: -0.4747 (-47.47%)
+   - calmar: -0.1436 (-14.36%)
+3) Return Metrics
+   - total_return: -0.3408 (-34.08%)
+   - alpha: -0.2115 (-21.15%)
+   - win_rate: 0.4369 (43.69%)
+   - profit_factor: 1.2515 (125.15%)
 ================================================================
 
-Decision=REPEAT complete=True
+========================================================================
+RANK DIAGNOSTICS (observation only — trading unchanged)
+========================================================================
+rank_exit_candidates: 0
+ema_preempted_rank_exit: 0
+holding_rank_distribution:
+  min: 1.0000
+  median: 4.0000
+  p75: 7.0000
+  p90: 9.0000
+  p95: 10.0000
+  max: 11.0000
+  n: 3870
+========================================================================
+
+==================================================
+
+Appendix — Experiment diagnostics (unchanged tooling)
+
+==================================================
+
+================================================================
+ HIERARCHICAL KPI SUMMARY
+================================================================
+1) Research Metrics
+   - n_closed_trades: 737
+   - avg_holding_period_days: 7.3406
+   - avg_missed_upside: 0.0744 (7.44%)
+   - avg_saved_drawdown: 0.0516 (5.16%)
+   - efficiency_ratio: 4.6922
+   - turnover_trades_per_year: 98.0653
+2) Risk Metrics
+   - cagr: -0.0539 (-5.39%)
+   - mdd: -0.3756 (-37.56%)
+   - sharpe: -0.6143 (-61.43%)
+   - sortino: -0.4747 (-47.47%)
+   - calmar: -0.1436 (-14.36%)
+3) Return Metrics
+   - total_return: -0.3408 (-34.08%)
+   - alpha: -0.2115 (-21.15%)
+   - win_rate: 0.4369 (43.69%)
+   - profit_factor: 1.2515 (125.15%)
+================================================================
+
+========================================================================
+RANK DIAGNOSTICS (observation only — trading unchanged)
+========================================================================
+rank_exit_candidates: 0
+ema_preempted_rank_exit: 0
+holding_rank_distribution:
+  min: 1.0000
+  median: 4.0000
+  p75: 7.0000
+  p90: 9.0000
+  p95: 10.0000
+  max: 11.0000
+  n: 3870
+========================================================================

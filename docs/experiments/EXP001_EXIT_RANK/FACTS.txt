@@ -1,0 +1,4 @@
+Fact: Increasing EXIT_RANK from 70 to 80 produced no change in annual turnover (Δ=0.000000) on this sample.
+Fact: Increasing EXIT_RANK from 70 to 80 produced no change in avg_holding_period_days (Δ=0.000000) on this sample.
+Fact: Increasing EXIT_RANK from 70 to 80 produced no change in n_closed_trades (Δ=0.000000) on this sample.
+Fact: EXIT_RANK=80 produced no statistically meaningful change in CAGR (Δ=0.000000) on this sample.

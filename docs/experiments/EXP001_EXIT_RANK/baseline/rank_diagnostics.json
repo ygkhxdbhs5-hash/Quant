@@ -1,0 +1,15 @@
+{
+  "exit_rank": 70.0,
+  "rank_exit_candidates": 0,
+  "ema_preempted_rank_exit": 0,
+  "holding_rank_distribution": {
+    "n": 3870,
+    "min": 1.0,
+    "mean": 4.573901808785529,
+    "median": 4.0,
+    "p75": 7.0,
+    "p90": 9.0,
+    "p95": 10.0,
+    "max": 11.0
+  }
+}

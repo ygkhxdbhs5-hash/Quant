@@ -84,5 +84,48 @@
     },
     "notes": "Auto-logged proposal from single backtest \u2014 do not adopt without confirmation.",
     "created_at_utc": "2026-07-19T04:48:32.446268+00:00"
+  },
+  {
+    "id": "EXP-20260720-a5fdb4f7",
+    "parent_exp": null,
+    "changed_variables": {
+      "MIN_HOLD_DAYS": 3
+    },
+    "hypothesis": "A/B: MIN_HOLD_DAYS=3 (block same-week churn exits)",
+    "expected_outcome": "Lower turnover/costs; may delay valid stops",
+    "actual_outcome": null,
+    "decision": "proposed",
+    "metrics": {
+      "kpi": {
+        "research": {
+          "n_closed_trades": 737,
+          "avg_holding_period_days": 7.34056987788331,
+          "avg_missed_upside": 0.07438491701136062,
+          "avg_saved_drawdown": 0.05161649061409147,
+          "efficiency_ratio": 4.692215389287168,
+          "turnover_trades_per_year": 98.06530054644809
+        },
+        "risk": {
+          "cagr": -0.05393598793147514,
+          "mdd": -0.3756154947716274,
+          "sharpe": -0.6142837696672527,
+          "sortino": -0.47473572163068767,
+          "calmar": -0.14359361816068844
+        },
+        "return": {
+          "total_return": -0.34077588765969025,
+          "alpha": -0.21150108594407968,
+          "win_rate": 0.4369063772048847,
+          "profit_factor": 1.2514803661638727
+        }
+      },
+      "sample_size": 737,
+      "statistical_confidence": "High",
+      "consistency": "single-backtest",
+      "estimated_impact": "Lower turnover/costs; may delay valid stops",
+      "risk_of_overfitting": "Medium-High"
+    },
+    "notes": "Auto-logged proposal from single backtest \u2014 do not adopt without confirmation.",
+    "created_at_utc": "2026-07-20T11:08:02.383735+00:00"
   }
 ]

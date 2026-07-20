@@ -1,43 +1,32 @@
-================================================================
- EXPERIMENT REVIEW TEMPLATE
-================================================================
 Hypothesis:
-  Widening EXIT_RANK from 70 to 80 (ENTRY_RANK fixed) changes turnover / holding / exit-efficiency metrics.
+  Widening EXIT_RANK from 70 to 80 (ENTRY_RANK fixed at 50) changes turnover / holding / risk metrics.
 
-Changed Variables:
-  {'EXIT_RANK': '70 → 80'}
+Changed Variable:
+  EXIT_RANK: 70 → 80
 
 Baseline:
-  - ENTRY_RANK: 50
-  - EXIT_RANK: 70
-  - n_closed_trades: 740
-  - cagr: -0.05224010395993939
-  - avg_missed_upside: 0.07070414309922131
-  - avg_saved_drawdown: 0.051284119863297756
+  ENTRY_RANK: 50
+  EXIT_RANK: 70
+  n_closed_trades: 737
+  cagr: -0.05393598793147514
 
 Experiment:
-  - ENTRY_RANK: 50
-  - EXIT_RANK: 80
-  - n_closed_trades: 740
-  - cagr: -0.05224010395993939
-  - avg_missed_upside: 0.07070414309922131
-  - avg_saved_drawdown: 0.051284119863297756
+  ENTRY_RANK: 50
+  EXIT_RANK: 80
+  n_closed_trades: 737
+  cagr: -0.05393598793147514
 
-Δ(Delta):
-  - n_closed_trades: baseline=740 exp=740 Δ=0.0
-  - turnover_trades_per_year: baseline=98.46448087431695 exp=98.46448087431695 Δ=0.0
-  - avg_holding_period_days: baseline=7.308108108108108 exp=7.308108108108108 Δ=0.0
-  - cagr: baseline=-0.05224010395993939 exp=-0.05224010395993939 Δ=0.0
-  - mdd: baseline=-0.3818193415306011 exp=-0.3818193415306011 Δ=0.0
-  - total_return: baseline=-0.33184287604750407 exp=-0.33184287604750407 Δ=0.0
-  - avg_missed_upside: baseline=0.07070414309922131 exp=0.07070414309922131 Δ=0.0
-  - avg_saved_drawdown: baseline=0.051284119863297756 exp=0.051284119863297756 Δ=0.0
-  - win_rate: baseline=0.43648648648648647 exp=0.43648648648648647 Δ=0.0
-  - efficiency_ratio: baseline=4.813906434077477 exp=4.813906434077477 Δ=0.0
+Delta:
+  n_closed_trades Δ=0.0; turnover_trades_per_year Δ=0.0; avg_holding_period_days Δ=0.0; cagr Δ=0.0; mdd Δ=0.0
 
-새롭게 얻은 Fact:
-  On this fingerprint (git=7036dd1130, universe_tickers=12, benchmark=SPY), changing EXIT_RANK 70→80 with ENTRY_RANK fixed at 50 produced Δn_closed_trades=0.0, Δturnover/yr=0.0, Δavg_hold_days=0.0, Δavg_missed_upside=0.0, Δavg_saved_drawdown=0.0.
+New Fact(s):
+  Fact: Increasing EXIT_RANK from 70 to 80 produced no change in annual turnover (Δ=0.000000) on this sample.
+  Fact: Increasing EXIT_RANK from 70 to 80 produced no change in avg_holding_period_days (Δ=0.000000) on this sample.
+  Fact: Increasing EXIT_RANK from 70 to 80 produced no change in n_closed_trades (Δ=0.000000) on this sample.
+  Fact: EXIT_RANK=80 produced no statistically meaningful change in CAGR (Δ=0.000000) on this sample.
 
-Decision (PASS / REPEAT / REJECT):
+Research Recommendation:
+  INSUFFICIENT EVIDENCE
+
+Decision:
   REPEAT
-================================================================

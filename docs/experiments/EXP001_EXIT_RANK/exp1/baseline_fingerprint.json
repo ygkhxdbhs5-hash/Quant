@@ -1,6 +1,6 @@
 {
-  "n_closed_trades": 740,
-  "avg_rebalance_turnover": 1.06665544332211,
+  "n_closed_trades": 737,
+  "avg_rebalance_turnover": 1.0687766554433222,
   "toggles": {
     "USE_EMA9_EXIT": true,
     "ATR_MULTIPLIER": 2.0,

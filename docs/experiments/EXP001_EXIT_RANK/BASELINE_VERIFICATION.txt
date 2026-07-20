@@ -1,0 +1,13 @@
+Discovered ENTRY_RANK (baseline) = 50
+Discovered EXIT_RANK (baseline)  = 70
+Experiment EXIT_RANK             = 80
+Benchmark                        = SPY
+Note: Configured benchmark QQQ missing from local panel; both arms use SPY so ONLY EXIT_RANK differs between arms.
+Universe tickers                 = 12
+Price columns                    = 12
+Date range                       = 2018-01-02 → 2026-07-17
+Random seed (universe_sample_seed) = 42
+
+Pre-flight checks (same for both arms except EXIT_RANK):
+  universe, leverage path, rebalance schedule, entry logic, sizing,
+  risk controls, exits, ATR, EMA, holding rules, random seed

@@ -2,52 +2,56 @@
  HIERARCHICAL KPI SUMMARY
 ================================================================
 1) Research Metrics
-   - n_closed_trades: 740
-   - avg_holding_period_days: 7.3081
-   - avg_missed_upside: 0.0707 (7.07%)
-   - avg_saved_drawdown: 0.0513 (5.13%)
-   - efficiency_ratio: 4.8139
-   - turnover_trades_per_year: 98.4645
+   - n_closed_trades: 737
+   - avg_holding_period_days: 7.3406
+   - avg_missed_upside: 0.0744 (7.44%)
+   - avg_saved_drawdown: 0.0516 (5.16%)
+   - efficiency_ratio: 4.6922
+   - turnover_trades_per_year: 98.0653
 2) Risk Metrics
-   - cagr: -0.0522 (-5.22%)
-   - mdd: -0.3818 (-38.18%)
-   - sharpe: -0.6428 (-64.28%)
-   - sortino: -0.5076 (-50.76%)
-   - calmar: -0.1368 (-13.68%)
+   - cagr: -0.0539 (-5.39%)
+   - mdd: -0.3756 (-37.56%)
+   - sharpe: -0.6143 (-61.43%)
+   - sortino: -0.4747 (-47.47%)
+   - calmar: -0.1436 (-14.36%)
 3) Return Metrics
-   - total_return: -0.3318 (-33.18%)
-   - alpha: -0.2102 (-21.02%)
-   - win_rate: 0.4365 (43.65%)
-   - profit_factor: 1.2660 (126.60%)
+   - total_return: -0.3408 (-34.08%)
+   - alpha: -0.2115 (-21.15%)
+   - win_rate: 0.4369 (43.69%)
+   - profit_factor: 1.2515 (125.15%)
 ================================================================
 
 ================================================================
  RESEARCH RECOMMENDATION REPORT
 ================================================================
-Sample size (closed trades): 740
+Sample size (closed trades): 737
 Protocol: Never recommend strategy modifications based on a single backtest. Every recommendation must include sample size, confidence, consistency, estimated impact, and overfitting risk. Log results in Experiment History.
 
 Exit family stats:
-  - EMA9: n=724 share=97.8% missed=0.06961599393824883 saved=0.051053213689236855 conf=High
-  - ATR_trail: n=56 share=7.6% missed=0.048003807382243066 saved=0.07372652582473378 conf=Medium
+  - EMA9: n=719 share=97.6% missed=0.0721959445678227 saved=0.05153487886208548 conf=High
+  - ATR_trail: n=56 share=7.6% missed=0.06799996578970142 saved=0.07518893276099156 conf=Medium
   - Exhaustion: n=12 share=1.6% missed=0.14519058116015995 saved=0.042852217017592294 conf=Low
   - Rebalance: n=0 share=0.0% missed=None saved=None conf=Low
 
 Findings:
+  [Medium] ATR tightness
+      evidence: ATR exits=56 (7.6%); avg missed upside=0.0680 at atr_multiplier=2.0
+      suggestion: A/B: ATR_MULTIPLIER 2.0 → 2.5
+      n=56 | consistency=single-backtest — requires multi-period confirmation | impact=Fewer stop-outs; watch avg saved drawdown decline | overfit_risk=Medium
   [High] Turnover / short holding period
-      evidence: avg holding days=7.3; closed trades=740
+      evidence: avg holding days=7.3; closed trades=737
       suggestion: A/B: MIN_HOLD_DAYS=3 (block same-week churn exits)
-      n=740 | consistency=single-backtest | impact=Lower turnover/costs; may delay valid stops | overfit_risk=Medium-High
+      n=737 | consistency=single-backtest | impact=Lower turnover/costs; may delay valid stops | overfit_risk=Medium-High
   [High] Exit efficiency snapshot
-      evidence: avg missed upside=0.0707, avg saved drawdown=0.0513, efficiency_ratio≈4.814
+      evidence: avg missed upside=0.0744, avg saved drawdown=0.0516, efficiency_ratio≈4.692
       suggestion: Track efficiency_ratio across experiments; do not optimize on one run
-      n=740 | consistency=descriptive only | impact=n/a (diagnostic) | overfit_risk=Low if used only as monitor
+      n=737 | consistency=descriptive only | impact=n/a (diagnostic) | overfit_risk=Low if used only as monitor
 
 Next A/B experiment proposal:
   - hypothesis: A/B: MIN_HOLD_DAYS=3 (block same-week churn exits)
   - changed_variables: {'MIN_HOLD_DAYS': 3}
   - expected_outcome: Lower turnover/costs; may delay valid stops
-  - sample_size: 740
+  - sample_size: 737
   - statistical_confidence: High
   - consistency: single-backtest
   - estimated_impact: Lower turnover/costs; may delay valid stops
@@ -60,14 +64,29 @@ Next A/B experiment proposal:
 [PASS] toggles_reproduce_baseline_defaults
        {'USE_EMA9_EXIT': True, 'ATR_MULTIPLIER': 2.0, 'ENTRY_RANK': 50, 'EXIT_RANK': 80, 'MIN_HOLD_DAYS': 0, 'USE_TIME_STOP': False, 'TIME_STOP_DAYS': 20, 'SHADOW_HORIZON_DAYS': 20}
 [FAIL] baseline_trade_count_unchanged
-       {'observed': 740, 'baseline': 733}
+       {'observed': 737, 'baseline': 740}
 [FAIL] baseline_turnover_unchanged
-       {'observed': 1.06665544332211, 'baseline': 1.066408529741863}
+       {'observed': 1.0687766554433222, 'baseline': 1.06665544332211}
 [PASS] diagnostic_logs_populated
-       {'missing_columns': [], 'counterfactual_any': np.True_, 'n': 740}
+       {'missing_columns': [], 'counterfactual_any': np.True_, 'n': 737}
 Overall: FAIL
 ================================================================
 
-Experiment History entry: EXP-20260719-0ecae3c1 -> /workspace/docs/experiments/EXP001_EXIT_RANK/exp1/experiment_history.json
+Experiment History entry: EXP-20260720-4a238aa4 -> /workspace/docs/experiments/EXP001_EXIT_RANK/exp1/experiment_history.json
 
-Trade journal: /workspace/docs/experiments/EXP001_EXIT_RANK/exp1/trade_journal.csv (n=740)
+Trade journal: /workspace/docs/experiments/EXP001_EXIT_RANK/exp1/trade_journal.csv (n=737)
+
+========================================================================
+RANK DIAGNOSTICS (observation only — trading unchanged)
+========================================================================
+rank_exit_candidates: 0
+ema_preempted_rank_exit: 0
+holding_rank_distribution:
+  min: 1.0000
+  median: 4.0000
+  p75: 7.0000
+  p90: 9.0000
+  p95: 10.0000
+  max: 11.0000
+  n: 3870
+========================================================================

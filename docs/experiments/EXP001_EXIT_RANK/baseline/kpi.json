@@ -1,23 +1,23 @@
 {
   "research": {
-    "n_closed_trades": 740,
-    "avg_holding_period_days": 7.308108108108108,
-    "avg_missed_upside": 0.07070414309922131,
-    "avg_saved_drawdown": 0.051284119863297756,
-    "efficiency_ratio": 4.813906434077477,
-    "turnover_trades_per_year": 98.46448087431695
+    "n_closed_trades": 737,
+    "avg_holding_period_days": 7.34056987788331,
+    "avg_missed_upside": 0.07438491701136062,
+    "avg_saved_drawdown": 0.05161649061409147,
+    "efficiency_ratio": 4.692215389287168,
+    "turnover_trades_per_year": 98.06530054644809
   },
   "risk": {
-    "cagr": -0.05224010395993939,
-    "mdd": -0.3818193415306011,
-    "sharpe": -0.6428417676539906,
-    "sortino": -0.5075631780411082,
-    "calmar": -0.13681890432926794
+    "cagr": -0.05393598793147514,
+    "mdd": -0.3756154947716274,
+    "sharpe": -0.6142837696672527,
+    "sortino": -0.47473572163068767,
+    "calmar": -0.14359361816068844
   },
   "return": {
-    "total_return": -0.33184287604750407,
-    "alpha": -0.21018934979054846,
-    "win_rate": 0.43648648648648647,
-    "profit_factor": 1.2659963828305092
+    "total_return": -0.34077588765969025,
+    "alpha": -0.21150108594407968,
+    "win_rate": 0.4369063772048847,
+    "profit_factor": 1.2514803661638727
   }
 }
