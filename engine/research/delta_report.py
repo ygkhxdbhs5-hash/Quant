@@ -27,11 +27,25 @@ def _delta(a, b) -> Optional[float]:
     return b - a
 
 
+def _metric_row_clean(baseline, experiment) -> Dict[str, Optional[float]]:
+    """Numeric baseline/experiment/delta triple."""
+    b = _num(baseline)
+    e = _num(experiment)
+    if isinstance(baseline, (int, np.integer)) and b is not None:
+        b = int(baseline)
+    if isinstance(experiment, (int, np.integer)) and e is not None:
+        e = int(experiment)
+    return {"baseline": b, "experiment": e, "delta": _delta(b, e)}
+
+
 def build_delta_report(
     baseline_kpi: Dict[str, Any],
     experiment_kpi: Dict[str, Any],
     baseline_trades: pd.DataFrame,
     experiment_trades: pd.DataFrame,
+    *,
+    baseline_rank_diagnostics: Optional[Dict[str, Any]] = None,
+    experiment_rank_diagnostics: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     b_r = baseline_kpi.get("research") or {}
     e_r = experiment_kpi.get("research") or {}
@@ -41,88 +55,81 @@ def build_delta_report(
     e_ret = experiment_kpi.get("return") or {}
 
     rows = {
-        "n_closed_trades": {
-            "baseline": b_r.get("n_closed_trades"),
-            "experiment": e_r.get("n_closed_trades"),
-            "delta": _delta(b_r.get("n_closed_trades"), e_r.get("n_closed_trades")),
-        },
-        "turnover_trades_per_year": {
-            "baseline": b_r.get("turnover_trades_per_year"),
-            "experiment": e_r.get("turnover_trades_per_year"),
-            "delta": _delta(b_r.get("turnover_trades_per_year"), e_r.get("turnover_trades_per_year")),
-        },
-        "avg_holding_period_days": {
-            "baseline": b_r.get("avg_holding_period_days"),
-            "experiment": e_r.get("avg_holding_period_days"),
-            "delta": _delta(b_r.get("avg_holding_period_days"), e_r.get("avg_holding_period_days")),
-        },
-        "cagr": {
-            "baseline": b_k.get("cagr"),
-            "experiment": e_k.get("cagr"),
-            "delta": _delta(b_k.get("cagr"), e_k.get("cagr")),
-        },
-        "mdd": {
-            "baseline": b_k.get("mdd"),
-            "experiment": e_k.get("mdd"),
-            "delta": _delta(b_k.get("mdd"), e_k.get("mdd")),
-        },
-        "total_return": {
-            "baseline": b_ret.get("total_return"),
-            "experiment": e_ret.get("total_return"),
-            "delta": _delta(b_ret.get("total_return"), e_ret.get("total_return")),
-        },
-        "avg_missed_upside": {
-            "baseline": b_r.get("avg_missed_upside"),
-            "experiment": e_r.get("avg_missed_upside"),
-            "delta": _delta(b_r.get("avg_missed_upside"), e_r.get("avg_missed_upside")),
-        },
-        "avg_saved_drawdown": {
-            "baseline": b_r.get("avg_saved_drawdown"),
-            "experiment": e_r.get("avg_saved_drawdown"),
-            "delta": _delta(b_r.get("avg_saved_drawdown"), e_r.get("avg_saved_drawdown")),
-        },
-        "win_rate": {
-            "baseline": b_ret.get("win_rate"),
-            "experiment": e_ret.get("win_rate"),
-            "delta": _delta(b_ret.get("win_rate"), e_ret.get("win_rate")),
-        },
-        "efficiency_ratio": {
-            "baseline": b_r.get("efficiency_ratio"),
-            "experiment": e_r.get("efficiency_ratio"),
-            "delta": _delta(b_r.get("efficiency_ratio"), e_r.get("efficiency_ratio")),
-        },
+        "n_closed_trades": _metric_row_clean(b_r.get("n_closed_trades"), e_r.get("n_closed_trades")),
+        "turnover_trades_per_year": _metric_row_clean(
+            b_r.get("turnover_trades_per_year"), e_r.get("turnover_trades_per_year")
+        ),
+        "avg_holding_period_days": _metric_row_clean(
+            b_r.get("avg_holding_period_days"), e_r.get("avg_holding_period_days")
+        ),
+        "cagr": _metric_row_clean(b_k.get("cagr"), e_k.get("cagr")),
+        "total_return": _metric_row_clean(b_ret.get("total_return"), e_ret.get("total_return")),
+        "sharpe": _metric_row_clean(b_k.get("sharpe"), e_k.get("sharpe")),
+        "sortino": _metric_row_clean(b_k.get("sortino"), e_k.get("sortino")),
+        "calmar": _metric_row_clean(b_k.get("calmar"), e_k.get("calmar")),
+        "mdd": _metric_row_clean(b_k.get("mdd"), e_k.get("mdd")),
+        "win_rate": _metric_row_clean(b_ret.get("win_rate"), e_ret.get("win_rate")),
+        "profit_factor": _metric_row_clean(b_ret.get("profit_factor"), e_ret.get("profit_factor")),
+        "avg_missed_upside": _metric_row_clean(
+            b_r.get("avg_missed_upside"), e_r.get("avg_missed_upside")
+        ),
+        "avg_saved_drawdown": _metric_row_clean(
+            b_r.get("avg_saved_drawdown"), e_r.get("avg_saved_drawdown")
+        ),
+        "efficiency_ratio": _metric_row_clean(
+            b_r.get("efficiency_ratio"), e_r.get("efficiency_ratio")
+        ),
     }
+
+    # Rank diagnostics (observation-only; experiment − baseline)
+    b_rd = baseline_rank_diagnostics or {}
+    e_rd = experiment_rank_diagnostics or {}
+    b_dist = b_rd.get("holding_rank_distribution") or {}
+    e_dist = e_rd.get("holding_rank_distribution") or {}
+    rows["avg_holding_rank"] = _metric_row_clean(b_dist.get("mean"), e_dist.get("mean"))
+    rows["median_holding_rank"] = _metric_row_clean(b_dist.get("median"), e_dist.get("median"))
+    rows["p75_holding_rank"] = _metric_row_clean(b_dist.get("p75"), e_dist.get("p75"))
+    rows["p90_holding_rank"] = _metric_row_clean(b_dist.get("p90"), e_dist.get("p90"))
+    rows["p95_holding_rank"] = _metric_row_clean(b_dist.get("p95"), e_dist.get("p95"))
+    rows["rank_exit_candidates"] = _metric_row_clean(
+        b_rd.get("rank_exit_candidates"), e_rd.get("rank_exit_candidates")
+    )
+    rows["ema_preempted_rank_exit"] = _metric_row_clean(
+        b_rd.get("ema_preempted_rank_exit"), e_rd.get("ema_preempted_rank_exit")
+    )
+
     exit_breakdown = _exit_breakdown_delta(baseline_trades, experiment_trades)
     return {
         "metrics": rows,
         "exit_breakdown": exit_breakdown,
         "baseline_n_trades": int(len(baseline_trades)) if baseline_trades is not None else 0,
         "experiment_n_trades": int(len(experiment_trades)) if experiment_trades is not None else 0,
+        "baseline_rank_diagnostics": b_rd,
+        "experiment_rank_diagnostics": e_rd,
     }
-
-
-def _normalize_exit_family(reason: str) -> str:
-    r = str(reason or "unknown").lower()
-    if "ema9" in r:
-        return "ema9_break"
-    if "atr_trail" in r:
-        return "atr_trail"
-    if "exhaustion" in r:
-        return "exhaustion"
-    if "rebalance" in r:
-        return "rebalance"
-    if "bear" in r:
-        return "bear_flatten"
-    if "delist" in r:
-        return "delist"
-    if "time_stop" in r:
-        return "time_stop"
-    return r.split(",")[0][:40] or "unknown"
 
 
 def _exit_breakdown_delta(
     baseline_trades: pd.DataFrame, experiment_trades: pd.DataFrame
 ) -> Dict[str, Dict[str, Optional[float]]]:
+    def _normalize_exit_family(reason: str) -> str:
+        r = str(reason or "unknown").lower()
+        if "ema9" in r:
+            return "ema9_break"
+        if "atr_trail" in r:
+            return "atr_trail"
+        if "exhaustion" in r:
+            return "exhaustion"
+        if "rebalance" in r:
+            return "rebalance"
+        if "bear" in r:
+            return "bear_flatten"
+        if "delist" in r:
+            return "delist"
+        if "time_stop" in r:
+            return "time_stop"
+        return r.split(",")[0][:40] or "unknown"
+
     def _counts(df: pd.DataFrame) -> Dict[str, float]:
         if df is None or df.empty or "exit_reason" not in df.columns:
             return {}
@@ -159,7 +166,8 @@ def format_delta_report(delta: Dict[str, Any]) -> str:
         "=" * 64,
         " DELTA REPORT (Experiment − Baseline)",
         "=" * 64,
-        f"baseline_n_trades={delta.get('baseline_n_trades')}  experiment_n_trades={delta.get('experiment_n_trades')}",
+        f"baseline_n_trades={delta.get('baseline_n_trades')}  "
+        f"experiment_n_trades={delta.get('experiment_n_trades')}",
         "",
         f"{'metric':28s} {'baseline':>14s} {'experiment':>14s} {'delta':>14s}",
         "-" * 64,
@@ -172,17 +180,27 @@ def format_delta_report(delta: Dict[str, Any]) -> str:
             return f"{v:.6f}"
         return str(v)
 
-    # Preferred order for the Exp1 brief
     preferred = [
-        "turnover_trades_per_year",
-        "avg_holding_period_days",
+        "n_closed_trades",
         "cagr",
+        "total_return",
+        "sharpe",
+        "sortino",
+        "calmar",
         "mdd",
         "win_rate",
+        "profit_factor",
+        "avg_holding_period_days",
         "avg_missed_upside",
         "avg_saved_drawdown",
-        "n_closed_trades",
-        "total_return",
+        "turnover_trades_per_year",
+        "avg_holding_rank",
+        "median_holding_rank",
+        "p75_holding_rank",
+        "p90_holding_rank",
+        "p95_holding_rank",
+        "ema_preempted_rank_exit",
+        "rank_exit_candidates",
         "efficiency_ratio",
     ]
     metrics = delta.get("metrics") or {}
@@ -190,15 +208,18 @@ def format_delta_report(delta: Dict[str, Any]) -> str:
     for name in ordered:
         row = metrics[name]
         lines.append(
-            f"{name:28s} {f(row.get('baseline')):>14s} {f(row.get('experiment')):>14s} {f(row.get('delta')):>14s}"
+            f"{name:28s} {f(row.get('baseline')):>14s} "
+            f"{f(row.get('experiment')):>14s} {f(row.get('delta')):>14s}"
         )
 
     lines += ["", "Exit Breakdown (count / share)", "-" * 64]
     for fam, row in (delta.get("exit_breakdown") or {}).items():
         lines.append(
-            f"{fam:20s} count {f(row.get('baseline_count')):>8s} → {f(row.get('experiment_count')):>8s} "
+            f"{fam:20s} count {f(row.get('baseline_count')):>8s} → "
+            f"{f(row.get('experiment_count')):>8s} "
             f"(Δ {f(row.get('delta_count')):>8s}) | "
-            f"share {f(row.get('baseline_share')):>8s} → {f(row.get('experiment_share')):>8s} "
+            f"share {f(row.get('baseline_share')):>8s} → "
+            f"{f(row.get('experiment_share')):>8s} "
             f"(Δ {f(row.get('delta_share')):>8s})"
         )
     lines.append("=" * 64)

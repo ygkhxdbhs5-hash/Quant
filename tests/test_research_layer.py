@@ -119,6 +119,7 @@ def test_rank_diagnostics_counts_and_distribution():
     dist = summary["holding_rank_distribution"]
     assert dist["n"] == 4
     assert dist["min"] == 5
+    assert dist["mean"] is not None
     assert dist["median"] is not None
     assert dist["p75"] is not None
     assert dist["p90"] is not None
@@ -132,9 +133,140 @@ def test_rank_diagnostics_counts_and_distribution():
     assert "recommend" not in report.lower()
 
 
+def test_experiment_execution_single_variable_validation_and_report():
+    from engine.research.delta_report import build_delta_report
+    from engine.research.experiment_execution import (
+        compare_behavioral_identity,
+        decide_experiment,
+        format_experiment1_full_report,
+        format_validation_failed,
+        generate_facts,
+        research_recommendation_from_results,
+    )
+
+    base_id = {
+        "USE_EMA9_EXIT": True,
+        "ATR_MULTIPLIER": 2.0,
+        "ENTRY_RANK": 50,
+        "EXIT_RANK": 70,
+        "MIN_HOLD_DAYS": 0,
+        "USE_TIME_STOP": False,
+        "TIME_STOP_DAYS": 0,
+        "BENCHMARK_TICKER": "SPY",
+        "TOP_ADV_POOL": 500,
+        "CORR_THRESHOLD": 0.85,
+        "MAX_INDUSTRY_WEIGHT": 0.35,
+        "COMMISSION_RATE": 0.001,
+        "SLIPPAGE_RATE": 0.0005,
+        "UNIVERSE_SAMPLE_SIZE": 500,
+        "UNIVERSE_SAMPLE_SEED": 42,
+        "START_DATE": "2018-01-01",
+        "END_DATE": None,
+        "N_PRICE_COLUMNS": 12,
+        "N_PRICE_ROWS": 2000,
+        "PANELS_SHA256": "abc",
+        "UNIVERSE_SHA256": "def",
+    }
+    exp_id = dict(base_id)
+    exp_id["EXIT_RANK"] = 80
+    ok = compare_behavioral_identity(
+        base_id, exp_id, allowed_changes={"EXIT_RANK": (70, 80)}
+    )
+    assert ok["passed"] is True
+
+    bad = dict(exp_id)
+    bad["ATR_MULTIPLIER"] = 3.0
+    fail = compare_behavioral_identity(
+        base_id, bad, allowed_changes={"EXIT_RANK": (70, 80)}
+    )
+    assert fail["passed"] is False
+    assert "ATR_MULTIPLIER" in fail["unexpected_diffs"]
+    assert "VALIDATION FAILED" in format_validation_failed(fail)
+
+    # Synthetic identical KPIs → REPEAT + INSUFFICIENT EVIDENCE
+    kpi = {
+        "research": {
+            "n_closed_trades": 100,
+            "avg_holding_period_days": 7.0,
+            "avg_missed_upside": 0.05,
+            "avg_saved_drawdown": 0.04,
+            "efficiency_ratio": 1.0,
+            "turnover_trades_per_year": 50.0,
+        },
+        "risk": {"cagr": 0.1, "mdd": -0.2, "sharpe": 0.5, "sortino": 0.6, "calmar": 0.5},
+        "return": {"total_return": 0.5, "win_rate": 0.55, "profit_factor": 1.2},
+    }
+    rd = {
+        "rank_exit_candidates": 0,
+        "ema_preempted_rank_exit": 0,
+        "holding_rank_distribution": {
+            "n": 10,
+            "mean": 5.0,
+            "median": 5.0,
+            "p75": 7.0,
+            "p90": 9.0,
+            "p95": 9.5,
+        },
+    }
+    empty_trades = pd.DataFrame({"exit_reason": [], "final_return": []})
+    delta = build_delta_report(
+        kpi,
+        kpi,
+        empty_trades,
+        empty_trades,
+        baseline_rank_diagnostics=rd,
+        experiment_rank_diagnostics=rd,
+    )
+    assert "sharpe" in delta["metrics"]
+    assert "rank_exit_candidates" in delta["metrics"]
+    decision = decide_experiment(delta, validation_passed=True)
+    assert decision == "REPEAT"
+    facts = generate_facts(
+        baseline_exit=70, experiment_exit=80, delta=delta, validation_passed=True
+    )
+    assert any("Fact:" in f for f in facts)
+    reco = research_recommendation_from_results(
+        facts=facts,
+        delta=delta,
+        n_closed_trades_baseline=100,
+        n_closed_trades_experiment=100,
+        validation_passed=True,
+        decision=decision,
+    )
+    assert reco == "INSUFFICIENT EVIDENCE"
+
+    report = format_experiment1_full_report(
+        architecture_audit="audit",
+        baseline_verification="verified",
+        baseline_entry=50,
+        baseline_exit=70,
+        experiment_exit=80,
+        baseline_identity=base_id,
+        experiment_identity=exp_id,
+        validation=ok,
+        delta=delta,
+        facts=facts,
+        recommendation=reco,
+        decision=decision,
+        review_body="review",
+    )
+    for section in (
+        "1. Architecture Audit",
+        "2. Baseline Verification",
+        "3. Experiment 1 Report",
+        "4. Validation",
+        "5. Delta Report",
+        "6. Fact Generation",
+        "7. Research Recommendation",
+        "8. PASS / REPEAT / REJECT",
+    ):
+        assert section in report
+
+
 if __name__ == "__main__":
     test_toggles_baseline_defaults()
     test_shadow_exit_counterfactuals()
     test_recommendation_and_kpi_smoke()
     test_rank_diagnostics_counts_and_distribution()
+    test_experiment_execution_single_variable_validation_and_report()
     print("OK")

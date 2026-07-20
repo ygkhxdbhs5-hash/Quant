@@ -47,6 +47,7 @@ class RankDiagnostics:
             return {
                 "n": 0,
                 "min": None,
+                "mean": None,
                 "median": None,
                 "p75": None,
                 "p90": None,
@@ -66,6 +67,7 @@ class RankDiagnostics:
         return {
             "n": n,
             "min": ranks[0],
+            "mean": sum(ranks) / n,
             "median": pct(50),
             "p75": pct(75),
             "p90": pct(90),

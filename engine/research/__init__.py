@@ -13,6 +13,13 @@ from engine.research.experiment_history import ExperimentHistory
 from engine.research.validation import run_research_validation_checklist
 from engine.research.fingerprint import build_experiment_fingerprint, discover_baseline_values
 from engine.research.delta_report import build_delta_report
+from engine.research.experiment_execution import (
+    compare_behavioral_identity,
+    decide_experiment,
+    format_experiment1_full_report,
+    generate_facts,
+    research_recommendation_from_results,
+)
 from engine.research.experiment_templates import (
     format_experiment_review,
     format_research_recommendation,
@@ -30,6 +37,11 @@ __all__ = [
     "build_experiment_fingerprint",
     "discover_baseline_values",
     "build_delta_report",
+    "compare_behavioral_identity",
+    "decide_experiment",
+    "format_experiment1_full_report",
+    "generate_facts",
+    "research_recommendation_from_results",
     "format_experiment_review",
     "format_research_recommendation",
 ]

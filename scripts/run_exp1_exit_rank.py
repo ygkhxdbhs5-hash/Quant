@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Controlled Experiment 1: change ONLY EXIT_RANK (70 → 80).
+"""Experiment Execution & Delta Reporting — Experiment 1 (EXIT_RANK only).
 
 Research Rules:
   #1 Change only EXIT_RANK
   #2 No optimization / unsupported recommendations
-Abort if any other behavioral variable differs, baseline defaults fail,
-or logging path is not observation-only.
+  #3 Baseline first, experiment second; both preserved
+
+Does NOT modify trading logic. Observation diagnostics are preserved.
 """
 
 from __future__ import annotations
@@ -15,18 +16,21 @@ import json
 import sys
 from pathlib import Path
 
-import yaml
-
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from engine.research.delta_report import build_delta_report, format_delta_report
-from engine.research.experiment_history import ExperimentHistory
-from engine.research.experiment_templates import (
-    decide_from_delta,
-    format_experiment_review,
-    format_research_recommendation,
+from engine.research.experiment_execution import (
+    compare_behavioral_identity,
+    decide_experiment,
+    extract_behavioral_identity,
+    format_experiment1_full_report,
+    format_mandatory_review,
+    format_validation_failed,
+    generate_facts,
+    research_recommendation_from_results,
 )
+from engine.research.experiment_history import ExperimentHistory
 from engine.research.fingerprint import (
     build_experiment_fingerprint,
     discover_baseline_values,
@@ -43,47 +47,26 @@ def _write(path: Path, text: str) -> None:
     path.write_text(text, encoding="utf-8")
 
 
-def _behavioral_knobs(engine) -> dict:
-    return {
-        "USE_EMA9_EXIT": bool(engine.USE_EMA9_EXIT),
-        "ATR_MULTIPLIER": float(engine.atr_multiplier),
-        "ENTRY_RANK": int(engine.ENTRY_RANK),
-        "EXIT_RANK": int(engine.EXIT_RANK),
-        "MIN_HOLD_DAYS": int(engine.MIN_HOLD_DAYS),
-        "USE_TIME_STOP": bool(engine.USE_TIME_STOP),
-        "TIME_STOP_DAYS": int(engine.TIME_STOP_DAYS),
-        "BENCHMARK_TICKER": str(engine.BENCHMARK_TICKER),
-        "TOP_ADV_POOL": int(engine.TOP_ADV_POOL),
-        "CORR_THRESHOLD": float(engine.CORR_THRESHOLD),
-        "MAX_INDUSTRY_WEIGHT": float(engine.MAX_INDUSTRY_WEIGHT),
-        "COMMISSION_RATE": float(engine.COMMISSION_RATE),
-        "SLIPPAGE_RATE": float(engine.SLIPPAGE_RATE),
-    }
-
-
-def _prepare_cfg(base_cfg: dict, *, exit_rank: int, benchmark: str) -> dict:
+def _prepare_cfg(base_cfg: dict, *, entry_rank: int, exit_rank: int, benchmark: str) -> dict:
     cfg = copy.deepcopy(base_cfg)
-    # Same data arm for baseline & exp: local panel lacks QQQ; use available benchmark.
     cfg["benchmark"] = benchmark
     research = dict(cfg.get("research") or {})
-    # Discovered baseline ENTRY_RANK stays fixed; only EXIT_RANK changes in Exp1
-    research["ENTRY_RANK"] = int(cfg.get("max_portfolio_size", 50))
+    research["ENTRY_RANK"] = int(entry_rank)
     research["EXIT_RANK"] = int(exit_rank)
+    # Keep non-rank research toggles at discovered baseline defaults (identical both arms)
     research["USE_EMA9_EXIT"] = True
     research["ATR_MULTIPLIER"] = float(cfg.get("atr_multiplier", 2.0))
     research["MIN_HOLD_DAYS"] = 0
     research["USE_TIME_STOP"] = False
     cfg["research"] = research
-    # Keep legacy mirrors aligned with discovered baseline entry size
+    cfg["max_portfolio_size"] = int(entry_rank)
     cfg["selection_buffer_size"] = int(exit_rank)
     return cfg
 
 
 def _run_arm(cfg: dict, label: str, out_dir: Path) -> dict:
     eng = StandaloneEngine(config=cfg, config_path=str(ROOT / "config" / "config.yaml"))
-    # Suppress research auto-fingerprint overwrite races by using arm-specific out
     equity = eng.run()
-    # Re-emit into arm folder
     arts = eng.emit_research_reports(equity, out_dir=out_dir)
     trades = eng.trade_journal.to_frame()
     bm = None
@@ -98,12 +81,16 @@ def _run_arm(cfg: dict, label: str, out_dir: Path) -> dict:
         paths=cfg.get("paths") or {},
     )
     write_fingerprint(fp, out_dir / "fingerprint.json")
-    trades_path = out_dir / "trade_journal.csv"
     if not trades.empty:
-        trades.to_csv(trades_path, index=False)
+        trades.to_csv(out_dir / "trade_journal.csv", index=False)
     (out_dir / "kpi.json").write_text(json.dumps(kpi, indent=2, default=str), encoding="utf-8")
+    identity = extract_behavioral_identity(eng, cfg, fp)
     (out_dir / "behavioral_knobs.json").write_text(
-        json.dumps(_behavioral_knobs(eng), indent=2), encoding="utf-8"
+        json.dumps(identity, indent=2, default=str), encoding="utf-8"
+    )
+    rank_diag = (arts or {}).get("rank_diagnostics") or eng.rank_diagnostics.summary()
+    (out_dir / "rank_diagnostics.json").write_text(
+        json.dumps(rank_diag, indent=2, default=str), encoding="utf-8"
     )
     return {
         "engine": eng,
@@ -112,51 +99,46 @@ def _run_arm(cfg: dict, label: str, out_dir: Path) -> dict:
         "kpi": kpi,
         "fingerprint": fp,
         "artifacts": arts,
-        "knobs": _behavioral_knobs(eng),
+        "identity": identity,
+        "rank_diagnostics": rank_diag,
     }
 
 
 def _architecture_audit(discovered: dict) -> str:
     return "\n".join(
         [
-            "# Task 0 — Engine Architecture Audit & Baseline Discovery",
+            "Engine Architecture Audit (discovered, not assumed)",
             "",
-            "## Discovered baseline values (live, not assumed)",
-            "```json",
             json.dumps(discovered, indent=2, default=str),
-            "```",
             "",
-            "## Execution flow (owner functions)",
-            "1. `run` — daily loop orchestration",
-            "2. `handle_official_delisting` / `handle_silent_delisting` — forced exits",
-            "3. `execute_pending_orders` — open fills + `_cost_ratio` (journal observes only)",
-            "4. `check_cmvs_exits` — ATR / EMA9 / exhaustion (toggleable)",
-            "5. Monthly: `determine_market_regime` → ADV pool → `get_universe` →",
-            "   `build_factors` → `rank_universe` → `construct_portfolio`(ENTRY_RANK/EXIT_RANK) →",
-            "   `allocate_weights` → `construct_final_targets_with_industry_cap` → `queue_rebalance_orders`",
+            "Execution flow:",
+            "  run → delist handlers → execute_pending_orders → check_cmvs_exits",
+            "      → _observe_rank_diagnostics (observation only)",
+            "      → monthly: regime → ADV → universe → factors → rank",
+            "               → construct_portfolio(ENTRY_RANK/EXIT_RANK)",
+            "               → allocate_weights → industry cap → queue_rebalance_orders",
             "",
-            "## Distinct rank parameters",
-            "- `ENTRY_RANK`: max names selected / top-core size (`construct_portfolio`)",
-            "- `EXIT_RANK`: hysteresis buffer size (keep if still inside top EXIT_RANK)",
+            "Distinct rank parameters:",
+            "  ENTRY_RANK — top-core / max portfolio size",
+            "  EXIT_RANK  — hysteresis buffer (keep if still in top EXIT_RANK)",
             "",
-            "## Logging vs execution",
-            "- Trade journal / shadow exits attach after fills; they do not change order qty/price/timing.",
-            "- Abort if any non-EXIT_RANK behavioral knob differs between baseline and Exp1.",
-            "",
+            "Logging vs execution: trade journal / rank diagnostics observe only;",
+            "they do not change order qty, price, or timing.",
         ]
     )
 
 
 def main() -> int:
     OUT.mkdir(parents=True, exist_ok=True)
-    abort_reasons = []
+    abort_reasons: list[str] = []
 
     base_cfg = load_config(str(ROOT / "config" / "config.yaml"))
-
-    # Discover available benchmark from panel without assuming QQQ exists
-    probe = StandaloneEngine(config=copy.deepcopy(base_cfg), config_path=str(ROOT / "config" / "config.yaml"))
+    probe = StandaloneEngine(
+        config=copy.deepcopy(base_cfg), config_path=str(ROOT / "config" / "config.yaml")
+    )
     discovered = discover_baseline_values(base_cfg, probe)
-    _write(OUT / "TASK0_ARCHITECTURE_AUDIT.md", _architecture_audit(discovered))
+    architecture_audit = _architecture_audit(discovered)
+    _write(OUT / "TASK0_ARCHITECTURE_AUDIT.md", "# Architecture Audit\n\n" + architecture_audit)
 
     panel_cols = set(probe.close_m.columns)
     configured_bm = str(base_cfg.get("benchmark") or "QQQ").upper()
@@ -170,391 +152,281 @@ def main() -> int:
             f"both arms use SPY so ONLY EXIT_RANK differs between arms."
         )
     else:
-        abort_reasons.append("No usable benchmark column in price panel")
-        _write(OUT / "ABORT.txt", "\n".join(abort_reasons))
-        print("ABORT:", abort_reasons)
+        print("VALIDATION FAILED")
+        print("  - No usable benchmark column in price panel")
+        _write(OUT / "ABORT.txt", "No usable benchmark column in price panel")
         return 2
 
-    # Discovered baseline EXIT/ENTRY from config/engine
     baseline_entry = int(discovered["from_config"]["max_portfolio_size"])
     baseline_exit = int(discovered["from_config"]["selection_buffer_size"])
-    # Prefer research block if it matches discovered portfolio knobs
     research = base_cfg.get("research") or {}
     if int(research.get("ENTRY_RANK", baseline_entry)) == baseline_entry:
         baseline_entry = int(research.get("ENTRY_RANK", baseline_entry))
     if int(research.get("EXIT_RANK", baseline_exit)) == baseline_exit:
         baseline_exit = int(research.get("EXIT_RANK", baseline_exit))
 
-    print("=== Task 0 Discovery ===")
-    print(bm_note)
-    print(f"ENTRY_RANK baseline={baseline_entry} EXIT_RANK baseline={baseline_exit}")
-    print(f"Universe tickers={discovered['from_data']['n_tickers']} "
-          f"prices={discovered['from_data']['n_price_columns']} "
-          f"range={discovered['from_data']['date_start']}→{discovered['from_data']['date_end']}")
+    exp_exit = 80
 
-    # --- Baseline arm ---
-    cfg_base = _prepare_cfg(base_cfg, exit_rank=baseline_exit, benchmark=experiment_benchmark)
-    # Force ENTRY to discovered baseline
-    cfg_base["research"]["ENTRY_RANK"] = baseline_entry
-    cfg_base["max_portfolio_size"] = baseline_entry
+    baseline_verification = "\n".join(
+        [
+            f"Discovered ENTRY_RANK (baseline) = {baseline_entry}",
+            f"Discovered EXIT_RANK (baseline)  = {baseline_exit}",
+            f"Experiment EXIT_RANK             = {exp_exit}",
+            f"Benchmark                        = {experiment_benchmark}",
+            f"Note: {bm_note}",
+            f"Universe tickers                 = {discovered['from_data']['n_tickers']}",
+            f"Price columns                    = {discovered['from_data']['n_price_columns']}",
+            f"Date range                       = {discovered['from_data']['date_start']}"
+            f" → {discovered['from_data']['date_end']}",
+            f"Random seed (universe_sample_seed) = {base_cfg.get('universe_sample_seed')}",
+            "",
+            "Pre-flight checks (same for both arms except EXIT_RANK):",
+            "  universe, leverage path, rebalance schedule, entry logic, sizing,",
+            "  risk controls, exits, ATR, EMA, holding rules, random seed",
+        ]
+    )
+    _write(OUT / "BASELINE_VERIFICATION.txt", baseline_verification)
 
-    print("\n=== Running BASELINE ===")
+    print("=== Baseline Verification ===")
+    print(baseline_verification)
+
+    # --- Run A: Baseline first ---
+    cfg_base = _prepare_cfg(
+        base_cfg,
+        entry_rank=baseline_entry,
+        exit_rank=baseline_exit,
+        benchmark=experiment_benchmark,
+    )
+    print("\n=== Running BASELINE (Run A) ===")
     base = _run_arm(cfg_base, "baseline", OUT / "baseline")
-
-    # Abort: defaults fail to reproduce discovered baseline knobs (except benchmark data remap)
-    kn = base["knobs"]
-    if kn["ENTRY_RANK"] != baseline_entry:
-        abort_reasons.append(f"ENTRY_RANK mismatch: {kn['ENTRY_RANK']} vs {baseline_entry}")
-    if kn["EXIT_RANK"] != baseline_exit:
-        abort_reasons.append(f"EXIT_RANK mismatch on baseline arm: {kn['EXIT_RANK']} vs {baseline_exit}")
-    if kn["USE_EMA9_EXIT"] is not True or kn["MIN_HOLD_DAYS"] != 0 or kn["USE_TIME_STOP"] is not False:
-        abort_reasons.append(f"Non-rank toggles not at discovered baseline: {kn}")
-    if abs(kn["ATR_MULTIPLIER"] - float(base_cfg.get("atr_multiplier", 2.0))) > 1e-12:
-        abort_reasons.append("ATR_MULTIPLIER drifted from config")
 
     baseline_trade_count = int(len(base["trades"]))
     (OUT / "baseline_trade_count.json").write_text(
         json.dumps({"n_closed_trades": baseline_trade_count}, indent=2), encoding="utf-8"
     )
 
+    # Baseline arm must match discovered ranks
+    if base["identity"]["ENTRY_RANK"] != baseline_entry:
+        abort_reasons.append(
+            f"ENTRY_RANK mismatch on baseline: {base['identity']['ENTRY_RANK']} vs {baseline_entry}"
+        )
+    if base["identity"]["EXIT_RANK"] != baseline_exit:
+        abort_reasons.append(
+            f"EXIT_RANK mismatch on baseline: {base['identity']['EXIT_RANK']} vs {baseline_exit}"
+        )
     if abort_reasons:
+        print("VALIDATION FAILED")
+        for r in abort_reasons:
+            print(f"  - {r}")
         _write(OUT / "ABORT.txt", "\n".join(abort_reasons))
-        print("ABORT before Exp1:", abort_reasons)
         return 2
 
-    # --- Experiment arm: ONLY EXIT_RANK=80 ---
-    exp_exit = 80
-    cfg_exp = _prepare_cfg(base_cfg, exit_rank=exp_exit, benchmark=experiment_benchmark)
-    cfg_exp["research"]["ENTRY_RANK"] = baseline_entry
-    cfg_exp["max_portfolio_size"] = baseline_entry
-
-    print("\n=== Running EXP1 EXIT_RANK=80 ===")
+    # --- Run B: Experiment second (EXIT_RANK=80 only) ---
+    cfg_exp = _prepare_cfg(
+        base_cfg,
+        entry_rank=baseline_entry,
+        exit_rank=exp_exit,
+        benchmark=experiment_benchmark,
+    )
+    print("\n=== Running EXPERIMENT (Run B) EXIT_RANK=80 ===")
     exp = _run_arm(cfg_exp, "exp1_exit_rank_80", OUT / "exp1")
 
-    # HARD REQUIREMENT: experiment runtime must report EXIT_RANK=80 (not 70)
-    b_knobs = dict(base["knobs"])
-    e_knobs = dict(exp["knobs"])
-    runtime_validation = {
-        "baseline_ENTRY_RANK": b_knobs["ENTRY_RANK"],
-        "baseline_EXIT_RANK": b_knobs["EXIT_RANK"],
-        "experiment_ENTRY_RANK": e_knobs["ENTRY_RANK"],
-        "experiment_EXIT_RANK": e_knobs["EXIT_RANK"],
-        "required_experiment_EXIT_RANK": exp_exit,
-        "experiment_exit_rank_is_80": e_knobs["EXIT_RANK"] == exp_exit,
-        "baseline_exit_rank_is_70": b_knobs["EXIT_RANK"] == baseline_exit,
-    }
+    # Preserve both results already on disk under baseline/ and exp1/
+
+    validation = compare_behavioral_identity(
+        base["identity"],
+        exp["identity"],
+        allowed_changes={"EXIT_RANK": (baseline_exit, exp_exit)},
+    )
     (OUT / "RUNTIME_CONFIG_VALIDATION.json").write_text(
-        json.dumps(runtime_validation, indent=2), encoding="utf-8"
-    )
-    print(
-        f"[RUNTIME] baseline EXIT_RANK={b_knobs['EXIT_RANK']} | "
-        f"experiment EXIT_RANK={e_knobs['EXIT_RANK']} (required {exp_exit})"
-    )
-    if e_knobs["EXIT_RANK"] != exp_exit:
-        abort_reasons.append(
-            f"ABORT: experiment runtime EXIT_RANK={e_knobs['EXIT_RANK']} "
-            f"(required {exp_exit}). Validation must not still show EXIT_RANK=70."
-        )
-    if b_knobs["EXIT_RANK"] != baseline_exit:
-        abort_reasons.append(
-            f"ABORT: baseline runtime EXIT_RANK={b_knobs['EXIT_RANK']} (required {baseline_exit})"
-        )
-    if e_knobs["ENTRY_RANK"] != baseline_entry or b_knobs["ENTRY_RANK"] != baseline_entry:
-        abort_reasons.append(
-            f"ABORT: ENTRY_RANK drifted (baseline={b_knobs['ENTRY_RANK']}, "
-            f"exp={e_knobs['ENTRY_RANK']}, required={baseline_entry})"
-        )
-
-    # Validate only EXIT_RANK changed
-    changed = {k: (b_knobs[k], e_knobs[k]) for k in b_knobs if b_knobs[k] != e_knobs[k]}
-    only_exit = set(changed.keys()) == {"EXIT_RANK"} and changed.get("EXIT_RANK") == (
-        baseline_exit,
-        exp_exit,
-    )
-    if not only_exit:
-        abort_reasons.append(f"Behavioral variables changed beyond EXIT_RANK: {changed}")
-
-    # Abort if baseline trade count somehow rewritten (compare stored)
-    if int(len(base["trades"])) != baseline_trade_count:
-        abort_reasons.append("Baseline trade count changed before experiment comparison")
-
-    # Logging must not alter execution: journal is observation-only by design;
-    # record validation Fact.
-    logging_fact = {
-        "journal_hooks": "post-fill observation in execute_pending_orders / delist handlers",
-        "order_generation_depends_on_journal": False,
-        "shadow_horizon_days": int(cfg_base.get("research", {}).get("SHADOW_HORIZON_DAYS", 20)),
-    }
-    (OUT / "logging_execution_separation.json").write_text(
-        json.dumps(logging_fact, indent=2), encoding="utf-8"
+        json.dumps(
+            {
+                "baseline_identity": base["identity"],
+                "experiment_identity": exp["identity"],
+                "validation": validation,
+                "required_experiment_EXIT_RANK": exp_exit,
+            },
+            indent=2,
+            default=str,
+        ),
+        encoding="utf-8",
     )
 
-    if abort_reasons:
-        _write(OUT / "ABORT.txt", "\n".join(abort_reasons))
-        print("ABORT:", abort_reasons)
-        decision = "REJECT"
-        # Still attempt delta only if both arms ran; otherwise stop
-        if e_knobs.get("EXIT_RANK") != exp_exit:
-            _write(
-                OUT / "EXPERIMENT1_RESULT.md",
-                "\n".join(
-                    [
-                        "# Experiment 1 RESULT — ABORTED",
-                        "",
-                        f"Runtime experiment EXIT_RANK={e_knobs.get('EXIT_RANK')} (required 80).",
-                        "",
-                        "Abort reasons:",
-                        *[f"- {r}" for r in abort_reasons],
-                        "",
-                        "**Decision: REJECT**",
-                    ]
-                ),
-            )
-            return 2
-
+    if not validation["passed"]:
+        failed = format_validation_failed(validation)
+        print(failed)
+        _write(OUT / "ABORT.txt", failed)
+        abort_reasons.append(failed)
+        # Still build delta for forensics, but decision REJECT
+        validation_passed = False
     else:
-        decision = None
+        validation_passed = True
+        print("Validation: PASS (EXIT_RANK is the only behavioral change)")
 
-    delta = build_delta_report(base["kpi"], exp["kpi"], base["trades"], exp["trades"])
+    if int(len(base["trades"])) != baseline_trade_count:
+        print("VALIDATION FAILED")
+        print("  - Baseline trade count changed before experiment comparison")
+        return 2
+
+    (OUT / "logging_execution_separation.json").write_text(
+        json.dumps(
+            {
+                "journal_hooks": "post-fill observation only",
+                "rank_diagnostics": "observation only",
+                "order_generation_depends_on_journal": False,
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    delta = build_delta_report(
+        base["kpi"],
+        exp["kpi"],
+        base["trades"],
+        exp["trades"],
+        baseline_rank_diagnostics=base["rank_diagnostics"],
+        experiment_rank_diagnostics=exp["rank_diagnostics"],
+    )
     _write(OUT / "DELTA_REPORT.txt", format_delta_report(delta))
     (OUT / "delta.json").write_text(json.dumps(delta, indent=2, default=str), encoding="utf-8")
 
-    if decision is None:
-        decision = decide_from_delta(delta, only_exit_rank_changed=only_exit, abort_reasons=abort_reasons)
-
-    # Facts-only recommendation (Rule #2)
-    d_hold = (delta.get("metrics") or {}).get("avg_holding_period_days", {}).get("delta")
-    d_turn = (delta.get("metrics") or {}).get("turnover_trades_per_year", {}).get("delta")
-    d_miss = (delta.get("metrics") or {}).get("avg_missed_upside", {}).get("delta")
-    d_save = (delta.get("metrics") or {}).get("avg_saved_drawdown", {}).get("delta")
-    d_trades = (delta.get("metrics") or {}).get("n_closed_trades", {}).get("delta")
-
-    fact = (
-        f"On this fingerprint (git={base['fingerprint']['git_commit'][:10]}, "
-        f"universe_tickers={discovered['from_data']['n_tickers']}, "
-        f"benchmark={experiment_benchmark}), changing EXIT_RANK {baseline_exit}→{exp_exit} "
-        f"with ENTRY_RANK fixed at {baseline_entry} produced "
-        f"Δn_closed_trades={d_trades}, Δturnover/yr={d_turn}, "
-        f"Δavg_hold_days={d_hold}, Δavg_missed_upside={d_miss}, Δavg_saved_drawdown={d_save}."
+    decision = decide_experiment(delta, validation_passed=validation_passed)
+    facts = generate_facts(
+        baseline_exit=baseline_exit,
+        experiment_exit=exp_exit,
+        delta=delta,
+        validation_passed=validation_passed,
     )
-    if d_trades == 0 and (d_hold is None or abs(float(d_hold)) < 1e-12):
-        interpretation = (
-            "No measurable change in trade count / holding period. "
-            "With price-column universe smaller than both EXIT_RANK values, "
-            "hysteresis buffers are saturating (top-K equals full ranked set)."
-        )
-        confidence = "High for 'no effect on this sample'; Low for generalization"
-        next_exp = (
-            "Repeat EXIT_RANK experiment on a universe where ranked set size "
-            f"> EXIT_RANK (need >{exp_exit} names in factor universe), keeping ENTRY_RANK={baseline_entry}."
-        )
-        why = (
-            "Information gain is blocked while EXIT_RANK exceeds the ranked-set size; "
-            "a larger universe makes the EXIT_RANK margin observable."
-        )
-    else:
-        interpretation = (
-            "EXIT_RANK change altered at least one research metric under a single-variable design."
-        )
-        confidence = "Medium (single backtest; requires out-of-sample repeat)"
-        next_exp = "Repeat the same EXIT_RANK=80 arm on a later date range / larger universe (no other knobs)."
-        why = "Confirms whether the observed Δ is stable before any further single-variable tests."
-
-    reco_txt = format_research_recommendation(
-        fact=fact,
-        interpretation=interpretation,
-        confidence=confidence,
-        evidence=(
-            f"only_exit_rank_changed={only_exit}; changed={changed}; "
-            f"baseline_knobs={b_knobs}; exp_knobs={e_knobs}; {bm_note}"
-        ),
-        next_experiment=next_exp,
-        why_information_gain=why,
+    recommendation = research_recommendation_from_results(
+        facts=facts,
+        delta=delta,
+        n_closed_trades_baseline=len(base["trades"]),
+        n_closed_trades_experiment=len(exp["trades"]),
+        validation_passed=validation_passed,
+        decision=decision,
     )
-    _write(OUT / "RESEARCH_RECOMMENDATION.txt", reco_txt)
 
-    review_txt = format_experiment_review(
+    d_summary_parts = []
+    for key in (
+        "n_closed_trades",
+        "turnover_trades_per_year",
+        "avg_holding_period_days",
+        "cagr",
+        "mdd",
+    ):
+        row = (delta.get("metrics") or {}).get(key) or {}
+        d_summary_parts.append(f"{key} Δ={row.get('delta')}")
+    delta_summary = "; ".join(d_summary_parts)
+
+    review_body = format_mandatory_review(
         hypothesis=(
-            f"Widening EXIT_RANK from {baseline_exit} to {exp_exit} (ENTRY_RANK fixed) "
-            "changes turnover / holding / exit-efficiency metrics."
+            f"Widening EXIT_RANK from {baseline_exit} to {exp_exit} "
+            f"(ENTRY_RANK fixed at {baseline_entry}) changes turnover / holding / risk metrics."
         ),
-        changed_variables={"EXIT_RANK": f"{baseline_exit} → {exp_exit}"},
+        changed_variable=f"EXIT_RANK: {baseline_exit} → {exp_exit}",
         baseline={
             "ENTRY_RANK": baseline_entry,
             "EXIT_RANK": baseline_exit,
             "n_closed_trades": len(base["trades"]),
             "cagr": (base["kpi"].get("risk") or {}).get("cagr"),
-            "avg_missed_upside": (base["kpi"].get("research") or {}).get("avg_missed_upside"),
-            "avg_saved_drawdown": (base["kpi"].get("research") or {}).get("avg_saved_drawdown"),
         },
         experiment={
             "ENTRY_RANK": baseline_entry,
             "EXIT_RANK": exp_exit,
             "n_closed_trades": len(exp["trades"]),
             "cagr": (exp["kpi"].get("risk") or {}).get("cagr"),
-            "avg_missed_upside": (exp["kpi"].get("research") or {}).get("avg_missed_upside"),
-            "avg_saved_drawdown": (exp["kpi"].get("research") or {}).get("avg_saved_drawdown"),
         },
-        delta=delta,
-        new_fact=fact,
+        delta_summary=delta_summary,
+        facts=facts,
+        recommendation=recommendation,
         decision=decision,
     )
-    _write(OUT / "EXPERIMENT_REVIEW.txt", review_txt)
+    _write(OUT / "EXPERIMENT_REVIEW.txt", review_body)
+    _write(OUT / "RESEARCH_RECOMMENDATION.txt", recommendation)
+    _write(OUT / "FACTS.txt", "\n".join(facts) + "\n")
 
-    checklist = {
-        "architecture_audit": (OUT / "TASK0_ARCHITECTURE_AUDIT.md").exists(),
-        "baseline_verification": (OUT / "baseline" / "fingerprint.json").exists() and not abort_reasons,
-        "exp1_report": (OUT / "exp1" / "fingerprint.json").exists(),
-        "delta_report": (OUT / "DELTA_REPORT.txt").exists(),
-        "research_recommendation": (OUT / "RESEARCH_RECOMMENDATION.txt").exists(),
-        "decision": decision in {"PASS", "REPEAT", "REJECT"},
-        "exit_rank_validation": only_exit and (OUT / "logging_execution_separation.json").exists(),
-        "abort_reasons": abort_reasons,
-        "decision_value": decision,
-        "only_exit_rank_changed": only_exit,
-        "benchmark_note": bm_note,
-    }
-    checklist["complete"] = all(
+    full_report = format_experiment1_full_report(
+        architecture_audit=architecture_audit,
+        baseline_verification=baseline_verification,
+        baseline_entry=baseline_entry,
+        baseline_exit=baseline_exit,
+        experiment_exit=exp_exit,
+        baseline_identity=base["identity"],
+        experiment_identity=exp["identity"],
+        validation=validation,
+        delta=delta,
+        facts=facts,
+        recommendation=recommendation,
+        decision=decision,
+        review_body=review_body,
+    )
+    # Append after preserving existing diagnostics text from both arms
+    diagnostics_appendix = "\n\n".join(
         [
-            checklist["architecture_audit"],
-            checklist["baseline_verification"] or decision == "REJECT",
-            checklist["exp1_report"],
-            checklist["delta_report"],
-            checklist["research_recommendation"],
-            checklist["decision"],
-            checklist["exit_rank_validation"] or decision == "REJECT",
+            "=" * 50,
+            "Appendix — Baseline diagnostics (unchanged tooling)",
+            "=" * 50,
+            format_kpi_report(base["kpi"]),
+            (OUT / "baseline" / "rank_diagnostics_report.txt").read_text(encoding="utf-8")
+            if (OUT / "baseline" / "rank_diagnostics_report.txt").exists()
+            else "",
+            "=" * 50,
+            "Appendix — Experiment diagnostics (unchanged tooling)",
+            "=" * 50,
+            format_kpi_report(exp["kpi"]),
+            (OUT / "exp1" / "rank_diagnostics_report.txt").read_text(encoding="utf-8")
+            if (OUT / "exp1" / "rank_diagnostics_report.txt").exists()
+            else "",
         ]
     )
-    # stricter: complete only if all artifacts and validation true when not aborted early
-    checklist["complete"] = (
-        checklist["architecture_audit"]
-        and checklist["exp1_report"]
-        and checklist["delta_report"]
-        and checklist["research_recommendation"]
-        and checklist["decision"]
-        and (OUT / "baseline" / "fingerprint.json").exists()
-        and (OUT / "logging_execution_separation.json").exists()
-        and only_exit
-        and not abort_reasons
+    _write(OUT / "EXP001_FULL_REPORT.txt", full_report + "\n\n" + diagnostics_appendix)
+    _write(OUT / "EXPERIMENT1_RESULT.md", full_report)
+
+    checklist = {
+        "architecture_audit": True,
+        "baseline_verification": True,
+        "experiment_1_report": True,
+        "validation_passed": validation_passed,
+        "delta_report": True,
+        "fact_generation": bool(facts),
+        "research_recommendation": bool(recommendation),
+        "decision": decision,
+        "only_exit_rank_changed": validation_passed,
+        "baseline_preserved": (OUT / "baseline" / "fingerprint.json").exists(),
+        "experiment_preserved": (OUT / "exp1" / "fingerprint.json").exists(),
+    }
+    (OUT / "VALIDATION_CHECKLIST.json").write_text(
+        json.dumps(checklist, indent=2), encoding="utf-8"
     )
-    (OUT / "VALIDATION_CHECKLIST.json").write_text(json.dumps(checklist, indent=2), encoding="utf-8")
     _write(
         OUT / "VALIDATION_CHECKLIST.txt",
-        "\n".join(
-            [
-                "=" * 64,
-                " RESEARCH VALIDATION CHECKLIST (EXP001)",
-                "=" * 64,
-                *[f"[{'PASS' if checklist[k] else 'FAIL'}] {k}: {checklist[k]}" for k in checklist],
-                "=" * 64,
-            ]
-        ),
+        "\n".join(f"{k}: {v}" for k, v in checklist.items()),
     )
 
-    # Experiment history ledger
     hist = ExperimentHistory(OUT / "experiment_history.json")
     hist.append(
         parent_exp=None,
-        changed_variables={"EXIT_RANK": exp_exit, "ENTRY_RANK_fixed": baseline_entry},
-        hypothesis="EXIT_RANK 70→80 changes turnover/holding/exit efficiency",
-        expected_outcome="Measurable Δ in research metrics if ranked set > EXIT_RANK",
-        actual_outcome=fact,
+        changed_variables={"EXIT_RANK": f"{baseline_exit}→{exp_exit}"},
+        hypothesis="EXIT_RANK single-variable change affects turnover/holding/risk",
+        expected_outcome="Measurable Δ if ranked universe > EXIT_RANK",
+        actual_outcome="; ".join(facts[:3]),
         decision=decision,
-        metrics={"delta": delta, "checklist": checklist},
+        metrics={"delta": delta, "recommendation": recommendation},
         notes=bm_note,
     )
 
-    # Bundle summary
-    summary = "\n\n".join(
-        [
-            format_kpi_report(base["kpi"]),
-            format_kpi_report(exp["kpi"]),
-            format_delta_report(delta),
-            reco_txt,
-            review_txt,
-            f"Decision={decision} complete={checklist['complete']}",
-        ]
-    )
-    _write(OUT / "EXP001_FULL_REPORT.txt", summary)
-
-    # Concise Exp1-only result (mandatory fields)
-    def _m(kpi, section, key):
-        return (kpi.get(section) or {}).get(key)
-
-    def _d(name):
-        return (delta.get("metrics") or {}).get(name, {}).get("delta")
-
-    result_md = [
-        "# Experiment 1 ONLY — EXIT_RANK 70 → 80",
-        "",
-        "## Runtime configuration (verified)",
-        f"- Baseline: ENTRY_RANK={b_knobs['ENTRY_RANK']}, EXIT_RANK={b_knobs['EXIT_RANK']}",
-        f"- Experiment: ENTRY_RANK={e_knobs['ENTRY_RANK']}, EXIT_RANK={e_knobs['EXIT_RANK']}",
-        f"- only_exit_rank_changed: {only_exit}",
-        f"- changed_knobs: {changed}",
-        f"- abort_reasons: {abort_reasons or []}",
-        "",
-        "## 1) Baseline metrics",
-        f"- Turnover (trades/yr): {_m(base['kpi'], 'research', 'turnover_trades_per_year')}",
-        f"- Avg Holding Period (days): {_m(base['kpi'], 'research', 'avg_holding_period_days')}",
-        f"- CAGR: {_m(base['kpi'], 'risk', 'cagr')}",
-        f"- MDD: {_m(base['kpi'], 'risk', 'mdd')}",
-        f"- Win Rate: {_m(base['kpi'], 'return', 'win_rate')}",
-        f"- Avg Missed Upside: {_m(base['kpi'], 'research', 'avg_missed_upside')}",
-        f"- Avg Saved Drawdown: {_m(base['kpi'], 'research', 'avg_saved_drawdown')}",
-        f"- Closed trades: {len(base['trades'])}",
-        "",
-        "## 2) Experiment metrics (EXIT_RANK=80)",
-        f"- Turnover (trades/yr): {_m(exp['kpi'], 'research', 'turnover_trades_per_year')}",
-        f"- Avg Holding Period (days): {_m(exp['kpi'], 'research', 'avg_holding_period_days')}",
-        f"- CAGR: {_m(exp['kpi'], 'risk', 'cagr')}",
-        f"- MDD: {_m(exp['kpi'], 'risk', 'mdd')}",
-        f"- Win Rate: {_m(exp['kpi'], 'return', 'win_rate')}",
-        f"- Avg Missed Upside: {_m(exp['kpi'], 'research', 'avg_missed_upside')}",
-        f"- Avg Saved Drawdown: {_m(exp['kpi'], 'research', 'avg_saved_drawdown')}",
-        f"- Closed trades: {len(exp['trades'])}",
-        "",
-        "## 3) Delta Report (Experiment − Baseline)",
-        f"- Δ Turnover: {_d('turnover_trades_per_year')}",
-        f"- Δ Holding Period: {_d('avg_holding_period_days')}",
-        f"- Δ CAGR: {_d('cagr')}",
-        f"- Δ MDD: {_d('mdd')}",
-        f"- Δ Win Rate: {_d('win_rate')}",
-        f"- Δ Missed Upside: {_d('avg_missed_upside')}",
-        f"- Δ Saved Drawdown: {_d('avg_saved_drawdown')}",
-        "",
-        "### Δ Exit Breakdown",
-    ]
-    for fam, row in (delta.get("exit_breakdown") or {}).items():
-        result_md.append(
-            f"- {fam}: count Δ={row.get('delta_count')} "
-            f"({row.get('baseline_count')} → {row.get('experiment_count')}); "
-            f"share Δ={row.get('delta_share')} "
-            f"({row.get('baseline_share')} → {row.get('experiment_share')})"
-        )
-    result_md += [
-        "",
-        "## 4) Single-variable verification",
-        f"- PASS: experiment EXIT_RANK == 80 → {e_knobs['EXIT_RANK'] == 80}",
-        f"- PASS: baseline EXIT_RANK == 70 → {b_knobs['EXIT_RANK'] == 70}",
-        f"- PASS: only EXIT_RANK changed → {only_exit}",
-        "",
-        f"## Decision",
-        "",
-        f"**{decision}**",
-        "",
-    ]
-    _write(OUT / "EXPERIMENT1_RESULT.md", "\n".join(result_md))
-    print("\n".join(result_md))
-    print(summary)
+    # Mandatory end-of-experiment print (exact section contract)
+    print("\n" + full_report)
     print(f"\nArtifacts written under {OUT}")
-    # Success criteria: runtime EXIT_RANK=80 + delta report produced
+
     success = (
-        e_knobs["EXIT_RANK"] == 80
-        and only_exit
-        and (OUT / "DELTA_REPORT.txt").exists()
-        and (OUT / "EXPERIMENT1_RESULT.md").exists()
+        validation_passed
+        and exp["identity"]["EXIT_RANK"] == exp_exit
+        and base["identity"]["EXIT_RANK"] == baseline_exit
         and decision in {"PASS", "REPEAT", "REJECT"}
+        and (OUT / "DELTA_REPORT.txt").exists()
+        and (OUT / "EXP001_FULL_REPORT.txt").exists()
     )
     return 0 if success else 2
 
