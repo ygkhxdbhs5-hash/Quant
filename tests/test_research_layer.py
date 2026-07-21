@@ -8,6 +8,10 @@ import pandas as pd
 from engine.research.config_toggles import ResearchToggles, load_research_toggles
 from engine.research.kpi_report import build_hierarchical_kpi_report
 from engine.research.rank_diagnostics import RankDiagnostics
+from engine.research.cmvs_rank_predictive_power import (
+    CMVSRankPredictivePowerReport,
+    _assign_equal_groups,
+)
 from engine.research.recommendations import build_research_recommendation_report
 from engine.research.trade_journal import TradeJournal
 from engine.research.validation import run_research_validation_checklist
@@ -263,10 +267,75 @@ def test_experiment_execution_single_variable_validation_and_report():
         assert section in report
 
 
+def test_cmvs_rank_predictive_helpers_and_format():
+    groups = _assign_equal_groups(10, 10)
+    assert groups.tolist() == list(range(10))
+    groups = _assign_equal_groups(11, 10)
+    assert groups.min() == 0
+    assert groups.max() == 9
+
+    report = CMVSRankPredictivePowerReport()
+    summary = {
+        "n_groups": 10,
+        "horizons": {"5D": 5, "10D": 10, "20D": 20, "60D": 60},
+        "n_rebalance_dates": 3,
+        "group_summary": [
+            {
+                "group": "Top10%",
+                "n_stocks": 30,
+                "avg_forward_5d_return": 0.04,
+                "avg_forward_10d_return": 0.05,
+                "avg_forward_20d_return": 0.06,
+                "avg_forward_60d_return": 0.10,
+                "median_return_20d": 0.055,
+                "win_rate_20d": 0.70,
+                "avg_max_drawdown_20d": -0.03,
+                "avg_max_upside_20d": 0.09,
+                "avg_volatility_20d": 0.02,
+            },
+            {
+                "group": "Bottom10%",
+                "n_stocks": 30,
+                "avg_forward_5d_return": 0.01,
+                "avg_forward_10d_return": 0.00,
+                "avg_forward_20d_return": -0.02,
+                "avg_forward_60d_return": -0.03,
+                "median_return_20d": -0.01,
+                "win_rate_20d": 0.30,
+                "avg_max_drawdown_20d": -0.08,
+                "avg_max_upside_20d": 0.03,
+                "avg_volatility_20d": 0.03,
+            },
+        ],
+        "monotonicity": {"status": "PASS", "checked_metric": "avg_forward_20d_return"},
+        "spread_top_bottom_20d": 0.08,
+        "rank_ic_20d": {
+            "monthly_values": [0.2, 0.1, 0.3],
+            "average": 0.2,
+            "median": 0.2,
+            "positive_ratio": 1.0,
+            "positive_months": 3,
+            "total_months": 3,
+        },
+        "conclusion": (
+            "CMVS demonstrates statistically meaningful predictive power because "
+            "higher-ranked stocks consistently outperform lower-ranked stocks on this sample."
+        ),
+    }
+    txt = report.format_report(summary)
+    assert "CMVS RANK PREDICTIVE POWER" in txt
+    assert "Monotonic = PASS" in txt
+    assert "Average Rank IC: 0.2" in txt
+    assert "Top10%" in txt
+    assert "Bottom10%" in txt
+    assert "Top10% - Bottom10%" in txt
+
+
 if __name__ == "__main__":
     test_toggles_baseline_defaults()
     test_shadow_exit_counterfactuals()
     test_recommendation_and_kpi_smoke()
     test_rank_diagnostics_counts_and_distribution()
     test_experiment_execution_single_variable_validation_and_report()
+    test_cmvs_rank_predictive_helpers_and_format()
     print("OK")

@@ -45,6 +45,7 @@ from engine.research.config_toggles import load_research_toggles
 from engine.research.experiment_history import ExperimentHistory
 from engine.research.kpi_report import build_hierarchical_kpi_report, format_kpi_report
 from engine.research.rank_diagnostics import RankDiagnostics
+from engine.research.cmvs_rank_predictive_power import CMVSRankPredictivePowerReport
 from engine.research.recommendations import (
     build_research_recommendation_report,
     format_recommendation_report,
@@ -1293,6 +1294,17 @@ class StandaloneEngine:
             encoding="utf-8",
         )
         rank_diag_txt = self.rank_diagnostics.format_report()
+        cmvs_rank_predictor = CMVSRankPredictivePowerReport()
+        cmvs_rank_predictive_summary = cmvs_rank_predictor.build(self)
+        cmvs_rank_predictive_path = cmvs_rank_predictor.write_report(
+            cmvs_rank_predictive_summary,
+            out / "cmvs_rank_predictive_report.txt",
+        )
+        (out / "cmvs_rank_predictive_report.json").write_text(
+            json.dumps(cmvs_rank_predictive_summary, indent=2, default=str),
+            encoding="utf-8",
+        )
+        cmvs_rank_predictive_txt = cmvs_rank_predictive_path.read_text(encoding="utf-8")
 
         report_txt = "\n\n".join(
             [
@@ -1302,6 +1314,7 @@ class StandaloneEngine:
                 f"Experiment History entry: {exp_id} -> {hist.path}",
                 f"Trade journal: {trades_path} (n={len(trades)})",
                 rank_diag_txt,
+                cmvs_rank_predictive_txt,
             ]
         )
         report_path = out / "research_report.txt"
@@ -1317,6 +1330,8 @@ class StandaloneEngine:
             "report_path": str(report_path),
             "rank_diagnostics": rank_diag_summary,
             "rank_diagnostics_path": str(rank_diag_path),
+            "cmvs_rank_predictive_power": cmvs_rank_predictive_summary,
+            "cmvs_rank_predictive_power_path": str(cmvs_rank_predictive_path),
         }
         (out / "research_artifacts.json").write_text(
             json.dumps(artifacts, indent=2, default=str), encoding="utf-8"
