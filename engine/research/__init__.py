@@ -10,6 +10,7 @@ from engine.research.kpi_report import build_hierarchical_kpi_report
 from engine.research.rank_diagnostics import RankDiagnostics
 from engine.research.cmvs_factor_audit import CMVSAuditor, CMVS_FACTORS
 from engine.research.cmvs_rank_predictive_power import CMVSRankPredictivePowerReport
+from engine.research.cmvs_ic_report import CMVSInformationCoefficientReport
 from engine.research.recommendations import build_research_recommendation_report
 from engine.research.experiment_history import ExperimentHistory
 from engine.research.validation import run_research_validation_checklist
@@ -35,6 +36,7 @@ __all__ = [
     "CMVSAuditor",
     "CMVS_FACTORS",
     "CMVSRankPredictivePowerReport",
+    "CMVSInformationCoefficientReport",
     "build_hierarchical_kpi_report",
     "build_research_recommendation_report",
     "ExperimentHistory",

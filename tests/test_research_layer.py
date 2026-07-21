@@ -12,6 +12,10 @@ from engine.research.cmvs_rank_predictive_power import (
     CMVSRankPredictivePowerReport,
     _assign_equal_groups,
 )
+from engine.research.cmvs_ic_report import (
+    CMVSInformationCoefficientReport,
+    _rolling_average,
+)
 from engine.research.recommendations import build_research_recommendation_report
 from engine.research.trade_journal import TradeJournal
 from engine.research.validation import run_research_validation_checklist
@@ -331,6 +335,65 @@ def test_cmvs_rank_predictive_helpers_and_format():
     assert "Top10% - Bottom10%" in txt
 
 
+def test_cmvs_ic_report_helpers_and_format():
+    assert _rolling_average([1.0, 2.0, 3.0], 12) == [1.0, 1.5, 2.0]
+
+    report = CMVSInformationCoefficientReport()
+    summary = {
+        "horizons": {"5D": 5, "10D": 10, "20D": 20, "60D": 60},
+        "n_rebalance_dates": 4,
+        "monthly_dates": ["2020-01-02", "2020-02-03", "2020-03-02", "2020-04-01"],
+        "summary_by_horizon": {
+            "5D": {
+                "average_ic": 0.10,
+                "median_ic": 0.11,
+                "std_ic": 0.20,
+                "positive_ic_months": 3,
+                "negative_ic_months": 1,
+                "rolling_12m_average_ic": [0.1, 0.15],
+                "ic_information_ratio": 0.5,
+            },
+            "10D": {
+                "average_ic": 0.05,
+                "median_ic": 0.04,
+                "std_ic": 0.10,
+                "positive_ic_months": 2,
+                "negative_ic_months": 2,
+                "rolling_12m_average_ic": [0.05],
+                "ic_information_ratio": 0.5,
+            },
+            "20D": {
+                "average_ic": 0.02,
+                "median_ic": 0.01,
+                "std_ic": 0.08,
+                "positive_ic_months": 2,
+                "negative_ic_months": 2,
+                "rolling_12m_average_ic": [0.02],
+                "ic_information_ratio": 0.25,
+            },
+            "60D": {
+                "average_ic": -0.01,
+                "median_ic": -0.02,
+                "std_ic": 0.09,
+                "positive_ic_months": 1,
+                "negative_ic_months": 3,
+                "rolling_12m_average_ic": [-0.01],
+                "ic_information_ratio": -0.111111,
+            },
+        },
+        "highest_monthly_ic": {"horizon": "5D", "date": "2020-03-02", "value": 0.30},
+        "lowest_monthly_ic": {"horizon": "60D", "date": "2020-04-01", "value": -0.25},
+        "conclusion": "Predictive power is unstable across market environments.",
+    }
+    txt = report.format_report(summary)
+    assert "CMVS INFORMATION COEFFICIENT REPORT" in txt
+    assert "5D Horizon" in txt
+    assert "Average IC: 0.100000" in txt
+    assert "Highest Monthly IC: 0.300000 (5D, 2020-03-02)" in txt
+    assert "IC Information Ratio" in txt
+    assert "Predictive power is unstable across market environments." in txt
+
+
 if __name__ == "__main__":
     test_toggles_baseline_defaults()
     test_shadow_exit_counterfactuals()
@@ -338,4 +401,5 @@ if __name__ == "__main__":
     test_rank_diagnostics_counts_and_distribution()
     test_experiment_execution_single_variable_validation_and_report()
     test_cmvs_rank_predictive_helpers_and_format()
+    test_cmvs_ic_report_helpers_and_format()
     print("OK")

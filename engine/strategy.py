@@ -46,6 +46,7 @@ from engine.research.experiment_history import ExperimentHistory
 from engine.research.kpi_report import build_hierarchical_kpi_report, format_kpi_report
 from engine.research.rank_diagnostics import RankDiagnostics
 from engine.research.cmvs_rank_predictive_power import CMVSRankPredictivePowerReport
+from engine.research.cmvs_ic_report import CMVSInformationCoefficientReport
 from engine.research.recommendations import (
     build_research_recommendation_report,
     format_recommendation_report,
@@ -1305,6 +1306,17 @@ class StandaloneEngine:
             encoding="utf-8",
         )
         cmvs_rank_predictive_txt = cmvs_rank_predictive_path.read_text(encoding="utf-8")
+        cmvs_ic_reporter = CMVSInformationCoefficientReport()
+        cmvs_ic_summary = cmvs_ic_reporter.build(self)
+        cmvs_ic_path = cmvs_ic_reporter.write_report(
+            cmvs_ic_summary,
+            out / "cmvs_ic_report.txt",
+        )
+        (out / "cmvs_ic_report.json").write_text(
+            json.dumps(cmvs_ic_summary, indent=2, default=str),
+            encoding="utf-8",
+        )
+        cmvs_ic_txt = cmvs_ic_path.read_text(encoding="utf-8")
 
         report_txt = "\n\n".join(
             [
@@ -1315,6 +1327,7 @@ class StandaloneEngine:
                 f"Trade journal: {trades_path} (n={len(trades)})",
                 rank_diag_txt,
                 cmvs_rank_predictive_txt,
+                cmvs_ic_txt,
             ]
         )
         report_path = out / "research_report.txt"
@@ -1332,6 +1345,8 @@ class StandaloneEngine:
             "rank_diagnostics_path": str(rank_diag_path),
             "cmvs_rank_predictive_power": cmvs_rank_predictive_summary,
             "cmvs_rank_predictive_power_path": str(cmvs_rank_predictive_path),
+            "cmvs_information_coefficient": cmvs_ic_summary,
+            "cmvs_information_coefficient_path": str(cmvs_ic_path),
         }
         (out / "research_artifacts.json").write_text(
             json.dumps(artifacts, indent=2, default=str), encoding="utf-8"
