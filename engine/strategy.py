@@ -45,6 +45,9 @@ from engine.research.config_toggles import load_research_toggles
 from engine.research.experiment_history import ExperimentHistory
 from engine.research.kpi_report import build_hierarchical_kpi_report, format_kpi_report
 from engine.research.rank_diagnostics import RankDiagnostics
+from engine.research.performance_attribution import (
+    PerformanceAttributionSystem,
+)
 from engine.research.recommendations import (
     build_research_recommendation_report,
     format_recommendation_report,
@@ -213,6 +216,28 @@ class StandaloneEngine:
         self._last_rank_map: dict = {}
         self._last_cmvs_map: dict = {}
         self.research_artifacts: dict = {}
+
+        # -------------------------------------------------------------
+        # Performance Attribution System (observation-only)
+        # -------------------------------------------------------------
+        # Daily capital/exposure logging (for capital attribution + efficiency).
+        self._daily_cash: list[float] = []
+        self._daily_invested_capital: list[float] = []
+        self._daily_total_equity: list[float] = []
+        self._daily_exposure_frac: list[float] = []
+        self._daily_num_holdings: list[int] = []
+        self._daily_avg_position_size: list[Optional[float]] = []
+
+        # Realized PnL + cost logging computed passively at fills.
+        self._total_commission_paid: float = 0.0
+        self._total_slippage_paid: float = 0.0
+        self._closed_trade_realized_pnls: list[float] = []
+
+        # Cost basis for passive realized PnL decomposition (avg-cost basis).
+        self._cost_basis_qty_by_symbol: dict = {}
+        self._cost_basis_total_cost_by_symbol: dict = {}
+        self._symbol_realized_pnl_accum: dict = {}
+
         print(
             f"    [RESEARCH] toggles={self.research_toggles.as_dict()} "
             f"baseline_defaults="
@@ -808,6 +833,25 @@ class StandaloneEngine:
                 total_cost = exec_qty * o_price * (1 + cost_ratio)
                 if self.cash >= total_cost:
                     was_held = self.portfolio.get(sym, 0) > 0
+                    # Passive transaction attribution:
+                    # Decompose commission/slippage from the fixed part of cost_ratio,
+                    # and track avg-cost basis to derive realized PnL per closed trade.
+                    exec_value = float(exec_qty) * float(o_price)
+                    commission_paid = exec_value * self.COMMISSION_RATE
+                    slippage_paid = exec_value * self.SLIPPAGE_RATE
+                    self._total_commission_paid += float(commission_paid)
+                    self._total_slippage_paid += float(slippage_paid)
+                    if not was_held:
+                        self._cost_basis_qty_by_symbol[sym] = 0.0
+                        self._cost_basis_total_cost_by_symbol[sym] = 0.0
+                        self._symbol_realized_pnl_accum[sym] = 0.0
+                    self._cost_basis_qty_by_symbol[sym] = float(
+                        self._cost_basis_qty_by_symbol.get(sym, 0.0)
+                    ) + float(exec_qty)
+                    # total_cost is the all-in purchase cash out for these shares.
+                    self._cost_basis_total_cost_by_symbol[sym] = float(
+                        self._cost_basis_total_cost_by_symbol.get(sym, 0.0)
+                    ) + float(total_cost)
                     self.portfolio[sym] = self.portfolio.get(sym, 0) + exec_qty
                     self.cash -= total_cost
                     # New position: seed peak with entry open (updated to closes in exit check)
@@ -833,6 +877,29 @@ class StandaloneEngine:
                     if exec_qty <= 0:
                         continue
                     cost_ratio = self._cost_ratio(sym, date_idx, exec_qty, o_price)
+                    # Passive transaction attribution (realized PnL + costs).
+                    exec_value = float(exec_qty) * float(o_price)
+                    commission_paid = exec_value * self.COMMISSION_RATE
+                    slippage_paid = exec_value * self.SLIPPAGE_RATE
+                    self._total_commission_paid += float(commission_paid)
+                    self._total_slippage_paid += float(slippage_paid)
+                    cb_qty = float(self._cost_basis_qty_by_symbol.get(sym, 0.0))
+                    cb_total = float(self._cost_basis_total_cost_by_symbol.get(sym, 0.0))
+                    avg_cost = (cb_total / cb_qty) if cb_qty > 0 else float(o_price)
+                    cash_in = exec_value * (1.0 - float(cost_ratio))
+                    realized_pnl = cash_in - avg_cost * float(exec_qty)
+                    self._symbol_realized_pnl_accum[sym] = float(
+                        self._symbol_realized_pnl_accum.get(sym, 0.0)
+                    ) + float(realized_pnl)
+                    # Update remaining avg-cost basis for remaining shares.
+                    if cb_qty > 0:
+                        new_qty = cb_qty - float(exec_qty)
+                        new_total = cb_total - avg_cost * float(exec_qty)
+                        self._cost_basis_qty_by_symbol[sym] = float(max(new_qty, 0.0))
+                        self._cost_basis_total_cost_by_symbol[sym] = float(max(new_total, 0.0))
+                        if self._cost_basis_qty_by_symbol.get(sym, 0.0) <= 0:
+                            self._cost_basis_qty_by_symbol.pop(sym, None)
+                            self._cost_basis_total_cost_by_symbol.pop(sym, None)
                     self.cash += exec_qty * o_price * (1 - cost_ratio)
                     self.portfolio[sym] -= exec_qty
                     if self.portfolio[sym] <= 0:
@@ -840,6 +907,10 @@ class StandaloneEngine:
                         self.highest_prices.pop(sym, None)
                         # Research Fact: full exit + shadow counterfactual
                         snap = self._symbol_snapshot(sym, date_idx)
+                        # Position fully closed: finalize realized PnL for this closed trade.
+                        pnl_accum = float(self._symbol_realized_pnl_accum.get(sym, 0.0))
+                        self._closed_trade_realized_pnls.append(pnl_accum)
+                        self._symbol_realized_pnl_accum.pop(sym, None)
                         self.trade_journal.on_exit(
                             symbol=sym,
                             date=current_date,
@@ -1114,6 +1185,21 @@ class StandaloneEngine:
             total_equity = self.cash + portfolio_value
             self.equity_curve.append({"Date": current_date, "Total_Equity": total_equity})
 
+            # Passive daily logging for Performance Attribution (observation only).
+            self._daily_cash.append(float(self.cash))
+            self._daily_invested_capital.append(float(portfolio_value))
+            self._daily_total_equity.append(float(total_equity))
+            if total_equity > 0:
+                self._daily_exposure_frac.append(float(portfolio_value / total_equity))
+            else:
+                self._daily_exposure_frac.append(None)
+            n_hold = int(len(self.portfolio))
+            self._daily_num_holdings.append(n_hold)
+            if n_hold > 0:
+                self._daily_avg_position_size.append(float(portfolio_value / n_hold))
+            else:
+                self._daily_avg_position_size.append(None)
+
             if current_date in rebalance_days:
                 ctx = RebalanceContext(as_of_date=current_date)
 
@@ -1294,6 +1380,21 @@ class StandaloneEngine:
         )
         rank_diag_txt = self.rank_diagnostics.format_report()
 
+        # -------------------------------------------------------------
+        # PERFORMANCE ATTRIBUTION REPORT (observation only)
+        # -------------------------------------------------------------
+        perf_attrib = PerformanceAttributionSystem()
+        perf_result = perf_attrib.build_and_validate(
+            self,
+            equity_df=equity,
+            trades_df=trades,
+            kpi=kpi,
+            rank_diagnostics_summary=rank_diag_summary,
+        )
+        perf_txt = perf_result["report_txt"]
+        perf_path = out / "performance_attribution_report.txt"
+        perf_path.write_text(perf_txt, encoding="utf-8")
+
         report_txt = "\n\n".join(
             [
                 format_kpi_report(kpi),
@@ -1302,6 +1403,7 @@ class StandaloneEngine:
                 f"Experiment History entry: {exp_id} -> {hist.path}",
                 f"Trade journal: {trades_path} (n={len(trades)})",
                 rank_diag_txt,
+                perf_txt,
             ]
         )
         report_path = out / "research_report.txt"
@@ -1317,6 +1419,8 @@ class StandaloneEngine:
             "report_path": str(report_path),
             "rank_diagnostics": rank_diag_summary,
             "rank_diagnostics_path": str(rank_diag_path),
+            "performance_attribution": perf_result.get("summary"),
+            "performance_attribution_path": str(perf_path),
         }
         (out / "research_artifacts.json").write_text(
             json.dumps(artifacts, indent=2, default=str), encoding="utf-8"
