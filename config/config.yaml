@@ -60,17 +60,43 @@ min_revenue_growth_yoy: -0.15  # was 0.0 — allow up to -15% YoY revenue change
 # trailing_stop_pct: 0.20
 atr_multiplier: 2.0        # CMVS: sell if close < peak_close - atr_multiplier * ATR(14)
 
-# Research toggles (defaults reproduce current CMVS trade identity).
+# Research Configuration Panel (defaults reproduce current CMVS trade identity).
+# Edit these values for experiments — no code changes required.
 # ENTRY_RANK/EXIT_RANK default to max_portfolio_size / selection_buffer_size.
 # Spec examples 30/80 are intentionally NOT defaults (would change baseline).
 research:
-  USE_EMA9_EXIT: true
-  ATR_MULTIPLIER: 2.0
+  # Entry / Exit
   ENTRY_RANK: 50
   EXIT_RANK: 70
-  MIN_HOLD_DAYS: 0
+
+  # EMA Exit (USE_EMA9_EXIT name kept; length is configurable)
+  USE_EMA9_EXIT: true
+  EMA_EXIT_LENGTH: 9          # try 9 / 10 / 15 / 20 / 30
+
+  # ATR
+  USE_ATR_EXIT: true
+  ATR_MULTIPLIER: 2.0
+
+  # Exhaustion
+  USE_EXHAUSTION_EXIT: true
+
+  # Time Stop
   USE_TIME_STOP: false
   TIME_STOP_DAYS: 20
+
+  # Holding
+  MIN_HOLD_DAYS: 0
+
+  # Portfolio
+  MAX_PORTFOLIO_SIZE: 50
+
+  # Rebalance
+  MONTHLY_REBALANCE: true
+
+  # Risk
+  MAX_INDUSTRY_WEIGHT: 0.40
+
+  # Observation tooling (does not affect trades)
   SHADOW_HORIZON_DAYS: 20
 
 # Volatility expansion is scored in rank_universe as (close-open)/ATR20
