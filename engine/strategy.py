@@ -137,6 +137,28 @@ class StandaloneEngine:
         self.MAX_DEBT_TO_EQUITY = float(cfg.get("max_debt_to_equity", 3.0))  # D/E < 300% (was 150%)
         self.MIN_REVENUE_GROWTH_YOY = float(cfg.get("min_revenue_growth_yoy", -0.15))  # allow mild contraction
 
+        # --- Research Configuration Panel (must bind BEFORE _precompute_matrices) ---
+        # Spec examples ENTRY_RANK=30 / EXIT_RANK=80 are NOT silent defaults;
+        # they would change baseline vs max_portfolio_size / selection_buffer_size.
+        self.research_toggles = load_research_toggles(cfg)
+        self.ENTRY_RANK = int(self.research_toggles.ENTRY_RANK)
+        self.EXIT_RANK = int(self.research_toggles.EXIT_RANK)
+        self.USE_EMA9_EXIT = bool(self.research_toggles.USE_EMA9_EXIT)
+        self.EMA_EXIT_LENGTH = int(self.research_toggles.EMA_EXIT_LENGTH)
+        self.USE_ATR_EXIT = bool(self.research_toggles.USE_ATR_EXIT)
+        self.atr_multiplier = float(self.research_toggles.ATR_MULTIPLIER)
+        self.ATR_MULTIPLIER = self.atr_multiplier  # alias for research panel naming
+        self.USE_EXHAUSTION_EXIT = bool(self.research_toggles.USE_EXHAUSTION_EXIT)
+        self.USE_TIME_STOP = bool(self.research_toggles.USE_TIME_STOP)
+        self.TIME_STOP_DAYS = int(self.research_toggles.TIME_STOP_DAYS)
+        self.MIN_HOLD_DAYS = int(self.research_toggles.MIN_HOLD_DAYS)
+        self.MONTHLY_REBALANCE = bool(self.research_toggles.MONTHLY_REBALANCE)
+        self.MAX_INDUSTRY_WEIGHT = float(self.research_toggles.MAX_INDUSTRY_WEIGHT)
+        # Keep legacy names synchronized with research aliases (no behavior change at defaults).
+        # Portfolio construction uses ENTRY_RANK; MAX_PORTFOLIO_SIZE mirrors it.
+        self.MAX_PORTFOLIO_SIZE = self.ENTRY_RANK
+        self.SELECTION_BUFFER_SIZE = self.EXIT_RANK
+
         print(">> 로컬 데이터 로드...")
         universe_path = Path(paths.get("metadata", "data/metadata")) / "universe.pkl"
         panels_path = Path(paths.get("prices", "data/prices")) / "panels.pkl"
@@ -191,29 +213,7 @@ class StandaloneEngine:
         self.w3 = float(cfg.get("cmvs_w3", 0.2))  # CPS
         self.w4 = float(cfg.get("cmvs_w4", 0.2))  # RSIS
         self.w5 = float(cfg.get("cmvs_w5", 0.2))  # RSS
-        self.atr_multiplier = float(cfg.get("atr_multiplier", 2.0))
-
-        # --- Research Configuration Panel (defaults = current trade identity) ---
-        # Spec examples ENTRY_RANK=30 / EXIT_RANK=80 are NOT silent defaults;
-        # they would change baseline vs max_portfolio_size / selection_buffer_size.
-        self.research_toggles = load_research_toggles(cfg)
-        self.ENTRY_RANK = int(self.research_toggles.ENTRY_RANK)
-        self.EXIT_RANK = int(self.research_toggles.EXIT_RANK)
-        self.USE_EMA9_EXIT = bool(self.research_toggles.USE_EMA9_EXIT)
-        self.EMA_EXIT_LENGTH = int(self.research_toggles.EMA_EXIT_LENGTH)
-        self.USE_ATR_EXIT = bool(self.research_toggles.USE_ATR_EXIT)
-        self.atr_multiplier = float(self.research_toggles.ATR_MULTIPLIER)
-        self.ATR_MULTIPLIER = self.atr_multiplier  # alias for research panel naming
-        self.USE_EXHAUSTION_EXIT = bool(self.research_toggles.USE_EXHAUSTION_EXIT)
-        self.USE_TIME_STOP = bool(self.research_toggles.USE_TIME_STOP)
-        self.TIME_STOP_DAYS = int(self.research_toggles.TIME_STOP_DAYS)
-        self.MIN_HOLD_DAYS = int(self.research_toggles.MIN_HOLD_DAYS)
-        self.MONTHLY_REBALANCE = bool(self.research_toggles.MONTHLY_REBALANCE)
-        self.MAX_INDUSTRY_WEIGHT = float(self.research_toggles.MAX_INDUSTRY_WEIGHT)
-        # Keep legacy names synchronized with research aliases (no behavior change at defaults).
-        # Portfolio construction uses ENTRY_RANK; MAX_PORTFOLIO_SIZE mirrors it.
-        self.MAX_PORTFOLIO_SIZE = self.ENTRY_RANK
-        self.SELECTION_BUFFER_SIZE = self.EXIT_RANK
+        # atr_multiplier already bound from research panel above
 
         self.trade_journal = TradeJournal(
             shadow_horizon_days=int(self.research_toggles.SHADOW_HORIZON_DAYS)
@@ -308,7 +308,7 @@ class StandaloneEngine:
         self.rsis_m = ((self.rsi14_m - 50.0) / 30.0).clip(lower=0.0, upper=1.0)
 
         # Configurable EMA exit length (default 9 = CMVS baseline). Alias ema9_m for compatibility.
-        _ema_len = max(1, int(self.EMA_EXIT_LENGTH))
+        _ema_len = max(1, int(getattr(self, "EMA_EXIT_LENGTH", 9)))
         self.ema_exit_m = close_m.ewm(span=_ema_len, adjust=False).mean()
         self.ema9_m = self.ema_exit_m
 
