@@ -38,6 +38,10 @@ class _TinyEngine(StandaloneEngine):
         self.w3 = 0.15
         self.w4 = 0.10
         self.w5 = 0.25
+        from engine.entry_quality import EQSWeights
+
+        self.eqs_weights = EQSWeights()
+        self.EQS_BLEND_WEIGHT = 0.55
         self.previous_target_symbols = set()
         self.profile_meta = {}
         self.close_m = pd.DataFrame()
@@ -80,11 +84,33 @@ def _cmvs_row(sym, **overrides):
         "rsis": 0.5,
         "rss": 0.5,
         "ret5": 0.05,
+        "ret10": 0.08,
         "rsi14": 55.0,
         "trend_score": 0.65,
         "up_frac20": 0.55,
         "atr_pct": 0.05,
         "close_vs_high20": 0.92,
+        "price": 100.0,
+        "ema20": 98.0,
+        "ema50": 95.0,
+        "ema20_slope5": 0.01,
+        "ema50_slope5": 0.008,
+        "pullback_pct": 0.08,
+        "pullback_vol_ratio": 0.8,
+        "vol_quiet_ratio": 0.85,
+        "vol_expand_ratio": 1.2,
+        "vol_spike_persist": 0.05,
+        "range_pct_5": 0.05,
+        "range_pct_10": 0.07,
+        "range_pct_20": 0.10,
+        "atr_shrink_ratio": 0.9,
+        "rs_raw": 0.05,
+        "rs_slope5": 0.01,
+        "rs_near_high60": 0.8,
+        "dist_ema20": 0.02,
+        "dist_ema50": 0.05,
+        "above_ema50": 1.0,
+        "green_streak": 2.0,
         "industry": "X",
     }
     base.update(overrides)
@@ -104,7 +130,7 @@ def test_rank_universe_quality_orders_by_final_score():
     assert "final_score" in ranked.columns
     assert ranked["final_score"].iloc[0] >= ranked["final_score"].iloc[-1]
     assert ranked.iloc[0]["symbol"] == "STRONG"
-    assert ranked.iloc[0]["factor_mode"] == "cmvs_v3_quality"
+    assert ranked.iloc[0]["factor_mode"] == "cmvs_v3_eqs"
 
 
 def test_rank_universe_penalizes_pump_signature():
@@ -123,6 +149,14 @@ def test_rank_universe_penalizes_pump_signature():
                 up_frac20=0.30,
                 atr_pct=0.13,
                 close_vs_high20=0.68,
+                pullback_pct=0.0,
+                dist_ema20=0.25,
+                dist_ema50=0.40,
+                green_streak=7.0,
+                atr_shrink_ratio=1.3,
+                price=50.0,
+                ema20=40.0,
+                ema50=30.0,
             ),
             _cmvs_row(
                 "QUALITY",
@@ -136,6 +170,16 @@ def test_rank_universe_penalizes_pump_signature():
                 up_frac20=0.60,
                 atr_pct=0.04,
                 close_vs_high20=0.94,
+                pullback_pct=0.08,
+                dist_ema20=0.02,
+                dist_ema50=0.05,
+                green_streak=2.0,
+                atr_shrink_ratio=0.85,
+                price=100.0,
+                ema20=98.0,
+                ema50=95.0,
+                ema20_slope5=0.01,
+                ema50_slope5=0.008,
             ),
         ]
     )
@@ -147,13 +191,13 @@ def test_rank_universe_rss_dominates_when_structure_tied():
     eng = _TinyEngine()
     df = pd.DataFrame(
         [
-            _cmvs_row("LOW_RS", rss=0.2, trend_score=1.0),
-            _cmvs_row("HIGH_RS", rss=0.95, trend_score=1.0),
+            _cmvs_row("LOW_RS", rss=0.2, trend_score=1.0, rs_raw=-0.05),
+            _cmvs_row("HIGH_RS", rss=0.95, trend_score=1.0, rs_raw=0.20, rs_slope5=0.04, rs_near_high60=0.98),
         ]
     )
     ranked = eng.rank_universe(df)
     assert ranked.iloc[0]["symbol"] == "HIGH_RS"
-    assert ranked.iloc[0]["factor_mode"] == "cmvs_v3_quality"
+    assert ranked.iloc[0]["factor_mode"] == "cmvs_v3_eqs"
 
 
 def test_apply_risk_adjustments_sums_to_exposure():

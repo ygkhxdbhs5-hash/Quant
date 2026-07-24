@@ -41,6 +41,16 @@ cmvs_w2: 0.10   # VZS (requires rising price)
 cmvs_w3: 0.15   # CPS
 cmvs_w4: 0.10   # RSIS mid-zone quality
 cmvs_w5: 0.25   # RSS relative strength
+# Entry Quality Score (EQS) — blended into live final_score with CMVS
+eqs:
+  blend_weight: 0.55          # FinalScore = CMVS + blend_weight * EQS
+  trend_structure: 0.28
+  healthy_pullback: 0.14
+  volume_contraction_expansion: 0.12
+  volatility_contraction: 0.12
+  rs_acceleration: 0.14
+  sector_strength: 0.10
+  overextension_penalty_scale: 0.35
 # Confirmation-based trend exit (EMA9 alone never sells; ATR remains primary)
 high_atr_pct_exit: 0.08
 trend_exit_min_confirm: 2

@@ -55,6 +55,13 @@ from engine.research.validation import (
     run_research_validation_checklist,
 )
 from engine.reentry_cooldown import AdaptiveReentryCooldown
+from engine.entry_quality import (
+    EQSWeights,
+    blend_cmvs_eqs,
+    combine_eqs,
+    compute_eqs_components,
+    eqs_config_from_mapping,
+)
 
 
 def _short_reason(exit_reason: str) -> str:
@@ -243,6 +250,9 @@ class StandaloneEngine:
         # Pullback protection: skip trend exits while above rising SMA50 with shallow DD
         self.PROTECT_HEALTHY_TREND_PULLBACK = bool(cfg.get("protect_healthy_trend_pullback", True))
 
+        # Entry Quality Score (EQS) — live ranking blend with CMVS
+        self.eqs_weights, self.EQS_BLEND_WEIGHT = eqs_config_from_mapping(cfg)
+
         self.trade_journal = TradeJournal(
             shadow_horizon_days=int(self.research_toggles.SHADOW_HORIZON_DAYS)
         )
@@ -320,23 +330,63 @@ class StandaloneEngine:
         self.ema_exit_m = close_m.ewm(span=_ema_len, adjust=False).mean()
         self.ema9_m = self.ema_exit_m
         self.ema20_m = close_m.ewm(span=20, adjust=False).mean()
+        self.ema50_m = close_m.ewm(span=50, adjust=False).mean()
+        self.ema20_slope5_m = self.ema20_m / self.ema20_m.shift(5) - 1.0
+        self.ema50_slope5_m = self.ema50_m / self.ema50_m.shift(5) - 1.0
         # Relative volume for decline confirmation (dvol vs 20d average)
         self.rel_vol_m = volume_m / vol_mean20.replace(0, np.nan)
 
         # Returns / structure matrices for entry quality + adaptive cooldown
         self.ret1_m = ret_m
         self.ret5_m = close_m / close_m.shift(5) - 1.0
+        self.ret10_m = close_m / close_m.shift(10) - 1.0
         self.ret20_m = close_m / close_m.shift(20) - 1.0
         self.ret60_m = close_m / close_m.shift(60) - 1.0
         self.sma20_m = close_m.rolling(20, min_periods=20).mean()
         self.high20_m = high_m.rolling(20, min_periods=10).max()
         self.close_vs_high20_m = close_m / self.high20_m.replace(0, np.nan)
+        self.pullback_pct_m = 1.0 - self.close_vs_high20_m
         self.atr_pct_m = self.atr14_m / close_m.replace(0, np.nan)
         # Share of up-days in last 20 — sustainable momentum proxy
         up = (ret_m > 0).astype(float)
         self.up_frac20_m = up.rolling(20, min_periods=10).mean()
+        self.green_streak5_m = up.rolling(5, min_periods=1).sum()
         # Rising SMA50 used to protect healthy long-term trends from noise exits
         self.sma50_slope5_m = self.sma50_m / self.sma50_m.shift(5) - 1.0
+
+        # EQS feature matrices (PIT; computed once)
+        range_pct = (high_m - low_m) / close_m.replace(0, np.nan)
+        self.range_pct_5_m = range_pct.rolling(5, min_periods=3).mean()
+        self.range_pct_10_m = range_pct.rolling(10, min_periods=5).mean()
+        self.range_pct_20_m = range_pct.rolling(20, min_periods=10).mean()
+        atr_lag15 = self.atr14_m.shift(15)
+        self.atr_shrink_ratio_m = self.atr14_m / atr_lag15.replace(0, np.nan)
+        # Volume: quiet consolidation (days -15..-5) vs recovery (last 5)
+        vol_mid = volume_m.shift(5).rolling(10, min_periods=5).mean()
+        vol_recent = volume_m.rolling(5, min_periods=3).mean()
+        vol_prior = volume_m.shift(15).rolling(15, min_periods=8).mean()
+        self.vol_quiet_ratio_m = vol_mid / vol_prior.replace(0, np.nan)
+        self.vol_expand_ratio_m = vol_recent / vol_mid.replace(0, np.nan)
+        self.vol_spike_persist_m = (self.rel_vol_m > 2.0).astype(float).rolling(
+            20, min_periods=10
+        ).mean()
+        # Down-day relative volume over last 10 sessions (pullback volume)
+        down_vol = volume_m.where(ret_m < 0.0)
+        self.pullback_vol_ratio_m = (
+            down_vol.rolling(10, min_periods=3).mean() / vol_mean20.replace(0, np.nan)
+        )
+        # Relative strength vs benchmark (panel) for RS acceleration / sector
+        bm = self.BENCHMARK_TICKER
+        if bm in self.ret20_m.columns:
+            self.rs_vs_bm_m = self.ret20_m.sub(self.ret20_m[bm], axis=0)
+        else:
+            self.rs_vs_bm_m = self.ret20_m.copy()
+        self.rs_slope5_m = self.rs_vs_bm_m - self.rs_vs_bm_m.shift(5)
+        rs_high60 = self.rs_vs_bm_m.rolling(60, min_periods=20).max().replace(0, np.nan)
+        self.rs_near_high60_m = self.rs_vs_bm_m / rs_high60
+        self.dist_ema20_m = close_m / self.ema20_m.replace(0, np.nan) - 1.0
+        self.dist_ema50_m = close_m / self.ema50_m.replace(0, np.nan) - 1.0
+        self.above_ema50_m = (close_m > self.ema50_m).astype(float)
 
         hl = np.log(high_m / low_m) ** 2
         hl2_high = high_m.rolling(2, min_periods=2).max()
@@ -616,6 +666,49 @@ class StandaloneEngine:
             ret20 = (
                 self.ret20_m[sym].iloc[date_idx] if sym in self.ret20_m.columns else np.nan
             )
+            ret10 = (
+                self.ret10_m[sym].iloc[date_idx]
+                if hasattr(self, "ret10_m") and sym in self.ret10_m.columns
+                else np.nan
+            )
+
+            def _f(matrix_name, default=np.nan):
+                mat = getattr(self, matrix_name, None)
+                if mat is None or sym not in mat.columns:
+                    return default
+                v = mat[sym].iloc[date_idx]
+                return float(v) if pd.notna(v) else default
+
+            ema20 = _f("ema20_m")
+            ema50 = _f("ema50_m")
+            ema20_slope5 = _f("ema20_slope5_m", 0.0)
+            ema50_slope5 = _f("ema50_slope5_m", 0.0)
+            pullback_pct = _f("pullback_pct_m", 0.0)
+            pullback_vol_ratio = _f("pullback_vol_ratio_m", 1.0)
+            vol_quiet = _f("vol_quiet_ratio_m", 1.0)
+            vol_expand = _f("vol_expand_ratio_m", 1.0)
+            vol_spike_persist = _f("vol_spike_persist_m", 0.0)
+            range5 = _f("range_pct_5_m")
+            range10 = _f("range_pct_10_m")
+            range20 = _f("range_pct_20_m")
+            atr_shrink = _f("atr_shrink_ratio_m", 1.0)
+            rs_raw = _f("rs_vs_bm_m")
+            if pd.isna(rs_raw):
+                # Fallback: same-day RS used for RSS map construction
+                stock_ret_20 = (
+                    self.ret20_m[sym].iloc[date_idx] if sym in self.ret20_m.columns else np.nan
+                )
+                rs_raw = (
+                    float(stock_ret_20) - float(qqq_ret_20)
+                    if pd.notna(stock_ret_20) and pd.notna(qqq_ret_20)
+                    else 0.0
+                )
+            rs_slope5 = _f("rs_slope5_m", 0.0)
+            rs_near_high60 = _f("rs_near_high60_m", 0.5)
+            dist_ema20 = _f("dist_ema20_m", 0.0)
+            dist_ema50 = _f("dist_ema50_m", 0.0)
+            above_ema50 = _f("above_ema50_m", 0.0)
+            green_streak = _f("green_streak5_m", 0.0)
 
             if any(pd.isna(x) for x in (bbs, vzs, cps, rsis, rss)):
                 continue
@@ -643,6 +736,7 @@ class StandaloneEngine:
                 "vol_raw": vol60,
                 "price": float(price),
                 "ret5": float(ret5) if pd.notna(ret5) else 0.0,
+                "ret10": float(ret10) if pd.notna(ret10) else 0.0,
                 "ret20": float(ret20) if pd.notna(ret20) else 0.0,
                 "atr_pct": float(atr_pct) if pd.notna(atr_pct) else 0.0,
                 "close_vs_high20": float(cvh) if pd.notna(cvh) else 1.0,
@@ -650,6 +744,27 @@ class StandaloneEngine:
                 "trend_score": float(trend_score),
                 "up_frac20": float(up_frac) if pd.notna(up_frac) else 0.5,
                 "industry": self.profile_meta.get(sym, {}).get("industry", "Unknown"),
+                # --- EQS feature columns (PIT as-of date_idx) ---
+                "ema20": float(ema20) if pd.notna(ema20) else float(price),
+                "ema50": float(ema50) if pd.notna(ema50) else float(price),
+                "ema20_slope5": float(ema20_slope5),
+                "ema50_slope5": float(ema50_slope5),
+                "pullback_pct": float(pullback_pct) if pd.notna(pullback_pct) else 0.0,
+                "pullback_vol_ratio": float(pullback_vol_ratio) if pd.notna(pullback_vol_ratio) else 1.0,
+                "vol_quiet_ratio": float(vol_quiet) if pd.notna(vol_quiet) else 1.0,
+                "vol_expand_ratio": float(vol_expand) if pd.notna(vol_expand) else 1.0,
+                "vol_spike_persist": float(vol_spike_persist) if pd.notna(vol_spike_persist) else 0.0,
+                "range_pct_5": float(range5) if pd.notna(range5) else np.nan,
+                "range_pct_10": float(range10) if pd.notna(range10) else np.nan,
+                "range_pct_20": float(range20) if pd.notna(range20) else np.nan,
+                "atr_shrink_ratio": float(atr_shrink) if pd.notna(atr_shrink) else 1.0,
+                "rs_raw": float(rs_raw),
+                "rs_slope5": float(rs_slope5),
+                "rs_near_high60": float(rs_near_high60) if pd.notna(rs_near_high60) else 0.5,
+                "dist_ema20": float(dist_ema20) if pd.notna(dist_ema20) else 0.0,
+                "dist_ema50": float(dist_ema50) if pd.notna(dist_ema50) else 0.0,
+                "above_ema50": float(above_ema50) if pd.notna(above_ema50) else 0.0,
+                "green_streak": float(green_streak),
             })
 
         df = pd.DataFrame(rows)
@@ -659,39 +774,35 @@ class StandaloneEngine:
         if not quiet:
             print(
                 f"    [FACTORS] {current_date.date()} cmvs_v3={len(df)} "
-                f"(BBS/VZS/CPS/RSIS/RSS + quality filters; "
+                f"(BBS/VZS/CPS/RSIS/RSS + EQS features; "
                 f"rejected penny={rejected['penny']} vol={rejected['extreme_vol']} "
                 f"collapse={rejected['collapsed']} spike={rejected['failed_spike']})"
             )
         return df
 
     def rank_universe(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Quality-adjusted CMVS score: prefer sustainable RS / structure over pumps.
+        """Live ranking: CMVS quality core + Entry Quality Score (EQS).
 
-        Asks of every Top-N candidate: why does this name deserve capital?
-        Spike-driven BB/volume/RSI get dampened; collapsing / extreme-vol names
-        are penalized. Hard rejects already applied in ``build_factors``.
+        FinalScore = CMVS_raw + EQS_BLEND_WEIGHT * EQS
+
+        EQS measures setup health (trend, pullback, volume/VCP, RS accel,
+        sector, overextension) and actively changes purchase priority.
+        Hard rejects remain in ``build_factors``.
         """
         if df.empty:
             return df
         df = df.copy()
 
-        # Volume only counts as accumulation when price is rising
+        # ----- CMVS quality core (unchanged philosophy) -----
         ret5 = df["ret5"] if "ret5" in df.columns else 0.0
         vzs_confirmed = df["vzs"] * np.where(ret5 > 0.0, 1.0, 0.30)
-
-        # Prefer mid RSI (institutional grind) over late-chase RSI>70
         rsi = df["rsi14"] if "rsi14" in df.columns else (df["rsis"] * 30.0 + 50.0)
         rsis_quality = (1.0 - ((rsi - 58.0).abs() / 30.0)).clip(lower=0.0, upper=1.0)
-
-        # Dampen BB expansion after a vertical spike (pump signature)
         bbs_damped = df["bbs"] * np.where(ret5 > 0.20, 0.45, 1.0)
-
         trend = df["trend_score"] if "trend_score" in df.columns else 0.5
         persist = df["up_frac20"] if "up_frac20" in df.columns else 0.5
 
-        # Core composite: RS + trend + persistence dominate; spike factors muted
-        raw = (
+        cmvs_raw = (
             (self.w5 * df["rss"])
             + (0.20 * trend)
             + (0.15 * persist)
@@ -700,19 +811,27 @@ class StandaloneEngine:
             + (self.w1 * bbs_damped)
             + (self.w4 * rsis_quality)
         )
-
-        # Continuous penalties for residual bad behavior that passed hard filters
         atr_pct = df["atr_pct"] if "atr_pct" in df.columns else 0.0
         cvh = df["close_vs_high20"] if "close_vs_high20" in df.columns else 1.0
-        penalty = (
-            np.maximum(0.0, ret5 - 0.20) * 1.25  # residual spike
-            + np.maximum(0.0, 0.85 - cvh) * 1.50  # soft collapse
-            + np.maximum(0.0, atr_pct - 0.08) * 2.00  # elevated ATR%
-            + np.maximum(0.0, (rsi - 72.0) / 28.0) * 0.40  # late chase
+        cmvs_penalty = (
+            np.maximum(0.0, ret5 - 0.20) * 1.25
+            + np.maximum(0.0, 0.85 - cvh) * 1.50
+            + np.maximum(0.0, atr_pct - 0.08) * 2.00
+            + np.maximum(0.0, (rsi - 72.0) / 28.0) * 0.40
         )
+        cmvs = (cmvs_raw - cmvs_penalty).astype(float)
+        df["cmvs_score"] = cmvs
 
-        df["final_score"] = (raw - penalty).astype(float)
-        df["factor_mode"] = "cmvs_v3_quality"
+        # ----- Entry Quality Score (modular; live ranking) -----
+        eqs_w = getattr(self, "eqs_weights", None) or EQSWeights()
+        blend_w = float(getattr(self, "EQS_BLEND_WEIGHT", 0.55))
+        comps = compute_eqs_components(df)
+        for c in comps.columns:
+            df[c] = comps[c]
+        eqs = combine_eqs(comps, eqs_w)
+        df["eqs"] = eqs
+        df["final_score"] = blend_cmvs_eqs(cmvs, eqs, blend_w)
+        df["factor_mode"] = "cmvs_v3_eqs"
         return df.sort_values("final_score", ascending=False).reset_index(drop=True)
 
     def construct_portfolio(self, ranked_df, date_idx, ctx: RebalanceContext) -> pd.DataFrame:

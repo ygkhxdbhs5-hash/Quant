@@ -113,6 +113,10 @@ def test_rank_universe_penalizes_spike_and_prefers_structure():
     """Pump-like row should rank below sustainable RS/trend row."""
     eng = StandaloneEngine.__new__(StandaloneEngine)
     eng.w1, eng.w2, eng.w3, eng.w4, eng.w5 = 0.10, 0.10, 0.15, 0.10, 0.25
+    from engine.entry_quality import EQSWeights
+
+    eng.eqs_weights = EQSWeights()
+    eng.EQS_BLEND_WEIGHT = 0.55
 
     df = pd.DataFrame(
         [
@@ -124,11 +128,20 @@ def test_rank_universe_penalizes_spike_and_prefers_structure():
                 "rsis": 0.95,
                 "rss": 0.40,
                 "ret5": 0.45,
+                "ret10": 0.50,
                 "rsi14": 82.0,
                 "trend_score": 0.05,
                 "up_frac20": 0.35,
                 "atr_pct": 0.14,
                 "close_vs_high20": 0.70,
+                "price": 40.0,
+                "ema20": 50.0,
+                "ema50": 55.0,
+                "pullback_pct": 0.30,
+                "dist_ema20": -0.20,
+                "dist_ema50": -0.27,
+                "green_streak": 1.0,
+                "atr_shrink_ratio": 1.4,
                 "industry": "X",
             },
             {
@@ -139,11 +152,25 @@ def test_rank_universe_penalizes_spike_and_prefers_structure():
                 "rsis": 0.55,
                 "rss": 0.85,
                 "ret5": 0.06,
+                "ret10": 0.10,
                 "rsi14": 58.0,
                 "trend_score": 1.0,
                 "up_frac20": 0.65,
                 "atr_pct": 0.05,
                 "close_vs_high20": 0.95,
+                "price": 100.0,
+                "ema20": 98.0,
+                "ema50": 95.0,
+                "ema20_slope5": 0.01,
+                "ema50_slope5": 0.008,
+                "pullback_pct": 0.08,
+                "dist_ema20": 0.02,
+                "dist_ema50": 0.05,
+                "green_streak": 2.0,
+                "atr_shrink_ratio": 0.85,
+                "rs_raw": 0.15,
+                "rs_slope5": 0.03,
+                "above_ema50": 1.0,
                 "industry": "X",
             },
         ]
@@ -151,4 +178,4 @@ def test_rank_universe_penalizes_spike_and_prefers_structure():
     ranked = StandaloneEngine.rank_universe(eng, df)
     assert ranked.iloc[0]["symbol"] == "QUALITY"
     assert ranked.iloc[0]["final_score"] > ranked.iloc[1]["final_score"]
-    assert ranked.iloc[0]["factor_mode"] == "cmvs_v3_quality"
+    assert ranked.iloc[0]["factor_mode"] == "cmvs_v3_eqs"
