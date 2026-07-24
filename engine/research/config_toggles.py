@@ -24,9 +24,10 @@ class ResearchToggles:
     ENTRY_RANK: int = 50  # baseline: max_portfolio_size
     EXIT_RANK: int = 70  # baseline: selection_buffer_size
 
-    # --- EMA exit ---
-    USE_EMA9_EXIT: bool = True  # ON/OFF for close < EMA(EMA_EXIT_LENGTH)
-    EMA_EXIT_LENGTH: int = 9  # change to 10/15/20/30 without code edits
+    # --- EMA / trend exit (USE_EMA9_EXIT enables confirmation-based trend exit) ---
+    # EMA9 pierce alone never sells; needs multi-signal confirmation.
+    USE_EMA9_EXIT: bool = True
+    EMA_EXIT_LENGTH: int = 9  # short EMA used in confirmation logic
 
     # --- ATR trailing exit ---
     USE_ATR_EXIT: bool = True

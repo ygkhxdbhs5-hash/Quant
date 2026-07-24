@@ -236,6 +236,13 @@ class StandaloneEngine:
         self.MAX_SPIKE_5D = float(cfg.get("max_spike_5d", 0.35))
         self.MIN_CLOSE_VS_HIGH20 = float(cfg.get("min_close_vs_high20", 0.60))
 
+        # High-vol threshold for stricter trend-exit confirmations / EMA20 primary
+        self.HIGH_ATR_PCT_EXIT = float(cfg.get("high_atr_pct_exit", 0.08))
+        self.TREND_EXIT_MIN_CONFIRM = int(cfg.get("trend_exit_min_confirm", 2))
+        self.TREND_EXIT_MIN_CONFIRM_HIGH_VOL = int(cfg.get("trend_exit_min_confirm_high_vol", 3))
+        # Pullback protection: skip trend exits while above rising SMA50 with shallow DD
+        self.PROTECT_HEALTHY_TREND_PULLBACK = bool(cfg.get("protect_healthy_trend_pullback", True))
+
         self.trade_journal = TradeJournal(
             shadow_horizon_days=int(self.research_toggles.SHADOW_HORIZON_DAYS)
         )
@@ -307,12 +314,17 @@ class StandaloneEngine:
         self.rsi14_m = 100.0 - (100.0 / (1.0 + rs))
         self.rsis_m = ((self.rsi14_m - 50.0) / 30.0).clip(lower=0.0, upper=1.0)
 
-        # Configurable EMA exit length (default 9 = CMVS baseline). Alias ema9_m for compatibility.
+        # Configurable short EMA for trend diagnostics (default 9).
+        # Standalone EMA break no longer sells — see confirmed trend exit.
         _ema_len = max(1, int(getattr(self, "EMA_EXIT_LENGTH", 9)))
         self.ema_exit_m = close_m.ewm(span=_ema_len, adjust=False).mean()
         self.ema9_m = self.ema_exit_m
+        self.ema20_m = close_m.ewm(span=20, adjust=False).mean()
+        # Relative volume for decline confirmation (dvol vs 20d average)
+        self.rel_vol_m = volume_m / vol_mean20.replace(0, np.nan)
 
         # Returns / structure matrices for entry quality + adaptive cooldown
+        self.ret1_m = ret_m
         self.ret5_m = close_m / close_m.shift(5) - 1.0
         self.ret20_m = close_m / close_m.shift(20) - 1.0
         self.ret60_m = close_m / close_m.shift(60) - 1.0
@@ -323,6 +335,8 @@ class StandaloneEngine:
         # Share of up-days in last 20 — sustainable momentum proxy
         up = (ret_m > 0).astype(float)
         self.up_frac20_m = up.rolling(20, min_periods=10).mean()
+        # Rising SMA50 used to protect healthy long-term trends from noise exits
+        self.sma50_slope5_m = self.sma50_m / self.sma50_m.shift(5) - 1.0
 
         hl = np.log(high_m / low_m) ** 2
         hl2_high = high_m.rolling(2, min_periods=2).max()
@@ -1063,12 +1077,11 @@ class StandaloneEngine:
         self.pending_orders = []
 
     def check_cmvs_exits(self, date_idx):
-        """CMVS v3 daily exits: ATR trail, EMA breakdown, or RSI exhaustion.
+        """Daily exits: ATR trail (primary) + confirmed trend exit + exhaustion.
 
-        Queues SELL orders (filled next open via ``execute_pending_orders`` / ``_cost_ratio``).
-        Research toggles may disable ATR / EMA / exhaustion, change EMA length,
-        enforce min-hold, or optional time-stop.
-        At baseline defaults this matches prior CMVS exit behavior.
+        EMA9/short-EMA break alone never sells. Trend exits require multiple
+        confirmations; high-ATR% names use EMA20 and a higher confirmation bar.
+        Healthy long-term uptrends skip trend exits on shallow pullbacks.
         """
         current_date = self.close_m.index[date_idx]
         current_closes = self.close_m.loc[current_date]
@@ -1103,11 +1116,6 @@ class StandaloneEngine:
                 if sym in self.atr14_m.columns
                 else np.nan
             )
-            ema9 = (
-                self.ema9_m[sym].iloc[date_idx]
-                if sym in self.ema9_m.columns
-                else np.nan
-            )
             rsi14 = (
                 self.rsi14_m[sym].iloc[date_idx]
                 if sym in self.rsi14_m.columns
@@ -1120,14 +1128,18 @@ class StandaloneEngine:
             )
 
             reasons = []
-            # 1) Dynamic trailing stop: close < peak_close - atr_multiplier * atr_14
+            # 1) ATR trailing stop — primary catastrophic exit (standalone OK)
             if self.USE_ATR_EXIT and pd.notna(atr14) and atr14 > 0:
                 stop_level = peak - (self.atr_multiplier * float(atr14))
                 if close_px < stop_level:
                     reasons.append(f"atr_trail(stop={stop_level:.2f})")
-            # 2) Trend breakdown: close < EMA(EMA_EXIT_LENGTH) (toggleable; default ON @ 9)
-            if self.USE_EMA9_EXIT and pd.notna(ema9) and close_px < float(ema9):
-                reasons.append("ema9_break")
+
+            # 2) Confirmation-based trend exit (EMA9 alone never sells)
+            if self.USE_EMA9_EXIT:
+                conf = self._trend_exit_confirmations(sym, date_idx, close_px, peak, atr14)
+                if conf:
+                    reasons.append("trend_confirm(" + "+".join(conf) + ")")
+
             # 3) Exhaustion: rsi_14 > 80 AND daily_cp < 0.3
             if (
                 self.USE_EXHAUSTION_EXIT
@@ -1164,8 +1176,165 @@ class StandaloneEngine:
         # def check_trailing_stops(self, date_idx):
         #     ... sell if close <= peak * (1 - TRAILING_STOP_PCT) ...
 
+    def _in_healthy_long_trend_pullback(
+        self, sym: str, date_idx: int, close_px: float, peak: float, atr14
+    ) -> bool:
+        """True when weakness looks like a normal pullback inside a healthy uptrend.
+
+        Used to suppress confirmation trend exits (not ATR catastrophic stops).
+        """
+        if not getattr(self, "PROTECT_HEALTHY_TREND_PULLBACK", True):
+            return False
+        sma50 = (
+            self.sma50_m[sym].iloc[date_idx]
+            if sym in self.sma50_m.columns
+            else np.nan
+        )
+        slope = (
+            self.sma50_slope5_m[sym].iloc[date_idx]
+            if hasattr(self, "sma50_slope5_m") and sym in self.sma50_slope5_m.columns
+            else np.nan
+        )
+        rsi = (
+            self.rsi14_m[sym].iloc[date_idx]
+            if sym in self.rsi14_m.columns
+            else np.nan
+        )
+        if pd.isna(sma50) or float(close_px) < float(sma50):
+            return False
+        # SMA50 still rising (or flat) — long-term trend intact
+        if pd.isna(slope) or float(slope) < -0.005:
+            return False
+        # Shallow pullback vs peak (within ~2 ATR or 8%)
+        if peak > 0:
+            dd = 1.0 - float(close_px) / float(peak)
+            atr_band = (
+                (2.0 * float(atr14) / float(peak))
+                if pd.notna(atr14) and atr14 > 0
+                else 0.08
+            )
+            if dd > max(0.08, atr_band):
+                return False
+        # RSI not structurally broken
+        if pd.notna(rsi) and float(rsi) < 40.0:
+            return False
+        return True
+
+    def _trend_exit_confirmations(
+        self, sym: str, date_idx: int, close_px: float, peak: float, atr14
+    ) -> list:
+        """Return confirmation tags if a multi-signal trend exit should fire.
+
+        EMA9 (or configured short EMA) break alone is never enough.
+        High ATR% names use EMA20 as the primary structure line and need more votes.
+        """
+        if self._in_healthy_long_trend_pullback(sym, date_idx, close_px, peak, atr14):
+            return []
+
+        atr_pct = (
+            self.atr_pct_m[sym].iloc[date_idx]
+            if hasattr(self, "atr_pct_m") and sym in self.atr_pct_m.columns
+            else np.nan
+        )
+        high_vol = pd.notna(atr_pct) and float(atr_pct) >= float(
+            getattr(self, "HIGH_ATR_PCT_EXIT", 0.08)
+        )
+        min_need = int(
+            getattr(self, "TREND_EXIT_MIN_CONFIRM_HIGH_VOL", 3)
+            if high_vol
+            else getattr(self, "TREND_EXIT_MIN_CONFIRM", 2)
+        )
+
+        # Primary structure EMA: short EMA for normal names, EMA20 for high-vol
+        ema_short = (
+            self.ema_exit_m[sym].iloc[date_idx]
+            if sym in self.ema_exit_m.columns
+            else np.nan
+        )
+        ema20 = (
+            self.ema20_m[sym].iloc[date_idx]
+            if hasattr(self, "ema20_m") and sym in self.ema20_m.columns
+            else np.nan
+        )
+        primary = ema20 if high_vol else ema_short
+        primary_label = "ema20" if high_vol else f"ema{int(getattr(self, 'EMA_EXIT_LENGTH', 9))}"
+
+        def _close_at(i):
+            if i < 0 or sym not in self.close_m.columns:
+                return np.nan
+            v = self.close_m[sym].iloc[i]
+            return float(v) if pd.notna(v) else np.nan
+
+        def _ema_primary_at(i):
+            mat = self.ema20_m if high_vol else self.ema_exit_m
+            if i < 0 or sym not in mat.columns:
+                return np.nan
+            v = mat[sym].iloc[i]
+            return float(v) if pd.notna(v) else np.nan
+
+        confirms = []
+
+        # A) Two consecutive closes below primary EMA (not a single touch)
+        c0, c1 = _close_at(date_idx), _close_at(date_idx - 1)
+        e0, e1 = _ema_primary_at(date_idx), _ema_primary_at(date_idx - 1)
+        if (
+            pd.notna(c0)
+            and pd.notna(c1)
+            and pd.notna(e0)
+            and pd.notna(e1)
+            and c0 < e0
+            and c1 < e1
+        ):
+            confirms.append(f"two_closes_below_{primary_label}")
+
+        # B) Close below EMA20 (structure break) — always a confirmation vote
+        if pd.notna(ema20) and close_px < float(ema20):
+            confirms.append("ema20_break")
+
+        # C) RSI soft breakdown
+        rsi = (
+            self.rsi14_m[sym].iloc[date_idx]
+            if sym in self.rsi14_m.columns
+            else np.nan
+        )
+        if pd.notna(rsi) and float(rsi) < 45.0:
+            confirms.append(f"rsi_lt45({float(rsi):.0f})")
+
+        # D) Expanding volume on a down day
+        ret1 = (
+            self.ret1_m[sym].iloc[date_idx]
+            if hasattr(self, "ret1_m") and sym in self.ret1_m.columns
+            else np.nan
+        )
+        rel_vol = (
+            self.rel_vol_m[sym].iloc[date_idx]
+            if hasattr(self, "rel_vol_m") and sym in self.rel_vol_m.columns
+            else np.nan
+        )
+        if pd.notna(ret1) and float(ret1) < 0.0 and pd.notna(rel_vol) and float(rel_vol) >= 1.25:
+            confirms.append(f"vol_decline(rv={float(rel_vol):.2f})")
+
+        # E) Negative short-term momentum
+        ret5 = (
+            self.ret5_m[sym].iloc[date_idx]
+            if sym in self.ret5_m.columns
+            else np.nan
+        )
+        if pd.notna(ret5) and float(ret5) < 0.0:
+            confirms.append(f"neg_mom5({float(ret5):.1%})")
+
+        # Guard: never sell on a lone short-EMA pierce — require enough independent votes
+        if len(confirms) < min_need:
+            return []
+        # High-vol: must include EMA20 structure break among the votes
+        if high_vol and "ema20_break" not in confirms and not any(
+            t.startswith("two_closes_below_ema20") for t in confirms
+        ):
+            return []
+        return confirms
+
     def _ema9_break_signal(self, sym: str, date_idx: int) -> bool:
-        """Raw ema9_break Fact for diagnostics (independent of exit queuing)."""
+        """Observation Fact: raw close < short EMA (does not imply an exit order)."""
         current_date = self.close_m.index[date_idx]
         price = self.close_m.loc[current_date].get(sym, np.nan)
         if pd.isna(price) or price <= 0:
@@ -1176,6 +1345,19 @@ class StandaloneEngine:
             else np.nan
         )
         return bool(pd.notna(ema9) and float(price) < float(ema9))
+
+    def _confirmed_trend_exit_signal(self, sym: str, date_idx: int) -> bool:
+        """True when confirmation-based trend exit would queue a sell."""
+        price = self.close_m[sym].iloc[date_idx] if sym in self.close_m.columns else np.nan
+        if pd.isna(price) or price <= 0:
+            return False
+        peak = float(self.highest_prices.get(sym, price))
+        atr14 = (
+            self.atr14_m[sym].iloc[date_idx]
+            if sym in self.atr14_m.columns
+            else np.nan
+        )
+        return bool(self._trend_exit_confirmations(sym, date_idx, float(price), peak, atr14))
 
     def _observe_rank_diagnostics(self, date_idx: int) -> None:
         """Daily observation-only rank diagnostics for current holdings.

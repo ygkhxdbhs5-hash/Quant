@@ -30,7 +30,7 @@ def _reason_family(exit_reason: str) -> str:
     r = (exit_reason or "").lower()
     if "atr_trail" in r:
         return "atr_trail"
-    if "ema9_break" in r or "ema" in r:
+    if "trend_confirm" in r or "ema9_break" in r or "ema" in r:
         return "ema_break"
     if "exhaustion" in r:
         return "exhaustion"

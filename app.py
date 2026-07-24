@@ -220,9 +220,14 @@ with st.sidebar:
 
     st.markdown("**EMA Exit**")
     use_ema9_exit = st.checkbox(
-        "USE_EMA9_EXIT",
+        "USE_EMA9_EXIT (confirmed trend exit)",
         value=bool(_r_get("USE_EMA9_EXIT", True)),
-        help="Exit when close < EMA(EMA_EXIT_LENGTH)",
+        help=(
+            "Enables confirmation-based trend exit. "
+            "A single close below EMA9 never sells — needs ≥2 confirmations "
+            "(2 closes below EMA, EMA20 break, RSI<45, vol on decline, neg 5d mom). "
+            "High ATR% names use EMA20 and need ≥3 confirms. ATR trail stays primary."
+        ),
     )
     ema_exit_length = st.selectbox(
         "EMA_EXIT_LENGTH",

@@ -41,6 +41,11 @@ cmvs_w2: 0.10   # VZS (requires rising price)
 cmvs_w3: 0.15   # CPS
 cmvs_w4: 0.10   # RSIS mid-zone quality
 cmvs_w5: 0.25   # RSS relative strength
+# Confirmation-based trend exit (EMA9 alone never sells; ATR remains primary)
+high_atr_pct_exit: 0.08
+trend_exit_min_confirm: 2
+trend_exit_min_confirm_high_vol: 3
+protect_healthy_trend_pullback: true
 vol_floor: 1.0e-4
 weight_sum_tolerance: 0.02
 lowvol_window: 60
@@ -80,9 +85,10 @@ research:
   ENTRY_RANK: 50
   EXIT_RANK: 70
 
-  # EMA Exit (USE_EMA9_EXIT name kept; length is configurable)
+  # EMA / confirmed trend exit (USE_EMA9_EXIT name kept for UI)
+  # Single EMA9 pierce never sells — multi-signal confirmation required.
   USE_EMA9_EXIT: true
-  EMA_EXIT_LENGTH: 9          # try 9 / 10 / 15 / 20 / 30
+  EMA_EXIT_LENGTH: 9          # short EMA used inside confirmation logic
 
   # ATR
   USE_ATR_EXIT: true
