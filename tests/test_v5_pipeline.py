@@ -16,6 +16,8 @@ class _TinyEngine(StandaloneEngine):
         # Skip StandaloneEngine.__init__ data load
         self.MAX_PORTFOLIO_SIZE = 5
         self.SELECTION_BUFFER_SIZE = 8
+        self.ENTRY_RANK = 5
+        self.EXIT_RANK = 8
         self.MAX_INDUSTRY_WEIGHT = 0.20
         self.MIN_INDUSTRY_SIZE = 8
         self.VOL_FLOOR = 1e-4
@@ -27,6 +29,15 @@ class _TinyEngine(StandaloneEngine):
         self.MAX_DEBT_TO_EQUITY = 3.0
         self.MIN_REVENUE_GROWTH_YOY = -0.15
         self.VOL_BREAKOUT_ATR_MULT = 1.5
+        self.MIN_ENTRY_PRICE = 3.0
+        self.MAX_ATR_PCT_ENTRY = 0.15
+        self.MAX_SPIKE_5D = 0.35
+        self.MIN_CLOSE_VS_HIGH20 = 0.60
+        self.w1 = 0.10
+        self.w2 = 0.10
+        self.w3 = 0.15
+        self.w4 = 0.10
+        self.w5 = 0.25
         self.previous_target_symbols = set()
         self.profile_meta = {}
         self.close_m = pd.DataFrame()
@@ -43,7 +54,8 @@ def _pit_rows(rows, start="2022-01-01"):
     return pd.DataFrame(rows, index=idx)
 
 
-def test_get_universe_quality_and_value_filters():
+def test_get_universe_is_price_volume_passthrough():
+    """CMVS v3: get_universe no longer hard-rejects on fundamentals."""
     eng = _TinyEngine()
     dates = pd.to_datetime(["2024-01-02", "2024-01-03"])
     eng.close_m = pd.DataFrame(
@@ -51,116 +63,97 @@ def test_get_universe_quality_and_value_filters():
             "GOOD": [100.0, 101.0],
             "LOW_ROIC": [50.0, 51.0],
             "NEG_FCF": [80.0, 81.0],
-            "APPROX": [20.0, 21.0],
-            "HIGH_DEBT": [40.0, 41.0],
-            "NEG_GROWTH": [60.0, 61.0],
         },
         index=dates,
     )
+    eng.fundamental_history = {}
+    out = eng.get_universe(["GOOD", "LOW_ROIC", "NEG_FCF"], date_idx=1)
+    assert set(out) == {"GOOD", "LOW_ROIC", "NEG_FCF"}
 
-    def _series(roic, revenues, op_cf, capex, debt, equity, shares=np.nan):
-        rows = []
-        for i, rev in enumerate(revenues):
-            rows.append(
-                {
-                    "roic": roic,
-                    "revenue": rev,
-                    "op_cf": op_cf if i == len(revenues) - 1 else op_cf,
-                    "capex": capex,
-                    "total_debt": debt,
-                    "total_equity": equity,
-                    "debt_to_equity": debt / equity if equity else np.nan,
-                    "diluted_shares_outstanding": shares,
-                    "basic_shares_outstanding": shares,
-                }
-            )
-        return _pit_rows(rows)
 
-    # 5 quarterly points so YoY (shift 4 / ~1y) is defined on the last row
-    eng.fundamental_history = {
-        "GOOD": _series(0.15, [80, 85, 90, 95, 100], 40.0, 10.0, 50.0, 100.0),
-        "LOW_ROIC": _series(0.02, [80, 85, 90, 95, 100], 40.0, 10.0, 50.0, 100.0),  # < 3%
-        "NEG_FCF": _series(0.20, [80, 85, 90, 95, 100], 5.0, 20.0, 50.0, 100.0),  # FCF/Sales=-0.15
-        "APPROX": _series(0.12, [80, 85, 90, 95, 100], np.nan, np.nan, 40.0, 100.0, shares=10.0),
-        "HIGH_DEBT": _series(0.15, [80, 85, 90, 95, 100], 40.0, 10.0, 400.0, 100.0),  # D/E=4.0
-        "NEG_GROWTH": _series(0.15, [120, 110, 105, 100, 90], 40.0, 10.0, 50.0, 100.0),  # ~-25% YoY
-        # Mild cases that should pass under loosened thresholds:
-        "OK_ROIC5": _series(0.05, [80, 85, 90, 95, 100], 40.0, 10.0, 50.0, 100.0),
-        "OK_DEBT2": _series(0.15, [80, 85, 90, 95, 100], 40.0, 10.0, 200.0, 100.0),  # D/E=2.0
+def _cmvs_row(sym, **overrides):
+    base = {
+        "symbol": sym,
+        "bbs": 0.5,
+        "vzs": 0.5,
+        "cps": 0.5,
+        "rsis": 0.5,
+        "rss": 0.5,
+        "ret5": 0.05,
+        "rsi14": 55.0,
+        "trend_score": 0.65,
+        "up_frac20": 0.55,
+        "atr_pct": 0.05,
+        "close_vs_high20": 0.92,
+        "industry": "X",
     }
-
-    out = eng.get_universe(
-        ["GOOD", "LOW_ROIC", "NEG_FCF", "APPROX", "HIGH_DEBT", "NEG_GROWTH", "OK_ROIC5", "OK_DEBT2"],
-        date_idx=1,
-    )
-    assert "GOOD" in out and "APPROX" in out and "OK_ROIC5" in out and "OK_DEBT2" in out
-    assert "LOW_ROIC" not in out
-    assert "NEG_FCF" not in out
-    assert "HIGH_DEBT" not in out
-    assert "NEG_GROWTH" not in out
+    base.update(overrides)
+    return base
 
 
-def test_rank_universe_weights():
+def test_rank_universe_quality_orders_by_final_score():
     eng = _TinyEngine()
     df = pd.DataFrame(
-        {
-            "symbol": [f"S{i}" for i in range(12)],
-            "mom_raw": np.linspace(0.1, 0.5, 12),
-            "vol_raw": np.linspace(0.01, 0.05, 12),
-            "vol_expansion_raw": np.linspace(-0.5, 2.0, 12),
-            "rev_growth_raw": np.linspace(-0.1, 0.5, 12),
-            "op_margin_raw": np.linspace(0.1, 0.3, 12),
-            "roic_raw": np.linspace(0.1, 0.3, 12),
-            "gross_prof_raw": np.linspace(0.1, 0.3, 12),
-            "industry": ["A"] * 6 + ["B"] * 6,
-        }
+        [
+            _cmvs_row("WEAK", rss=0.2, trend_score=0.05, ret5=0.40, rsi14=80.0, atr_pct=0.12),
+            _cmvs_row("STRONG", rss=0.9, trend_score=1.0, ret5=0.04, rsi14=58.0, atr_pct=0.04),
+            _cmvs_row("MID", rss=0.5, trend_score=0.65, ret5=0.08, rsi14=60.0, atr_pct=0.06),
+        ]
     )
     ranked = eng.rank_universe(df)
     assert "final_score" in ranked.columns
-    assert "rank_rev_growth" in ranked.columns
     assert ranked["final_score"].iloc[0] >= ranked["final_score"].iloc[-1]
+    assert ranked.iloc[0]["symbol"] == "STRONG"
+    assert ranked.iloc[0]["factor_mode"] == "cmvs_v3_quality"
 
 
-def test_rank_universe_price_volume_fallback():
+def test_rank_universe_penalizes_pump_signature():
     eng = _TinyEngine()
     df = pd.DataFrame(
-        {
-            "symbol": ["A", "B", "C", "D"],
-            "mom_raw": [0.4, 0.3, 0.2, 0.1],
-            "vol_raw": [0.02, 0.03, 0.04, 0.05],
-            "vol_expansion_raw": [1.5, 0.5, 2.0, 0.0],
-            "rev_growth_raw": [0.2, np.nan, 0.1, np.nan],
-            "op_margin_raw": [0.2, np.nan, 0.15, np.nan],
-            "roic_raw": [0.2, np.nan, 0.15, np.nan],
-            "gross_prof_raw": [0.2, np.nan, 0.15, np.nan],
-            "industry": ["X", "X", "Y", "Y"],
-        }
+        [
+            _cmvs_row(
+                "PUMP",
+                bbs=0.95,
+                vzs=0.95,
+                rsis=0.95,
+                rss=0.45,
+                ret5=0.40,
+                rsi14=85.0,
+                trend_score=0.05,
+                up_frac20=0.30,
+                atr_pct=0.13,
+                close_vs_high20=0.68,
+            ),
+            _cmvs_row(
+                "QUALITY",
+                bbs=0.55,
+                vzs=0.45,
+                rsis=0.55,
+                rss=0.80,
+                ret5=0.05,
+                rsi14=57.0,
+                trend_score=1.0,
+                up_frac20=0.60,
+                atr_pct=0.04,
+                close_vs_high20=0.94,
+            ),
+        ]
     )
     ranked = eng.rank_universe(df)
-    assert "full" in set(ranked["factor_mode"])
-    assert ranked["final_score"].notna().all()
-    assert len(ranked) == 4
+    assert ranked.iloc[0]["symbol"] == "QUALITY"
 
 
-def test_rank_universe_rev_growth_boosts_score():
-    """Higher revenue growth should lift final_score when mom/quality are tied."""
+def test_rank_universe_rss_dominates_when_structure_tied():
     eng = _TinyEngine()
     df = pd.DataFrame(
-        {
-            "symbol": ["LOW_GROWTH", "HIGH_GROWTH"],
-            "mom_raw": [0.3, 0.3],
-            "vol_raw": [0.02, 0.02],
-            "vol_expansion_raw": [1.0, 1.0],
-            "rev_growth_raw": [0.05, 0.40],
-            "op_margin_raw": [0.2, 0.2],
-            "roic_raw": [0.2, 0.2],
-            "gross_prof_raw": [0.2, 0.2],
-            "industry": ["X", "X"],
-        }
+        [
+            _cmvs_row("LOW_RS", rss=0.2, trend_score=1.0),
+            _cmvs_row("HIGH_RS", rss=0.95, trend_score=1.0),
+        ]
     )
     ranked = eng.rank_universe(df)
-    assert ranked.iloc[0]["symbol"] == "HIGH_GROWTH"
-    assert ranked.iloc[0]["factor_mode"] == "full"
+    assert ranked.iloc[0]["symbol"] == "HIGH_RS"
+    assert ranked.iloc[0]["factor_mode"] == "cmvs_v3_quality"
 
 
 def test_apply_risk_adjustments_sums_to_exposure():
@@ -177,6 +170,7 @@ def test_apply_risk_adjustments_sums_to_exposure():
     assert sized["final_weight"].sum() == pytest.approx(0.5, abs=1e-10)
 
 
+@pytest.mark.skip(reason="Legacy % trailing stop replaced by CMVS ATR/EMA/exhaustion exits")
 def test_trailing_stop_exits_and_resets_on_repurchase():
     eng = _TinyEngine()
     eng.TRAILING_STOP_PCT = 0.20
@@ -207,6 +201,7 @@ def test_trailing_stop_exits_and_resets_on_repurchase():
     assert eng.highest_prices["AAA"] == 95.0
 
 
+@pytest.mark.skip(reason="build_factors is CMVS v3 (BBS/VZS/CPS/RSIS/RSS); vol_expansion_raw removed")
 def test_build_factors_vol_expansion_score():
     """All names kept; vol_expansion_raw = (close - open) / ATR20."""
     eng = _TinyEngine()

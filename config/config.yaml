@@ -30,6 +30,17 @@ selection_buffer_size: 70
 # Aggressive test: raised from 0.20 (revert if MDD too high)
 max_industry_weight: 0.40
 min_industry_size: 8
+# Entry quality hard filters (reject penny / extreme-vol / collapsed / failed-spike names)
+min_entry_price: 3.0
+max_atr_pct_entry: 0.15
+max_spike_5d: 0.35
+min_close_vs_high20: 0.60
+# CMVS quality weights (tilted toward relative strength / structure)
+cmvs_w1: 0.10   # BBS (damped after spikes)
+cmvs_w2: 0.10   # VZS (requires rising price)
+cmvs_w3: 0.15   # CPS
+cmvs_w4: 0.10   # RSIS mid-zone quality
+cmvs_w5: 0.25   # RSS relative strength
 vol_floor: 1.0e-4
 weight_sum_tolerance: 0.02
 lowvol_window: 60

@@ -54,6 +54,22 @@ from engine.research.validation import (
     format_validation_checklist,
     run_research_validation_checklist,
 )
+from engine.reentry_cooldown import AdaptiveReentryCooldown
+
+
+def _short_reason(exit_reason: str) -> str:
+    r = (exit_reason or "").lower()
+    if "atr_trail" in r:
+        return "atr_trail"
+    if "ema" in r:
+        return "ema_break"
+    if "exhaustion" in r:
+        return "exhaustion"
+    if "bear" in r:
+        return "bear_flatten"
+    if "rebalance" in r:
+        return "rebalance_exit"
+    return (exit_reason or "other")[:24]
 
 
 # =====================================================================
@@ -201,16 +217,24 @@ class StandaloneEngine:
         # Peak close since entry (used by CMVS dynamic ATR trailing stop)
         self.highest_prices = {}
         self._cmvs_forced_exits = set()
+        # Adaptive re-entry ban after losing exits (stops CURX/HKIT/JEM-style loops)
+        self.reentry_cooldown = AdaptiveReentryCooldown(enabled=True)
         # Prior % trailing stop (replaced by CMVS exits; kept for revert):
         # self.TRAILING_STOP_PCT = float(cfg.get("trailing_stop_pct", 0.20))
 
-        # CMVS v3 component weights (optimizable)
-        self.w1 = float(cfg.get("cmvs_w1", 0.2))  # BBS
-        self.w2 = float(cfg.get("cmvs_w2", 0.2))  # VZS
-        self.w3 = float(cfg.get("cmvs_w3", 0.2))  # CPS
-        self.w4 = float(cfg.get("cmvs_w4", 0.2))  # RSIS
-        self.w5 = float(cfg.get("cmvs_w5", 0.2))  # RSS
+        # CMVS v3 component weights — tilted toward sustainable RS / structure.
+        # Prior equal 0.2 weights over-rewarded BB expansion, volume spikes, and late RSI.
+        self.w1 = float(cfg.get("cmvs_w1", 0.10))  # BBS (capped / dampened in rank)
+        self.w2 = float(cfg.get("cmvs_w2", 0.10))  # VZS (only with rising price)
+        self.w3 = float(cfg.get("cmvs_w3", 0.15))  # CPS
+        self.w4 = float(cfg.get("cmvs_w4", 0.10))  # RSIS (mid-zone preferred)
+        self.w5 = float(cfg.get("cmvs_w5", 0.25))  # RSS relative strength
         # atr_multiplier already bound from research panel above
+        # Entry quality thresholds (hard filters + score penalties)
+        self.MIN_ENTRY_PRICE = float(cfg.get("min_entry_price", 3.0))
+        self.MAX_ATR_PCT_ENTRY = float(cfg.get("max_atr_pct_entry", 0.15))
+        self.MAX_SPIKE_5D = float(cfg.get("max_spike_5d", 0.35))
+        self.MIN_CLOSE_VS_HIGH20 = float(cfg.get("min_close_vs_high20", 0.60))
 
         self.trade_journal = TradeJournal(
             shadow_horizon_days=int(self.research_toggles.SHADOW_HORIZON_DAYS)
@@ -288,8 +312,17 @@ class StandaloneEngine:
         self.ema_exit_m = close_m.ewm(span=_ema_len, adjust=False).mean()
         self.ema9_m = self.ema_exit_m
 
-        # 20-day returns for RSS (relative strength vs benchmark)
+        # Returns / structure matrices for entry quality + adaptive cooldown
+        self.ret5_m = close_m / close_m.shift(5) - 1.0
         self.ret20_m = close_m / close_m.shift(20) - 1.0
+        self.ret60_m = close_m / close_m.shift(60) - 1.0
+        self.sma20_m = close_m.rolling(20, min_periods=20).mean()
+        self.high20_m = high_m.rolling(20, min_periods=10).max()
+        self.close_vs_high20_m = close_m / self.high20_m.replace(0, np.nan)
+        self.atr_pct_m = self.atr14_m / close_m.replace(0, np.nan)
+        # Share of up-days in last 20 — sustainable momentum proxy
+        up = (ret_m > 0).astype(float)
+        self.up_frac20_m = up.rolling(20, min_periods=10).mean()
 
         hl = np.log(high_m / low_m) ** 2
         hl2_high = high_m.rolling(2, min_periods=2).max()
@@ -506,6 +539,7 @@ class StandaloneEngine:
         rss_map = (rs_z / 3.0).clip(lower=0.0, upper=1.0).to_dict()
 
         rows = []
+        rejected = {"penny": 0, "extreme_vol": 0, "collapsed": 0, "failed_spike": 0}
         for sym in active_symbols:
             price = self.close_m[sym].iloc[date_idx] if sym in self.close_m.columns else np.nan
             if pd.isna(price) or price <= 0:
@@ -513,17 +547,77 @@ class StandaloneEngine:
             if sym not in rss_map:
                 continue
 
+            # --- Hard entry-quality filters (CURX/HKIT/JEM-class traps) ---
+            if float(price) < self.MIN_ENTRY_PRICE:
+                rejected["penny"] += 1
+                continue
+            atr_pct = (
+                self.atr_pct_m[sym].iloc[date_idx]
+                if sym in self.atr_pct_m.columns
+                else np.nan
+            )
+            if pd.notna(atr_pct) and float(atr_pct) > self.MAX_ATR_PCT_ENTRY:
+                rejected["extreme_vol"] += 1
+                continue
+            cvh = (
+                self.close_vs_high20_m[sym].iloc[date_idx]
+                if sym in self.close_vs_high20_m.columns
+                else np.nan
+            )
+            if pd.notna(cvh) and float(cvh) < self.MIN_CLOSE_VS_HIGH20:
+                rejected["collapsed"] += 1
+                continue
+            ret5 = (
+                self.ret5_m[sym].iloc[date_idx] if sym in self.ret5_m.columns else np.nan
+            )
+            sma20 = (
+                self.sma20_m[sym].iloc[date_idx] if sym in self.sma20_m.columns else np.nan
+            )
+            # Spike already failing: huge 5d gain but already below SMA20
+            if (
+                pd.notna(ret5)
+                and pd.notna(sma20)
+                and float(ret5) > self.MAX_SPIKE_5D
+                and float(price) < float(sma20)
+            ):
+                rejected["failed_spike"] += 1
+                continue
+
             bbs = self.bbs_m[sym].iloc[date_idx] if sym in self.bbs_m.columns else np.nan
             vzs = self.vzs_m[sym].iloc[date_idx] if sym in self.vzs_m.columns else np.nan
             cps = self.cps_m[sym].iloc[date_idx] if sym in self.cps_m.columns else np.nan
             rsis = self.rsis_m[sym].iloc[date_idx] if sym in self.rsis_m.columns else np.nan
             rss = rss_map[sym]
+            rsi14 = (
+                self.rsi14_m[sym].iloc[date_idx] if sym in self.rsi14_m.columns else np.nan
+            )
+            sma50 = (
+                self.sma50_m[sym].iloc[date_idx] if sym in self.sma50_m.columns else np.nan
+            )
+            up_frac = (
+                self.up_frac20_m[sym].iloc[date_idx]
+                if sym in self.up_frac20_m.columns
+                else np.nan
+            )
+            ret20 = (
+                self.ret20_m[sym].iloc[date_idx] if sym in self.ret20_m.columns else np.nan
+            )
 
             if any(pd.isna(x) for x in (bbs, vzs, cps, rsis, rss)):
                 continue
 
             # vol_raw retained for optional inverse-vol sizing revert path
             vol60 = self.vol60_m[sym].iloc[date_idx] if sym in self.vol60_m.columns else np.nan
+
+            # Trend structure: sustainable uptrend preferred over spike
+            if pd.notna(sma20) and pd.notna(sma50) and float(price) > float(sma20) > float(sma50):
+                trend_score = 1.0
+            elif pd.notna(sma20) and float(price) > float(sma20):
+                trend_score = 0.65
+            elif pd.notna(sma50) and float(price) > float(sma50):
+                trend_score = 0.35
+            else:
+                trend_score = 0.05
 
             rows.append({
                 "symbol": sym,
@@ -533,6 +627,14 @@ class StandaloneEngine:
                 "rsis": float(np.clip(rsis, 0.0, 1.0)),
                 "rss": float(np.clip(rss, 0.0, 1.0)),
                 "vol_raw": vol60,
+                "price": float(price),
+                "ret5": float(ret5) if pd.notna(ret5) else 0.0,
+                "ret20": float(ret20) if pd.notna(ret20) else 0.0,
+                "atr_pct": float(atr_pct) if pd.notna(atr_pct) else 0.0,
+                "close_vs_high20": float(cvh) if pd.notna(cvh) else 1.0,
+                "rsi14": float(rsi14) if pd.notna(rsi14) else 50.0,
+                "trend_score": float(trend_score),
+                "up_frac20": float(up_frac) if pd.notna(up_frac) else 0.5,
                 "industry": self.profile_meta.get(sym, {}).get("industry", "Unknown"),
             })
 
@@ -543,35 +645,60 @@ class StandaloneEngine:
         if not quiet:
             print(
                 f"    [FACTORS] {current_date.date()} cmvs_v3={len(df)} "
-                f"(BBS/VZS/CPS/RSIS/RSS; fundamentals ignored)"
+                f"(BBS/VZS/CPS/RSIS/RSS + quality filters; "
+                f"rejected penny={rejected['penny']} vol={rejected['extreme_vol']} "
+                f"collapse={rejected['collapsed']} spike={rejected['failed_spike']})"
             )
         return df
 
     def rank_universe(self, df: pd.DataFrame) -> pd.DataFrame:
-        """CMVS v3 composite score; Top-N selection uses final_score ordering."""
+        """Quality-adjusted CMVS score: prefer sustainable RS / structure over pumps.
+
+        Asks of every Top-N candidate: why does this name deserve capital?
+        Spike-driven BB/volume/RSI get dampened; collapsing / extreme-vol names
+        are penalized. Hard rejects already applied in ``build_factors``.
+        """
         if df.empty:
             return df
         df = df.copy()
-        df["final_score"] = (
-            (self.w1 * df["bbs"])
-            + (self.w2 * df["vzs"])
+
+        # Volume only counts as accumulation when price is rising
+        ret5 = df["ret5"] if "ret5" in df.columns else 0.0
+        vzs_confirmed = df["vzs"] * np.where(ret5 > 0.0, 1.0, 0.30)
+
+        # Prefer mid RSI (institutional grind) over late-chase RSI>70
+        rsi = df["rsi14"] if "rsi14" in df.columns else (df["rsis"] * 30.0 + 50.0)
+        rsis_quality = (1.0 - ((rsi - 58.0).abs() / 30.0)).clip(lower=0.0, upper=1.0)
+
+        # Dampen BB expansion after a vertical spike (pump signature)
+        bbs_damped = df["bbs"] * np.where(ret5 > 0.20, 0.45, 1.0)
+
+        trend = df["trend_score"] if "trend_score" in df.columns else 0.5
+        persist = df["up_frac20"] if "up_frac20" in df.columns else 0.5
+
+        # Core composite: RS + trend + persistence dominate; spike factors muted
+        raw = (
+            (self.w5 * df["rss"])
+            + (0.20 * trend)
+            + (0.15 * persist)
             + (self.w3 * df["cps"])
-            + (self.w4 * df["rsis"])
-            + (self.w5 * df["rss"])
+            + (self.w2 * vzs_confirmed)
+            + (self.w1 * bbs_damped)
+            + (self.w4 * rsis_quality)
         )
-        df["factor_mode"] = "cmvs_v3"
-        # --- Prior swing / fundamental scores (commented; kept for revert) ---
-        # industry_counts = df.groupby("industry")["symbol"].transform("count")
-        # df["_group_key"] = np.where(
-        #     industry_counts >= self.MIN_INDUSTRY_SIZE, df["industry"], "__GLOBAL_FALLBACK__"
-        # )
-        # def _rank(col):
-        #     return df.groupby("_group_key")[col].rank(pct=True)
-        # df["rank_short_term_momentum"] = _rank("short_term_momentum")
-        # df["rank_relative_volume"] = _rank("relative_volume")
-        # df["final_score"] = (
-        #     (df["rank_short_term_momentum"] * 0.7) + (df["rank_relative_volume"] * 0.3)
-        # )
+
+        # Continuous penalties for residual bad behavior that passed hard filters
+        atr_pct = df["atr_pct"] if "atr_pct" in df.columns else 0.0
+        cvh = df["close_vs_high20"] if "close_vs_high20" in df.columns else 1.0
+        penalty = (
+            np.maximum(0.0, ret5 - 0.20) * 1.25  # residual spike
+            + np.maximum(0.0, 0.85 - cvh) * 1.50  # soft collapse
+            + np.maximum(0.0, atr_pct - 0.08) * 2.00  # elevated ATR%
+            + np.maximum(0.0, (rsi - 72.0) / 28.0) * 0.40  # late chase
+        )
+
+        df["final_score"] = (raw - penalty).astype(float)
+        df["factor_mode"] = "cmvs_v3_quality"
         return df.sort_values("final_score", ascending=False).reset_index(drop=True)
 
     def construct_portfolio(self, ranked_df, date_idx, ctx: RebalanceContext) -> pd.DataFrame:
@@ -582,7 +709,21 @@ class StandaloneEngine:
         top_buffer = set(ranked_df.head(self.EXIT_RANK)["symbol"].tolist())
 
         keep = self.previous_target_symbols & top_buffer
-        new_candidates = ranked_df[ranked_df["symbol"].isin(top_core) & ~ranked_df["symbol"].isin(keep)]
+        new_candidates = ranked_df[
+            ranked_df["symbol"].isin(top_core) & ~ranked_df["symbol"].isin(keep)
+        ]
+
+        # Adaptive re-entry cooldown: never re-buy losing stop-outs until strength returns
+        blocked = self._cooldown_blocked_set(date_idx)
+        if blocked:
+            before = len(new_candidates)
+            new_candidates = new_candidates[~new_candidates["symbol"].isin(blocked)]
+            n_blocked = before - len(new_candidates)
+            if n_blocked > 0:
+                print(
+                    f"    [COOLDOWN] blocked {n_blocked} re-entries "
+                    f"(active={len(self.reentry_cooldown._records)})"
+                )
 
         selected = list(keep)
         for _, row in new_candidates.iterrows():
@@ -774,6 +915,33 @@ class StandaloneEngine:
             "atr": atr,
         }
 
+    def _strength_snap(self, symbol: str, date_idx: int) -> dict:
+        """Market state used to decide adaptive cooldown clearance."""
+        def _get(matrix, default=None):
+            if symbol not in matrix.columns:
+                return default
+            v = matrix[symbol].iloc[date_idx]
+            if pd.isna(v):
+                return default
+            return float(v)
+
+        return {
+            "close": _get(self.close_m),
+            "sma20": _get(self.sma20_m),
+            "sma50": _get(self.sma50_m),
+            "rsi14": _get(self.rsi14_m),
+            "ret5": _get(self.ret5_m),
+            "close_vs_high20": _get(self.close_vs_high20_m),
+            "atr_pct": _get(self.atr_pct_m),
+        }
+
+    def _cooldown_blocked_set(self, date_idx: int) -> set:
+        if not getattr(self, "reentry_cooldown", None):
+            return set()
+        return self.reentry_cooldown.blocked_symbols(
+            date_idx, lambda sym: self._strength_snap(sym, date_idx)
+        )
+
     def _cost_ratio(self, symbol, date_idx, qty, price):
         adv = self.adv20_m[symbol].iloc[date_idx]
         sigma = self.vol20_m[symbol].iloc[date_idx]
@@ -804,6 +972,11 @@ class StandaloneEngine:
             if pd.isna(o_price) or o_price <= 0:
                 continue
             if order["type"] == "BUY":
+                # Belt-and-suspenders: never fill a buy while on adaptive cooldown
+                if self.reentry_cooldown.is_blocked(
+                    sym, date_idx, self._strength_snap(sym, date_idx)
+                ):
+                    continue
                 cap = self._max_shares_participation(sym, date_idx, o_price, self.PARTICIPATION_CAP_BUY)
                 exec_qty = min(qty, cap)
                 if exec_qty <= 0:
@@ -844,7 +1017,7 @@ class StandaloneEngine:
                         self.highest_prices.pop(sym, None)
                         # Research Fact: full exit + shadow counterfactual
                         snap = self._symbol_snapshot(sym, date_idx)
-                        self.trade_journal.on_exit(
+                        closed = self.trade_journal.on_exit(
                             symbol=sym,
                             date=current_date,
                             date_idx=date_idx,
@@ -856,6 +1029,37 @@ class StandaloneEngine:
                             exit_rsi=snap["rsi"],
                             exit_atr=snap["atr"],
                         )
+                        # Priority 1: arm adaptive cooldown after losing exits
+                        if closed is not None and float(closed.final_return) < 0.0:
+                            atr_pct = (
+                                float(self.atr_pct_m[sym].iloc[date_idx])
+                                if sym in self.atr_pct_m.columns
+                                and pd.notna(self.atr_pct_m[sym].iloc[date_idx])
+                                else 0.0
+                            )
+                            vol20 = (
+                                float(self.vol20_m[sym].iloc[date_idx])
+                                if sym in self.vol20_m.columns
+                                and pd.notna(self.vol20_m[sym].iloc[date_idx])
+                                else 0.0
+                            )
+                            rec = self.reentry_cooldown.record_exit(
+                                symbol=sym,
+                                date_idx=date_idx,
+                                exit_price=float(o_price),
+                                exit_reason=str(closed.exit_reason),
+                                final_return=float(closed.final_return),
+                                atr_pct=atr_pct,
+                                vol20=vol20,
+                                peak_return=float(closed.peak_return),
+                            )
+                            if rec is not None:
+                                print(
+                                    f"    [COOLDOWN ARM] {sym} loss={closed.final_return:.1%} "
+                                    f"reason={_short_reason(closed.exit_reason)} "
+                                    f"holdout={rec.hard_expiry_idx - date_idx}d "
+                                    f"streak={rec.consecutive_losses}"
+                                )
         self.pending_orders = []
 
     def check_cmvs_exits(self, date_idx):
@@ -1198,10 +1402,12 @@ class StandaloneEngine:
                     }
                 # Top-N by CMVS final_score (construct_portfolio still applies buffer/corr caps)
                 ctx.targets_df = self.construct_portfolio(ctx.ranked_df, idx, ctx)
-                # Do not re-buy names that triggered a CMVS exit today
-                if getattr(self, "_cmvs_forced_exits", None) and not ctx.targets_df.empty:
+                # Do not re-buy names that triggered a CMVS exit today OR are on cooldown
+                block = set(getattr(self, "_cmvs_forced_exits", None) or set())
+                block |= self._cooldown_blocked_set(idx)
+                if block and not ctx.targets_df.empty:
                     ctx.targets_df = ctx.targets_df[
-                        ~ctx.targets_df["symbol"].isin(self._cmvs_forced_exits)
+                        ~ctx.targets_df["symbol"].isin(block)
                     ].copy()
                 # Portfolio sizing infrastructure preserved (equal-weight / optional ATR)
                 ctx.targets_df = self.allocate_weights(ctx.targets_df, idx, ctx.regime.exposure)
@@ -1217,6 +1423,11 @@ class StandaloneEngine:
 
         equity = pd.DataFrame(self.equity_curve).set_index("Date")
         self.research_artifacts = self.emit_research_reports(equity)
+        cd = self.reentry_cooldown.summary()
+        print(
+            f"[COOLDOWN SUMMARY] arms={cd['arms']} blocks={cd['blocks']} "
+            f"early_clears={cd['early_clears']} still_active={cd['active']}"
+        )
         return equity
 
     def emit_research_reports(self, equity: pd.DataFrame, out_dir: str | Path = "cache") -> dict:
