@@ -16,12 +16,51 @@ from engine.research.validation import run_research_validation_checklist
 def test_toggles_baseline_defaults():
     t = load_research_toggles({"max_portfolio_size": 50, "selection_buffer_size": 70})
     assert t.USE_EMA9_EXIT is True
+    assert t.EMA_EXIT_LENGTH == 9
+    assert t.USE_ATR_EXIT is True
     assert t.ATR_MULTIPLIER == 2.0
+    assert t.USE_EXHAUSTION_EXIT is True
     assert t.ENTRY_RANK == 50
     assert t.EXIT_RANK == 70
     assert t.MIN_HOLD_DAYS == 0
     assert t.USE_TIME_STOP is False
+    assert t.TIME_STOP_DAYS == 20
+    assert t.MAX_PORTFOLIO_SIZE == 50
+    assert t.MONTHLY_REBALANCE is True
+    assert t.MAX_INDUSTRY_WEIGHT == 0.40
     assert t.is_baseline_defaults(50, 70)
+
+
+def test_research_config_panel_printout():
+    t = ResearchToggles()
+    panel = t.format_panel()
+    assert "RESEARCH CONFIGURATION" in panel
+    assert "ENTRY_RANK = 50" in panel
+    assert "EXIT_RANK = 70" in panel
+    assert "USE_EMA9_EXIT = True" in panel
+    assert "EMA_EXIT_LENGTH = 9" in panel
+    assert "USE_ATR_EXIT = True" in panel
+    assert "ATR_MULTIPLIER = 2.0" in panel
+    assert "USE_EXHAUSTION_EXIT = True" in panel
+    assert "USE_TIME_STOP = False" in panel
+    assert "TIME_STOP_DAYS = 20" in panel
+    assert "MIN_HOLD_DAYS = 0" in panel
+    assert "MAX_PORTFOLIO_SIZE = 50" in panel
+    assert "MAX_INDUSTRY_WEIGHT = 0.40" in panel
+
+
+def test_ema_exit_length_override():
+    t = load_research_toggles(
+        {
+            "max_portfolio_size": 50,
+            "selection_buffer_size": 70,
+            "research": {"EMA_EXIT_LENGTH": 20, "USE_ATR_EXIT": False},
+        }
+    )
+    assert t.EMA_EXIT_LENGTH == 20
+    assert t.USE_ATR_EXIT is False
+    assert t.USE_EMA9_EXIT is True  # unchanged
+    assert not t.is_baseline_defaults(50, 70)
 
 
 def test_shadow_exit_counterfactuals():

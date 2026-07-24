@@ -124,6 +124,8 @@ def apply_ui_config(
     download_workers: int = 8,
     atr_multiplier: float = 2.0,
     download_fundamentals: bool = False,
+    research: dict | None = None,
+    exit_rank: int | None = None,
 ) -> None:
     cfg = load_yaml(CONFIG_PATH)
     cfg["universe_sample_size"] = sample_size
@@ -134,7 +136,20 @@ def apply_ui_config(
     cfg["atr_multiplier"] = float(atr_multiplier)
     # cfg["trailing_stop_pct"] = ...  # legacy % trail; replaced by CMVS exits
     cfg["max_portfolio_size"] = int(max_portfolio)
-    cfg["selection_buffer_size"] = max(int(max_portfolio) + 20, int(cfg.get("selection_buffer_size", 70)))
+    buf = int(exit_rank) if exit_rank is not None else int(cfg.get("selection_buffer_size", 70))
+    cfg["selection_buffer_size"] = max(int(max_portfolio) + 20, buf) if exit_rank is None else buf
+    if research is not None:
+        # Research Configuration Panel → config research: block (engine reads before run)
+        block = dict(cfg.get("research") or {})
+        block.update(research)
+        # Keep portfolio/ATR top-level aliases in sync with panel
+        block["ENTRY_RANK"] = int(max_portfolio)
+        block["EXIT_RANK"] = int(cfg["selection_buffer_size"])
+        block["MAX_PORTFOLIO_SIZE"] = int(max_portfolio)
+        block["ATR_MULTIPLIER"] = float(atr_multiplier)
+        cfg["research"] = block
+        if "MAX_INDUSTRY_WEIGHT" in block:
+            cfg["max_industry_weight"] = float(block["MAX_INDUSTRY_WEIGHT"])
     if api_key and api_key != "unused":
         cfg["massive_api_key"] = api_key
     save_yaml(CONFIG_PATH, cfg)
@@ -142,6 +157,14 @@ def apply_ui_config(
 
 st.title("Quant — Download & Backtest")
 st.caption("Massive.com data download + Q_Alpha v5 standalone engine")
+
+_cfg0 = load_yaml(CONFIG_PATH)
+_r0 = dict(_cfg0.get("research") or {})
+
+
+def _r_get(key: str, default):
+    return _r0[key] if key in _r0 else default
+
 
 with st.sidebar:
     st.header("Settings")
@@ -163,22 +186,129 @@ with st.sidebar:
     sample_size = sample_map[sample_mode]
     download_workers = st.slider("Download workers", 1, 16, 8, 1)
     request_interval = st.slider("API interval (sec)", 0.05, 0.50, 0.08, 0.01)
-    # Old % trailing-stop slider removed — CMVS uses ATR trail / EMA9 / RSI exits
-    atr_multiplier = st.slider(
-        "ATR trail multiplier",
-        1.0,
-        4.0,
-        2.0,
-        0.1,
-        help="CMVS exit: sell if close < peak_close − multiplier × ATR(14)",
-    )
-    max_portfolio = st.number_input("Max portfolio size", min_value=10, max_value=100, value=50, step=5)
     download_fundamentals = st.checkbox(
         "Also download fundamentals (optional)",
         value=False,
         help="Not required for CMVS v3 (price/volume only). Enable only for legacy fundamental screens.",
     )
     clear_cache = st.checkbox("Clear HTTP cache before download", value=False)
+
+    st.divider()
+    st.header("Research Config")
+    st.caption(
+        "Experiment knobs only — written to config research: before each run. "
+        "Defaults match current CMVS trade identity."
+    )
+
+    st.markdown("**Entry / Exit**")
+    entry_rank = st.number_input(
+        "ENTRY_RANK",
+        min_value=5,
+        max_value=200,
+        value=int(_r_get("ENTRY_RANK", _cfg0.get("max_portfolio_size", 50))),
+        step=5,
+        help="Top-N core / max portfolio size",
+    )
+    exit_rank = st.number_input(
+        "EXIT_RANK",
+        min_value=5,
+        max_value=300,
+        value=int(_r_get("EXIT_RANK", _cfg0.get("selection_buffer_size", 70))),
+        step=5,
+        help="Hysteresis buffer — keep if still in top EXIT_RANK",
+    )
+
+    st.markdown("**EMA Exit**")
+    use_ema9_exit = st.checkbox(
+        "USE_EMA9_EXIT",
+        value=bool(_r_get("USE_EMA9_EXIT", True)),
+        help="Exit when close < EMA(EMA_EXIT_LENGTH)",
+    )
+    ema_exit_length = st.selectbox(
+        "EMA_EXIT_LENGTH",
+        options=[9, 10, 15, 20, 30],
+        index=[9, 10, 15, 20, 30].index(int(_r_get("EMA_EXIT_LENGTH", 9)))
+        if int(_r_get("EMA_EXIT_LENGTH", 9)) in (9, 10, 15, 20, 30)
+        else 0,
+        help="EMA period for trend-breakdown exit (no code change needed)",
+    )
+
+    st.markdown("**ATR**")
+    use_atr_exit = st.checkbox(
+        "USE_ATR_EXIT",
+        value=bool(_r_get("USE_ATR_EXIT", True)),
+        help="Dynamic ATR trailing stop",
+    )
+    atr_multiplier = st.slider(
+        "ATR_MULTIPLIER",
+        1.0,
+        4.0,
+        float(_r_get("ATR_MULTIPLIER", _cfg0.get("atr_multiplier", 2.0))),
+        0.1,
+        help="Sell if close < peak_close − multiplier × ATR(14)",
+    )
+
+    st.markdown("**Exhaustion**")
+    use_exhaustion_exit = st.checkbox(
+        "USE_EXHAUSTION_EXIT",
+        value=bool(_r_get("USE_EXHAUSTION_EXIT", True)),
+        help="RSI > 80 and daily close position < 0.3",
+    )
+
+    st.markdown("**Time Stop**")
+    use_time_stop = st.checkbox(
+        "USE_TIME_STOP",
+        value=bool(_r_get("USE_TIME_STOP", False)),
+        help="Optional — off by default (no baseline impact)",
+    )
+    time_stop_days = st.number_input(
+        "TIME_STOP_DAYS",
+        min_value=1,
+        max_value=120,
+        value=int(_r_get("TIME_STOP_DAYS", 20)),
+        step=1,
+        disabled=not use_time_stop,
+    )
+
+    st.markdown("**Holding / Portfolio / Risk**")
+    min_hold_days = st.number_input(
+        "MIN_HOLD_DAYS",
+        min_value=0,
+        max_value=60,
+        value=int(_r_get("MIN_HOLD_DAYS", 0)),
+        step=1,
+    )
+    max_portfolio = int(entry_rank)  # MAX_PORTFOLIO_SIZE mirrors ENTRY_RANK
+    monthly_rebalance = st.checkbox(
+        "MONTHLY_REBALANCE",
+        value=bool(_r_get("MONTHLY_REBALANCE", True)),
+        help="On = monthly first-day rebalance (baseline). Off = daily rebalance.",
+    )
+    max_industry_weight = st.slider(
+        "MAX_INDUSTRY_WEIGHT",
+        0.10,
+        1.00,
+        float(_r_get("MAX_INDUSTRY_WEIGHT", _cfg0.get("max_industry_weight", 0.40))),
+        0.05,
+    )
+
+    research_ui = {
+        "ENTRY_RANK": int(entry_rank),
+        "EXIT_RANK": int(exit_rank),
+        "USE_EMA9_EXIT": bool(use_ema9_exit),
+        "EMA_EXIT_LENGTH": int(ema_exit_length),
+        "USE_ATR_EXIT": bool(use_atr_exit),
+        "ATR_MULTIPLIER": float(atr_multiplier),
+        "USE_EXHAUSTION_EXIT": bool(use_exhaustion_exit),
+        "USE_TIME_STOP": bool(use_time_stop),
+        "TIME_STOP_DAYS": int(time_stop_days),
+        "MIN_HOLD_DAYS": int(min_hold_days),
+        "MAX_PORTFOLIO_SIZE": int(max_portfolio),
+        "MONTHLY_REBALANCE": bool(monthly_rebalance),
+        "MAX_INDUSTRY_WEIGHT": float(max_industry_weight),
+        "SHADOW_HORIZON_DAYS": int(_r_get("SHADOW_HORIZON_DAYS", 20)),
+    }
+
     st.divider()
     st.markdown(
         "Deploy tip: on **Streamlit Cloud**, long downloads may time out. "
@@ -219,6 +349,8 @@ with tab_dl:
             download_workers,
             atr_multiplier,
             download_fundamentals,
+            research=research_ui,
+            exit_rank=int(exit_rank),
         )
         env = dict(os.environ)
         env["MASSIVE_API_KEY"] = api_key
@@ -267,6 +399,30 @@ with tab_bt:
         if not FUND_PATH.exists():
             st.caption("Fundamentals not present (optional for CMVS v3).")
 
+    from engine.research.config_toggles import ResearchToggles
+
+    st.markdown("#### Research Configuration (will be applied)")
+    st.caption("Edit values in the sidebar Research Config section.")
+    st.code(
+        ResearchToggles(
+            ENTRY_RANK=int(research_ui["ENTRY_RANK"]),
+            EXIT_RANK=int(research_ui["EXIT_RANK"]),
+            USE_EMA9_EXIT=bool(research_ui["USE_EMA9_EXIT"]),
+            EMA_EXIT_LENGTH=int(research_ui["EMA_EXIT_LENGTH"]),
+            USE_ATR_EXIT=bool(research_ui["USE_ATR_EXIT"]),
+            ATR_MULTIPLIER=float(research_ui["ATR_MULTIPLIER"]),
+            USE_EXHAUSTION_EXIT=bool(research_ui["USE_EXHAUSTION_EXIT"]),
+            USE_TIME_STOP=bool(research_ui["USE_TIME_STOP"]),
+            TIME_STOP_DAYS=int(research_ui["TIME_STOP_DAYS"]),
+            MIN_HOLD_DAYS=int(research_ui["MIN_HOLD_DAYS"]),
+            MAX_PORTFOLIO_SIZE=int(research_ui["MAX_PORTFOLIO_SIZE"]),
+            MAX_INDUSTRY_WEIGHT=float(research_ui["MAX_INDUSTRY_WEIGHT"]),
+            MONTHLY_REBALANCE=bool(research_ui["MONTHLY_REBALANCE"]),
+            SHADOW_HORIZON_DAYS=int(research_ui["SHADOW_HORIZON_DAYS"]),
+        ).format_panel(),
+        language="text",
+    )
+
     if st.button("Run backtest", type="primary", disabled=not ready):
         apply_ui_config(
             sample_size,
@@ -276,6 +432,8 @@ with tab_bt:
             download_workers,
             atr_multiplier,
             download_fundamentals,
+            research=research_ui,
+            exit_rank=int(exit_rank),
         )
         env = dict(os.environ)
         if api_key:
