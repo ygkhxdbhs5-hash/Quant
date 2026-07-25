@@ -1,0 +1,807 @@
+
+########################################################################
+# COST VARIANT: Corwin-Schultz+impact
+# WINDOW: 2022-01-01 → 2026-06-30
+########################################################################
+>> Baseline v1: loading local panels (infrastructure artifacts)...
+{'strategy_id': 'baseline_v1_mom12_1_atr', 'TOP_LIQUID_POOL': 250, 'TOP_MOMENTUM_COUNT': 30, 'ATR_MULTIPLIER': 2.5, 'GROSS_EXPOSURE': 1.0, 'entry': 'mom_12_1 = price[t-21]/price[t-252]-1', 'exit': 'ATR(14) Wilder trail; Low < stop → next Open', 'sizing': 'equal_weight_1_over_N', 'leverage': '1.0x_always', 'rebalance': 'monthly_first_session; hold until ATR stop; refill empties'}
+==================================================
+BASELINE STRATEGY: baseline_v1_mom12_1_atr
+==================================================
+  strategy_id: baseline_v1_mom12_1_atr
+  TOP_LIQUID_POOL: 250
+  TOP_MOMENTUM_COUNT: 30
+  ATR_MULTIPLIER: 2.5
+  GROSS_EXPOSURE: 1.0
+  entry: mom_12_1 = price[t-21]/price[t-252]-1
+  exit: ATR(14) Wilder trail; Low < stop → next Open
+  sizing: equal_weight_1_over_N
+  leverage: 1.0x_always
+  rebalance: monthly_first_session; hold until ATR stop; refill empties
+  cost_model: corwin_schultz
+==================================================
+[QQQ B&H] bought 125297 @ 399.05 on 2022-01-03
+[REBALANCE] 2022-01-03 candidates=30 held=0 target_n=30
+[REBALANCE] 2022-02-01 candidates=30 held=30 target_n=30
+[REBALANCE] 2022-03-01 candidates=30 held=23 target_n=30
+[REBALANCE] 2022-04-01 candidates=30 held=27 target_n=30
+[REBALANCE] 2022-05-02 candidates=30 held=23 target_n=30
+[REBALANCE] 2022-06-01 candidates=30 held=27 target_n=30
+[REBALANCE] 2022-07-01 candidates=30 held=23 target_n=30
+[REBALANCE] 2022-08-01 candidates=30 held=25 target_n=30
+[REBALANCE] 2022-09-01 candidates=30 held=21 target_n=30
+[REBALANCE] 2022-10-03 candidates=30 held=29 target_n=30
+[REBALANCE] 2022-11-01 candidates=30 held=27 target_n=30
+[REBALANCE] 2022-12-01 candidates=30 held=29 target_n=30
+[REBALANCE] 2023-01-03 candidates=30 held=30 target_n=30
+[REBALANCE] 2023-02-01 candidates=30 held=28 target_n=30
+[REBALANCE] 2023-03-01 candidates=30 held=27 target_n=30
+[REBALANCE] 2023-04-03 candidates=30 held=30 target_n=30
+[REBALANCE] 2023-05-01 candidates=30 held=28 target_n=30
+[REBALANCE] 2023-06-01 candidates=30 held=26 target_n=30
+[REBALANCE] 2023-07-03 candidates=30 held=27 target_n=30
+[REBALANCE] 2023-08-01 candidates=30 held=28 target_n=30
+[REBALANCE] 2023-09-01 candidates=30 held=29 target_n=30
+[REBALANCE] 2023-10-02 candidates=30 held=28 target_n=30
+[REBALANCE] 2023-11-01 candidates=30 held=30 target_n=30
+[REBALANCE] 2023-12-01 candidates=30 held=25 target_n=30
+[REBALANCE] 2024-01-02 candidates=30 held=27 target_n=30
+[REBALANCE] 2024-02-01 candidates=30 held=28 target_n=30
+[REBALANCE] 2024-03-01 candidates=30 held=27 target_n=30
+[REBALANCE] 2024-04-01 candidates=30 held=28 target_n=30
+[REBALANCE] 2024-05-01 candidates=30 held=29 target_n=30
+[REBALANCE] 2024-06-03 candidates=30 held=28 target_n=30
+[REBALANCE] 2024-07-01 candidates=30 held=29 target_n=30
+[REBALANCE] 2024-08-01 candidates=30 held=25 target_n=30
+[REBALANCE] 2024-09-03 candidates=30 held=26 target_n=30
+[REBALANCE] 2024-10-01 candidates=30 held=25 target_n=30
+[REBALANCE] 2024-11-01 candidates=30 held=21 target_n=30
+[REBALANCE] 2024-12-02 candidates=30 held=28 target_n=30
+[REBALANCE] 2025-01-02 candidates=30 held=27 target_n=30
+[REBALANCE] 2025-02-03 candidates=30 held=25 target_n=30
+[REBALANCE] 2025-03-03 candidates=30 held=26 target_n=30
+[REBALANCE] 2025-04-01 candidates=30 held=17 target_n=30
+[REBALANCE] 2025-05-01 candidates=30 held=29 target_n=30
+[REBALANCE] 2025-06-02 candidates=30 held=28 target_n=30
+[REBALANCE] 2025-07-01 candidates=30 held=30 target_n=30
+[REBALANCE] 2025-08-01 candidates=30 held=24 target_n=30
+[REBALANCE] 2025-09-02 candidates=30 held=28 target_n=30
+[REBALANCE] 2025-10-01 candidates=30 held=29 target_n=30
+[REBALANCE] 2025-11-03 candidates=30 held=28 target_n=30
+[REBALANCE] 2025-12-01 candidates=30 held=29 target_n=30
+[REBALANCE] 2026-01-02 candidates=30 held=25 target_n=30
+[REBALANCE] 2026-02-02 candidates=30 held=26 target_n=30
+[REBALANCE] 2026-03-02 candidates=30 held=29 target_n=30
+[REBALANCE] 2026-04-01 candidates=30 held=29 target_n=30
+[REBALANCE] 2026-05-01 candidates=30 held=29 target_n=30
+[REBALANCE] 2026-06-01 candidates=30 held=30 target_n=30
+
+================================================================
+  KPI SUMMARY — Strategy vs QQQ Buy & Hold
+================================================================
+Metric                       Strategy            QQQ
+----------------------------------------------------------------
+CAGR                          -24.66%         14.46%
+Sharpe                         -0.960          0.697
+Maximum Drawdown              -77.40%        -35.25%
+----------------------------------------------------------------
+Alpha (CAGR−QQQ)              -39.13%
+================================================================
+
+
+########################################################################
+# COST VARIANT: Flat 10bps RT (5bps/side)
+# WINDOW: 2022-01-01 → 2026-06-30
+########################################################################
+>> Baseline v1: loading local panels (infrastructure artifacts)...
+{'strategy_id': 'baseline_v1_mom12_1_atr', 'TOP_LIQUID_POOL': 250, 'TOP_MOMENTUM_COUNT': 30, 'ATR_MULTIPLIER': 2.5, 'GROSS_EXPOSURE': 1.0, 'entry': 'mom_12_1 = price[t-21]/price[t-252]-1', 'exit': 'ATR(14) Wilder trail; Low < stop → next Open', 'sizing': 'equal_weight_1_over_N', 'leverage': '1.0x_always', 'rebalance': 'monthly_first_session; hold until ATR stop; refill empties'}
+==================================================
+BASELINE STRATEGY: baseline_v1_mom12_1_atr
+==================================================
+  strategy_id: baseline_v1_mom12_1_atr
+  TOP_LIQUID_POOL: 250
+  TOP_MOMENTUM_COUNT: 30
+  ATR_MULTIPLIER: 2.5
+  GROSS_EXPOSURE: 1.0
+  entry: mom_12_1 = price[t-21]/price[t-252]-1
+  exit: ATR(14) Wilder trail; Low < stop → next Open
+  sizing: equal_weight_1_over_N
+  leverage: 1.0x_always
+  rebalance: monthly_first_session; hold until ATR stop; refill empties
+  cost_model: flat
+  flat_cost_one_way: 0.0005
+==================================================
+[QQQ B&H] bought 125297 @ 399.05 on 2022-01-03
+[REBALANCE] 2022-01-03 candidates=30 held=0 target_n=30
+[REBALANCE] 2022-02-01 candidates=30 held=30 target_n=30
+[REBALANCE] 2022-03-01 candidates=30 held=22 target_n=30
+[REBALANCE] 2022-04-01 candidates=30 held=27 target_n=30
+[REBALANCE] 2022-05-02 candidates=30 held=23 target_n=30
+[REBALANCE] 2022-06-01 candidates=30 held=27 target_n=30
+[REBALANCE] 2022-07-01 candidates=30 held=24 target_n=30
+[REBALANCE] 2022-08-01 candidates=30 held=25 target_n=30
+[REBALANCE] 2022-09-01 candidates=30 held=15 target_n=30
+[REBALANCE] 2022-10-03 candidates=30 held=29 target_n=30
+[REBALANCE] 2022-11-01 candidates=30 held=27 target_n=30
+[REBALANCE] 2022-12-01 candidates=30 held=31 target_n=31
+[REBALANCE] 2023-01-03 candidates=30 held=29 target_n=30
+[REBALANCE] 2023-02-01 candidates=30 held=29 target_n=30
+[REBALANCE] 2023-03-01 candidates=30 held=27 target_n=30
+[REBALANCE] 2023-04-03 candidates=30 held=30 target_n=30
+[REBALANCE] 2023-05-01 candidates=30 held=28 target_n=30
+[REBALANCE] 2023-06-01 candidates=30 held=25 target_n=30
+[REBALANCE] 2023-07-03 candidates=30 held=27 target_n=30
+[REBALANCE] 2023-08-01 candidates=30 held=29 target_n=30
+[REBALANCE] 2023-09-01 candidates=30 held=29 target_n=30
+[REBALANCE] 2023-10-02 candidates=30 held=28 target_n=30
+[REBALANCE] 2023-11-01 candidates=30 held=30 target_n=30
+[REBALANCE] 2023-12-01 candidates=30 held=24 target_n=30
+[REBALANCE] 2024-01-02 candidates=30 held=26 target_n=30
+[REBALANCE] 2024-02-01 candidates=30 held=28 target_n=30
+[REBALANCE] 2024-03-01 candidates=30 held=27 target_n=30
+[REBALANCE] 2024-04-01 candidates=30 held=26 target_n=30
+[REBALANCE] 2024-05-01 candidates=30 held=28 target_n=30
+[REBALANCE] 2024-06-03 candidates=30 held=27 target_n=30
+[REBALANCE] 2024-07-01 candidates=30 held=30 target_n=30
+[REBALANCE] 2024-08-01 candidates=30 held=23 target_n=30
+[REBALANCE] 2024-09-03 candidates=30 held=26 target_n=30
+[REBALANCE] 2024-10-01 candidates=30 held=25 target_n=30
+[REBALANCE] 2024-11-01 candidates=30 held=21 target_n=30
+[REBALANCE] 2024-12-02 candidates=30 held=27 target_n=30
+[REBALANCE] 2025-01-02 candidates=30 held=27 target_n=30
+[REBALANCE] 2025-02-03 candidates=30 held=24 target_n=30
+[REBALANCE] 2025-03-03 candidates=30 held=23 target_n=30
+[REBALANCE] 2025-04-01 candidates=30 held=16 target_n=30
+[REBALANCE] 2025-05-01 candidates=30 held=29 target_n=30
+[REBALANCE] 2025-06-02 candidates=30 held=28 target_n=30
+[REBALANCE] 2025-07-01 candidates=30 held=32 target_n=32
+[REBALANCE] 2025-08-01 candidates=30 held=23 target_n=30
+[REBALANCE] 2025-09-02 candidates=30 held=27 target_n=30
+[REBALANCE] 2025-10-01 candidates=30 held=28 target_n=30
+[REBALANCE] 2025-11-03 candidates=30 held=28 target_n=30
+[REBALANCE] 2025-12-01 candidates=30 held=30 target_n=30
+[REBALANCE] 2026-01-02 candidates=30 held=29 target_n=30
+[REBALANCE] 2026-02-02 candidates=30 held=25 target_n=30
+[REBALANCE] 2026-03-02 candidates=30 held=30 target_n=30
+[REBALANCE] 2026-04-01 candidates=30 held=29 target_n=30
+[REBALANCE] 2026-05-01 candidates=30 held=29 target_n=30
+[REBALANCE] 2026-06-01 candidates=30 held=30 target_n=30
+
+================================================================
+  KPI SUMMARY — Strategy vs QQQ Buy & Hold
+================================================================
+Metric                       Strategy            QQQ
+----------------------------------------------------------------
+CAGR                            1.12%         14.46%
+Sharpe                          0.166          0.697
+Maximum Drawdown              -39.85%        -35.25%
+----------------------------------------------------------------
+Alpha (CAGR−QQQ)              -13.34%
+================================================================
+
+
+########################################################################
+# COST VARIANT: Flat 30bps RT (15bps/side)
+# WINDOW: 2022-01-01 → 2026-06-30
+########################################################################
+>> Baseline v1: loading local panels (infrastructure artifacts)...
+{'strategy_id': 'baseline_v1_mom12_1_atr', 'TOP_LIQUID_POOL': 250, 'TOP_MOMENTUM_COUNT': 30, 'ATR_MULTIPLIER': 2.5, 'GROSS_EXPOSURE': 1.0, 'entry': 'mom_12_1 = price[t-21]/price[t-252]-1', 'exit': 'ATR(14) Wilder trail; Low < stop → next Open', 'sizing': 'equal_weight_1_over_N', 'leverage': '1.0x_always', 'rebalance': 'monthly_first_session; hold until ATR stop; refill empties'}
+==================================================
+BASELINE STRATEGY: baseline_v1_mom12_1_atr
+==================================================
+  strategy_id: baseline_v1_mom12_1_atr
+  TOP_LIQUID_POOL: 250
+  TOP_MOMENTUM_COUNT: 30
+  ATR_MULTIPLIER: 2.5
+  GROSS_EXPOSURE: 1.0
+  entry: mom_12_1 = price[t-21]/price[t-252]-1
+  exit: ATR(14) Wilder trail; Low < stop → next Open
+  sizing: equal_weight_1_over_N
+  leverage: 1.0x_always
+  rebalance: monthly_first_session; hold until ATR stop; refill empties
+  cost_model: flat
+  flat_cost_one_way: 0.0015
+==================================================
+[QQQ B&H] bought 125297 @ 399.05 on 2022-01-03
+[REBALANCE] 2022-01-03 candidates=30 held=0 target_n=30
+[REBALANCE] 2022-02-01 candidates=30 held=30 target_n=30
+[REBALANCE] 2022-03-01 candidates=30 held=22 target_n=30
+[REBALANCE] 2022-04-01 candidates=30 held=27 target_n=30
+[REBALANCE] 2022-05-02 candidates=30 held=23 target_n=30
+[REBALANCE] 2022-06-01 candidates=30 held=27 target_n=30
+[REBALANCE] 2022-07-01 candidates=30 held=23 target_n=30
+[REBALANCE] 2022-08-01 candidates=30 held=26 target_n=30
+[REBALANCE] 2022-09-01 candidates=30 held=15 target_n=30
+[REBALANCE] 2022-10-03 candidates=30 held=29 target_n=30
+[REBALANCE] 2022-11-01 candidates=30 held=27 target_n=30
+[REBALANCE] 2022-12-01 candidates=30 held=31 target_n=31
+[REBALANCE] 2023-01-03 candidates=30 held=29 target_n=30
+[REBALANCE] 2023-02-01 candidates=30 held=29 target_n=30
+[REBALANCE] 2023-03-01 candidates=30 held=27 target_n=30
+[REBALANCE] 2023-04-03 candidates=30 held=30 target_n=30
+[REBALANCE] 2023-05-01 candidates=30 held=27 target_n=30
+[REBALANCE] 2023-06-01 candidates=30 held=25 target_n=30
+[REBALANCE] 2023-07-03 candidates=30 held=27 target_n=30
+[REBALANCE] 2023-08-01 candidates=30 held=28 target_n=30
+[REBALANCE] 2023-09-01 candidates=30 held=29 target_n=30
+[REBALANCE] 2023-10-02 candidates=30 held=28 target_n=30
+[REBALANCE] 2023-11-01 candidates=30 held=29 target_n=30
+[REBALANCE] 2023-12-01 candidates=30 held=24 target_n=30
+[REBALANCE] 2024-01-02 candidates=30 held=27 target_n=30
+[REBALANCE] 2024-02-01 candidates=30 held=28 target_n=30
+[REBALANCE] 2024-03-01 candidates=30 held=27 target_n=30
+[REBALANCE] 2024-04-01 candidates=30 held=26 target_n=30
+[REBALANCE] 2024-05-01 candidates=30 held=29 target_n=30
+[REBALANCE] 2024-06-03 candidates=30 held=28 target_n=30
+[REBALANCE] 2024-07-01 candidates=30 held=31 target_n=31
+[REBALANCE] 2024-08-01 candidates=30 held=24 target_n=30
+[REBALANCE] 2024-09-03 candidates=30 held=26 target_n=30
+[REBALANCE] 2024-10-01 candidates=30 held=25 target_n=30
+[REBALANCE] 2024-11-01 candidates=30 held=21 target_n=30
+[REBALANCE] 2024-12-02 candidates=30 held=28 target_n=30
+[REBALANCE] 2025-01-02 candidates=30 held=27 target_n=30
+[REBALANCE] 2025-02-03 candidates=30 held=24 target_n=30
+[REBALANCE] 2025-03-03 candidates=30 held=24 target_n=30
+[REBALANCE] 2025-04-01 candidates=30 held=21 target_n=30
+[REBALANCE] 2025-05-01 candidates=30 held=29 target_n=30
+[REBALANCE] 2025-06-02 candidates=30 held=28 target_n=30
+[REBALANCE] 2025-07-01 candidates=30 held=32 target_n=32
+[REBALANCE] 2025-08-01 candidates=30 held=23 target_n=30
+[REBALANCE] 2025-09-02 candidates=30 held=27 target_n=30
+[REBALANCE] 2025-10-01 candidates=30 held=29 target_n=30
+[REBALANCE] 2025-11-03 candidates=30 held=28 target_n=30
+[REBALANCE] 2025-12-01 candidates=30 held=30 target_n=30
+[REBALANCE] 2026-01-02 candidates=30 held=29 target_n=30
+[REBALANCE] 2026-02-02 candidates=30 held=25 target_n=30
+[REBALANCE] 2026-03-02 candidates=30 held=30 target_n=30
+[REBALANCE] 2026-04-01 candidates=30 held=29 target_n=30
+[REBALANCE] 2026-05-01 candidates=30 held=28 target_n=30
+[REBALANCE] 2026-06-01 candidates=30 held=30 target_n=30
+
+================================================================
+  KPI SUMMARY — Strategy vs QQQ Buy & Hold
+================================================================
+Metric                       Strategy            QQQ
+----------------------------------------------------------------
+CAGR                           -0.30%         14.46%
+Sharpe                          0.108          0.697
+Maximum Drawdown              -41.63%        -35.25%
+----------------------------------------------------------------
+Alpha (CAGR−QQQ)              -14.76%
+================================================================
+
+
+
+########################################################################
+# COST MODEL AUDIT — Baseline v1 (2022-01-01 → 2026-06-30)
+# Strategy entry/exit/sizing/leverage unchanged; cost model variants only in Task 2.
+########################################################################
+
+### TASK 1 — Worst 20 fills by $ execution cost (2022-2026, Corwin–Schultz model)
+
+Sym      Date         Side         Qty         Px       Notional          ADV20   Part%     CS%    Imp%   Cost%          Cost$ Flags
+--------------------------------------------------------------------------------------------------------------------------------------------
+HUDI     2022-11-08   BUY       76,632      18.25      1,398,534     35,262,234   3.97%   0.02%   7.78%   7.86%        109,924 RT>5%,1W>5%
+HUDI     2022-11-04   SELL      13,205      79.98      1,056,136     27,291,475   3.87%   5.00%   7.07%   9.64%        101,801 RT>5%,1W>5%
+IDAI     2022-05-25   SELL       8,646     142.50      1,232,055     13,949,676   8.83%   5.00%   5.34%   7.91%         97,409 RT>5%,1W>5%
+IDAI     2022-05-03   BUY        4,844     226.50      1,097,166     13,716,314   8.00%   5.00%   5.12%   7.69%         84,394 RT>5%,1W>5%
+PHUN     2022-11-08   SELL      16,878      72.75      1,227,874      8,186,254  15.00%   5.00%   2.15%   4.72%         58,001 RT>5%
+TPST     2024-04-02   SELL      33,747      33.93      1,145,036      7,838,388  14.61%   5.00%   2.29%   4.86%         55,606 RT>5%
+MLGO     2024-03-04   SELL         249    3252.00        809,748     14,757,969   5.49%   5.00%   3.72%   6.29%         50,954 RT>5%,1W>5%
+QTTB     2026-05-28   SELL      75,331      11.52        867,813     15,645,219   5.55%   5.00%   2.83%   5.40%         46,826 RT>5%,1W>5%
+CLDX     2022-02-24   SELL      51,951      27.36      1,421,379     15,960,414   8.91%   5.00%   0.70%   3.27%         46,412 RT>5%
+ACET     2022-12-14   BUY        6,641     169.28      1,124,188     16,205,605   6.94%   4.76%   1.61%   4.06%         45,630 RT>5%
+RMTI     2023-08-04   SELL      26,076      33.20        865,723      7,744,422  11.18%   5.00%   2.62%   5.19%         44,902 RT>5%,1W>5%
+PHUN     2022-07-22   SELL      11,776      86.00      1,012,736      6,751,857  15.00%   5.00%   1.82%   4.39%         44,466 RT>5%
+FULC     2022-05-11   SELL     163,530       7.52      1,229,746     10,234,566  12.02%   5.00%   0.96%   3.53%         43,444 RT>5%
+AOSL     2022-05-10   BUY       35,365      36.68      1,297,188     20,824,077   6.23%   5.00%   0.76%   3.33%         43,182 RT>5%
+CLFD     2022-04-25   SELL      22,239      52.29      1,162,877      7,752,667  15.00%   5.00%   0.98%   3.55%         41,286 RT>5%
+ACLS     2022-03-08   SELL      21,506      59.17      1,272,510     36,385,016   3.50%   4.99%   0.60%   3.17%         40,290 RT>5%
+AOSL     2022-01-11   SELL      28,612      51.75      1,480,671     35,639,897   4.15%   3.79%   0.63%   2.60%         38,429 RT>5%
+PHUN     2022-01-26   BUY       13,067     116.00      1,515,772     57,632,249   2.63%   3.13%   0.87%   2.50%         37,930 RT>5%
+PHUN     2022-08-01   SELL      12,193      72.00        877,896      7,069,923  12.42%   5.00%   1.70%   4.27%         37,520 RT>5%
+NXTT     2025-08-29   BUY        9,203      72.00        662,616      9,837,249   6.74%   5.00%   3.08%   5.65%         37,446 RT>5%,1W>5%
+--------------------------------------------------------------------------------------------------------------------------------------------
+Flags in top-20: participation>20%=0  round-trip-equiv>5% (2×one-way)=20  one-way>5%=8
+Note: Part%=notional/ADV20 used in cost model; CS%=Corwin–Schultz full spread; Imp%=sqrt-impact component; Cost%=one-way total cost ratio applied.
+
+### TASK 2 — Cost-model sensitivity (identical strategy; 2022-01-01 → 2026-06-30)
+
+Cost model                         CAGR     Sharpe        MDD     Total cost $      Alpha
+------------------------------------------------------------------------------------------
+Corwin-Schultz+impact           -24.66%     -0.960    -77.40%       28,219,874    -39.13%
+Flat 10bps RT (5bps/side)         1.12%      0.166    -39.85%        1,805,089    -13.34%
+Flat 30bps RT (15bps/side)       -0.30%      0.108    -41.63%        5,280,676    -14.76%
+------------------------------------------------------------------------------------------
+Variants change ONLY cost_ratio applied at fill; participation caps, entry/exit/sizing/universe unchanged.
+
+### TASK 3 — Raw dollar-volume ±10 trading days around top-20 highest-cost fills
+
+---- #1 HUDI trade_date=2022-11-08 side=BUY ----
+  *** FLAG: 6 day(s) with dollar volume ≥10× median of other days in window ***
+  2022-10-25  dvol=       5,897,061
+  2022-10-26  dvol=       2,170,013
+  2022-10-27  dvol=       1,133,966
+  2022-10-28  dvol=         569,309
+  2022-10-31  dvol=         304,656
+  2022-11-01  dvol=       1,978,327
+  2022-11-02  dvol=       6,272,455
+  2022-11-03  dvol=     286,025,883 SPIKE
+  2022-11-04  dvol=     218,694,780 SPIKE
+  2022-11-07  dvol=      82,732,323 SPIKE
+  2022-11-08  dvol=      77,263,107 <<< SPIKE
+  2022-11-09  dvol=      45,547,760
+  2022-11-10  dvol=      78,954,345 SPIKE
+  2022-11-11  dvol=      98,092,000 SPIKE
+  2022-11-14  dvol=      21,200,208
+  2022-11-15  dvol=      15,166,882
+  2022-11-16  dvol=       6,670,776
+  2022-11-17  dvol=      17,122,981
+  2022-11-18  dvol=       6,484,448
+  2022-11-21  dvol=       5,411,994
+  2022-11-22  dvol=       4,017,883
+
+---- #2 HUDI trade_date=2022-11-04 side=SELL ----
+  *** FLAG: 2 day(s) with dollar volume ≥10× median of other days in window ***
+  2022-10-21  dvol=      13,269,373
+  2022-10-24  dvol=       7,263,993
+  2022-10-25  dvol=       5,897,061
+  2022-10-26  dvol=       2,170,013
+  2022-10-27  dvol=       1,133,966
+  2022-10-28  dvol=         569,309
+  2022-10-31  dvol=         304,656
+  2022-11-01  dvol=       1,978,327
+  2022-11-02  dvol=       6,272,455
+  2022-11-03  dvol=     286,025,883 SPIKE
+  2022-11-04  dvol=     218,694,780 <<< SPIKE
+  2022-11-07  dvol=      82,732,323
+  2022-11-08  dvol=      77,263,107
+  2022-11-09  dvol=      45,547,760
+  2022-11-10  dvol=      78,954,345
+  2022-11-11  dvol=      98,092,000
+  2022-11-14  dvol=      21,200,208
+  2022-11-15  dvol=      15,166,882
+  2022-11-16  dvol=       6,670,776
+  2022-11-17  dvol=      17,122,981
+  2022-11-18  dvol=       6,484,448
+
+---- #3 IDAI trade_date=2022-05-25 side=SELL ----
+  2022-05-11  dvol=         222,922
+  2022-05-12  dvol=         449,320
+  2022-05-13  dvol=         650,830
+  2022-05-16  dvol=         329,904
+  2022-05-17  dvol=         194,978
+  2022-05-18  dvol=         544,310
+  2022-05-19  dvol=         141,256
+  2022-05-20  dvol=         122,339
+  2022-05-23  dvol=          31,361
+  2022-05-24  dvol=          63,498
+  2022-05-25  dvol=          24,912 <<<
+  2022-05-26  dvol=          79,055
+  2022-05-27  dvol=          30,016
+  2022-05-31  dvol=          64,870
+  2022-06-01  dvol=          47,434
+  2022-06-02  dvol=          25,997
+  2022-06-03  dvol=          48,799
+  2022-06-06  dvol=         111,754
+  2022-06-07  dvol=          39,813
+  2022-06-08  dvol=          60,104
+  2022-06-09  dvol=          82,799
+
+---- #4 IDAI trade_date=2022-05-03 side=BUY ----
+  *** FLAG: 2 day(s) with dollar volume ≥10× median of other days in window ***
+  2022-04-19  dvol=           9,739
+  2022-04-20  dvol=          11,315
+  2022-04-21  dvol=           1,151
+  2022-04-22  dvol=          15,295
+  2022-04-25  dvol=          17,919
+  2022-04-26  dvol=           9,634
+  2022-04-27  dvol=          84,561
+  2022-04-28  dvol=     260,461,531 SPIKE
+  2022-04-29  dvol=       8,669,576 SPIKE
+  2022-05-02  dvol=       2,473,262
+  2022-05-03  dvol=       1,384,734 <<<
+  2022-05-04  dvol=       1,153,680
+  2022-05-05  dvol=         387,325
+  2022-05-06  dvol=         880,817
+  2022-05-09  dvol=         316,954
+  2022-05-10  dvol=         490,006
+  2022-05-11  dvol=         222,922
+  2022-05-12  dvol=         449,320
+  2022-05-13  dvol=         650,830
+  2022-05-16  dvol=         329,904
+  2022-05-17  dvol=         194,978
+
+---- #5 PHUN trade_date=2022-11-08 side=SELL ----
+  *** FLAG: 2 day(s) with dollar volume ≥10× median of other days in window ***
+  2022-10-25  dvol=       1,877,819
+  2022-10-26  dvol=       1,763,267
+  2022-10-27  dvol=       1,201,771
+  2022-10-28  dvol=       1,520,001
+  2022-10-31  dvol=       1,736,938
+  2022-11-01  dvol=       1,038,815
+  2022-11-02  dvol=       1,527,568
+  2022-11-03  dvol=       1,178,701
+  2022-11-04  dvol=       1,908,913
+  2022-11-07  dvol=      83,544,254 SPIKE
+  2022-11-08  dvol=      44,205,797 <<< SPIKE
+  2022-11-09  dvol=      15,720,722
+  2022-11-10  dvol=       7,489,952
+  2022-11-11  dvol=       8,012,095
+  2022-11-14  dvol=      24,054,529
+  2022-11-15  dvol=      13,654,244
+  2022-11-16  dvol=      20,589,493
+  2022-11-17  dvol=       4,039,376
+  2022-11-18  dvol=       7,616,902
+  2022-11-21  dvol=       3,879,470
+  2022-11-22  dvol=       4,335,114
+
+---- #6 TPST trade_date=2024-04-02 side=SELL ----
+  *** FLAG: 2 day(s) with dollar volume ≥10× median of other days in window ***
+  2024-03-18  dvol=       3,842,032
+  2024-03-19  dvol=       2,811,354
+  2024-03-20  dvol=       3,099,872
+  2024-03-21  dvol=       2,014,322
+  2024-03-22  dvol=       2,024,077
+  2024-03-25  dvol=       1,610,584
+  2024-03-26  dvol=       1,300,960
+  2024-03-27  dvol=       2,117,189
+  2024-03-28  dvol=       2,650,878
+  2024-04-01  dvol=      92,029,068 SPIKE
+  2024-04-02  dvol=      24,136,515 <<< SPIKE
+  2024-04-03  dvol=       5,519,963
+  2024-04-04  dvol=       7,646,207
+  2024-04-05  dvol=       9,374,359
+  2024-04-08  dvol=       3,134,424
+  2024-04-09  dvol=       2,945,956
+  2024-04-10  dvol=       1,716,456
+  2024-04-11  dvol=       1,522,429
+  2024-04-12  dvol=       1,691,095
+  2024-04-15  dvol=       1,973,499
+  2024-04-16  dvol=       1,580,359
+
+---- #7 MLGO trade_date=2024-03-04 side=SELL ----
+  *** FLAG: 1 day(s) with dollar volume ≥10× median of other days in window ***
+  2024-02-16  dvol=      17,869,971 SPIKE
+  2024-02-20  dvol=       3,333,634
+  2024-02-21  dvol=       2,263,707
+  2024-02-22  dvol=       1,622,204
+  2024-02-23  dvol=       1,908,363
+  2024-02-26  dvol=       2,439,229
+  2024-02-27  dvol=       1,318,950
+  2024-02-28  dvol=       2,292,595
+  2024-02-29  dvol=       1,439,568
+  2024-03-01  dvol=       1,099,504
+  2024-03-04  dvol=         772,493 <<<
+  2024-03-05  dvol=         704,200
+  2024-03-06  dvol=       9,087,046
+  2024-03-07  dvol=       1,982,166
+  2024-03-08  dvol=         595,310
+  2024-03-11  dvol=       1,703,240
+  2024-03-12  dvol=       1,235,687
+  2024-03-13  dvol=       1,755,062
+  2024-03-14  dvol=         875,899
+  2024-03-15  dvol=         570,887
+  2024-03-18  dvol=         659,207
+
+---- #8 QTTB trade_date=2026-05-28 side=SELL ----
+  *** FLAG: 1 day(s) with dollar volume ≥10× median of other days in window ***
+  2026-05-13  dvol=       1,083,083
+  2026-05-14  dvol=         984,568
+  2026-05-15  dvol=         714,244
+  2026-05-18  dvol=       1,411,298
+  2026-05-19  dvol=       1,840,708
+  2026-05-20  dvol=       1,611,921
+  2026-05-21  dvol=         995,965
+  2026-05-22  dvol=       3,648,824
+  2026-05-26  dvol=       2,123,646
+  2026-05-27  dvol=     271,813,912 SPIKE
+  2026-05-28  dvol=      13,277,180 <<<
+  2026-05-29  dvol=      13,292,138
+  2026-06-01  dvol=      12,510,692
+  2026-06-02  dvol=       9,831,519
+  2026-06-03  dvol=       6,554,290
+  2026-06-04  dvol=      14,771,325
+  2026-06-05  dvol=      10,027,210
+  2026-06-08  dvol=       7,949,731
+  2026-06-09  dvol=       7,473,645
+  2026-06-10  dvol=       8,304,985
+  2026-06-11  dvol=       5,562,154
+
+---- #9 CLDX trade_date=2022-02-24 side=SELL ----
+  2022-02-09  dvol=      13,058,745
+  2022-02-10  dvol=      31,453,475
+  2022-02-11  dvol=       8,565,914
+  2022-02-14  dvol=      13,349,020
+  2022-02-15  dvol=      15,038,851
+  2022-02-16  dvol=       9,446,898
+  2022-02-17  dvol=      16,688,925
+  2022-02-18  dvol=      14,553,727
+  2022-02-22  dvol=      11,168,243
+  2022-02-23  dvol=      16,708,836
+  2022-02-24  dvol=      29,644,260 <<<
+  2022-02-25  dvol=      12,991,183
+  2022-02-28  dvol=      20,000,170
+  2022-03-01  dvol=      35,534,448
+  2022-03-02  dvol=      11,983,763
+  2022-03-03  dvol=      19,650,880
+  2022-03-04  dvol=      18,684,889
+  2022-03-07  dvol=      12,181,242
+  2022-03-08  dvol=      34,399,634
+  2022-03-09  dvol=      17,506,342
+  2022-03-10  dvol=      10,840,621
+
+---- #10 ACET trade_date=2022-12-14 side=BUY ----
+  2022-11-30  dvol=      17,854,705
+  2022-12-01  dvol=      12,605,768
+  2022-12-02  dvol=       9,173,326
+  2022-12-05  dvol=      12,917,441
+  2022-12-06  dvol=      11,155,005
+  2022-12-07  dvol=      13,980,192
+  2022-12-08  dvol=      14,418,248
+  2022-12-09  dvol=      19,670,616
+  2022-12-12  dvol=      82,762,032
+  2022-12-13  dvol=      28,135,810
+  2022-12-14  dvol=       7,274,345 <<<
+  2022-12-15  dvol=       8,354,338
+  2022-12-16  dvol=      13,765,200
+  2022-12-19  dvol=       6,666,701
+  2022-12-20  dvol=       5,708,829
+  2022-12-21  dvol=       4,710,160
+  2022-12-22  dvol=       9,489,461
+  2022-12-23  dvol=       2,881,278
+  2022-12-27  dvol=       3,714,262
+  2022-12-28  dvol=       4,238,009
+  2022-12-29  dvol=       5,443,588
+
+---- #11 RMTI trade_date=2023-08-04 side=SELL ----
+  2023-07-21  dvol=       4,386,599
+  2023-07-24  dvol=       4,737,129
+  2023-07-25  dvol=       3,263,799
+  2023-07-26  dvol=       4,206,171
+  2023-07-27  dvol=       6,405,746
+  2023-07-28  dvol=       5,657,692
+  2023-07-31  dvol=       3,969,022
+  2023-08-01  dvol=       3,322,626
+  2023-08-02  dvol=       2,635,633
+  2023-08-03  dvol=       2,132,216
+  2023-08-04  dvol=       2,381,310 <<<
+  2023-08-07  dvol=       1,613,626
+  2023-08-08  dvol=       1,559,793
+  2023-08-09  dvol=       2,779,405
+  2023-08-10  dvol=       1,537,360
+  2023-08-11  dvol=       1,947,588
+  2023-08-14  dvol=       2,314,476
+  2023-08-15  dvol=       1,316,832
+  2023-08-16  dvol=       4,730,469
+  2023-08-17  dvol=       1,272,133
+  2023-08-18  dvol=         866,828
+
+---- #12 PHUN trade_date=2022-07-22 side=SELL ----
+  *** FLAG: 2 day(s) with dollar volume ≥10× median of other days in window ***
+  2022-07-08  dvol=       6,478,276
+  2022-07-11  dvol=      50,492,120 SPIKE
+  2022-07-12  dvol=      10,744,033
+  2022-07-13  dvol=       3,159,514
+  2022-07-14  dvol=       4,437,288
+  2022-07-15  dvol=       3,841,795
+  2022-07-18  dvol=       4,009,337
+  2022-07-19  dvol=       2,687,733
+  2022-07-20  dvol=       2,245,462
+  2022-07-21  dvol=      30,510,425 SPIKE
+  2022-07-22  dvol=       6,216,487 <<<
+  2022-07-25  dvol=       3,144,628
+  2022-07-26  dvol=       2,828,357
+  2022-07-27  dvol=       1,322,170
+  2022-07-28  dvol=       2,076,041
+  2022-07-29  dvol=       2,356,357
+  2022-08-01  dvol=       1,657,918
+  2022-08-02  dvol=       2,876,800
+  2022-08-03  dvol=       4,209,405
+  2022-08-04  dvol=       2,647,235
+  2022-08-05  dvol=       2,707,921
+
+---- #13 FULC trade_date=2022-05-11 side=SELL ----
+  2022-04-27  dvol=      10,652,241
+  2022-04-28  dvol=       4,621,290
+  2022-04-29  dvol=       3,318,313
+  2022-05-02  dvol=       3,316,683
+  2022-05-03  dvol=       4,161,235
+  2022-05-04  dvol=       6,593,076
+  2022-05-05  dvol=       4,516,605
+  2022-05-06  dvol=      18,291,768
+  2022-05-09  dvol=      10,144,337
+  2022-05-10  dvol=      10,006,642
+  2022-05-11  dvol=       6,549,588 <<<
+  2022-05-12  dvol=       5,862,178
+  2022-05-13  dvol=       6,220,184
+  2022-05-16  dvol=       4,364,754
+  2022-05-17  dvol=       5,510,544
+  2022-05-18  dvol=       3,968,310
+  2022-05-19  dvol=       4,166,139
+  2022-05-20  dvol=       3,662,585
+  2022-05-23  dvol=       3,352,538
+  2022-05-24  dvol=       6,183,257
+  2022-05-25  dvol=       3,463,544
+
+---- #14 AOSL trade_date=2022-05-10 side=BUY ----
+  2022-04-26  dvol=      16,333,122
+  2022-04-27  dvol=      14,131,286
+  2022-04-28  dvol=      18,331,137
+  2022-04-29  dvol=      11,882,957
+  2022-05-02  dvol=      16,943,523
+  2022-05-03  dvol=      20,291,961
+  2022-05-04  dvol=      23,465,041
+  2022-05-05  dvol=      24,794,189
+  2022-05-06  dvol=      60,258,716
+  2022-05-09  dvol=      34,320,634
+  2022-05-10  dvol=      19,010,434 <<<
+  2022-05-11  dvol=      18,314,854
+  2022-05-12  dvol=      19,504,934
+  2022-05-13  dvol=      88,991,274
+  2022-05-16  dvol=      36,073,209
+  2022-05-17  dvol=      46,756,925
+  2022-05-18  dvol=     205,022,579
+  2022-05-19  dvol=      37,176,653
+  2022-05-20  dvol=      44,940,381
+  2022-05-23  dvol=      34,400,976
+  2022-05-24  dvol=      22,409,058
+
+---- #15 CLFD trade_date=2022-04-25 side=SELL ----
+  2022-04-08  dvol=       5,632,529
+  2022-04-11  dvol=       6,802,070
+  2022-04-12  dvol=       6,182,983
+  2022-04-13  dvol=       4,604,976
+  2022-04-14  dvol=       7,394,911
+  2022-04-18  dvol=       8,127,817
+  2022-04-19  dvol=       4,768,810
+  2022-04-20  dvol=       4,438,400
+  2022-04-21  dvol=       7,231,353
+  2022-04-22  dvol=       9,880,871
+  2022-04-25  dvol=      10,478,092 <<<
+  2022-04-26  dvol=       5,183,439
+  2022-04-27  dvol=       6,009,997
+  2022-04-28  dvol=      11,082,531
+  2022-04-29  dvol=      18,405,338
+  2022-05-02  dvol=      16,179,793
+  2022-05-03  dvol=       8,269,374
+  2022-05-04  dvol=      11,062,404
+  2022-05-05  dvol=       5,636,283
+  2022-05-06  dvol=       4,554,141
+  2022-05-09  dvol=       5,651,182
+
+---- #16 ACLS trade_date=2022-03-08 side=SELL ----
+  2022-02-22  dvol=      22,680,460
+  2022-02-23  dvol=      23,224,928
+  2022-02-24  dvol=      34,113,751
+  2022-02-25  dvol=      22,536,058
+  2022-02-28  dvol=      34,653,539
+  2022-03-01  dvol=      34,316,558
+  2022-03-02  dvol=      38,744,222
+  2022-03-03  dvol=      31,090,460
+  2022-03-04  dvol=      52,955,454
+  2022-03-07  dvol=      32,173,535
+  2022-03-08  dvol=      37,954,800 <<<
+  2022-03-09  dvol=      36,312,078
+  2022-03-10  dvol=      16,573,701
+  2022-03-11  dvol=      17,456,436
+  2022-03-14  dvol=      31,236,257
+  2022-03-15  dvol=      34,094,874
+  2022-03-16  dvol=      52,002,145
+  2022-03-17  dvol=      49,201,037
+  2022-03-18  dvol=     106,294,688
+  2022-03-21  dvol=      54,994,716
+  2022-03-22  dvol=      39,092,455
+
+---- #17 AOSL trade_date=2022-01-11 side=SELL ----
+  2021-12-28  dvol=      42,442,460
+  2021-12-29  dvol=      46,793,321
+  2021-12-30  dvol=      29,527,284
+  2021-12-31  dvol=      32,789,425
+  2022-01-03  dvol=      38,073,267
+  2022-01-04  dvol=      69,812,107
+  2022-01-05  dvol=      50,700,050
+  2022-01-06  dvol=      44,871,375
+  2022-01-07  dvol=      28,174,806
+  2022-01-10  dvol=      46,161,836
+  2022-01-11  dvol=      32,469,693 <<<
+  2022-01-12  dvol=      19,750,865
+  2022-01-13  dvol=      21,891,464
+  2022-01-14  dvol=      22,596,115
+  2022-01-18  dvol=      36,661,658
+  2022-01-19  dvol=      29,871,453
+  2022-01-20  dvol=      22,346,335
+  2022-01-21  dvol=      22,897,353
+  2022-01-24  dvol=      40,738,639
+  2022-01-25  dvol=      21,703,393
+  2022-01-26  dvol=      32,697,882
+
+---- #18 PHUN trade_date=2022-01-26 side=BUY ----
+  2022-01-11  dvol=     137,879,604
+  2022-01-12  dvol=     151,272,229
+  2022-01-13  dvol=      75,103,170
+  2022-01-14  dvol=      40,224,248
+  2022-01-18  dvol=     208,537,755
+  2022-01-19  dvol=      73,954,743
+  2022-01-20  dvol=      47,069,104
+  2022-01-21  dvol=      42,386,055
+  2022-01-24  dvol=      28,219,160
+  2022-01-25  dvol=      23,989,569
+  2022-01-26  dvol=      23,346,754 <<<
+  2022-01-27  dvol=      17,400,086
+  2022-01-28  dvol=      19,492,960
+  2022-01-31  dvol=      17,463,955
+  2022-02-01  dvol=      39,295,204
+  2022-02-02  dvol=      15,780,265
+  2022-02-03  dvol=      43,595,357
+  2022-02-04  dvol=      30,879,872
+  2022-02-07  dvol=     375,554,588
+  2022-02-08  dvol=     117,593,008
+  2022-02-09  dvol=     118,805,751
+
+---- #19 PHUN trade_date=2022-08-01 side=SELL ----
+  *** FLAG: 1 day(s) with dollar volume ≥10× median of other days in window ***
+  2022-07-18  dvol=       4,009,337
+  2022-07-19  dvol=       2,687,733
+  2022-07-20  dvol=       2,245,462
+  2022-07-21  dvol=      30,510,425 SPIKE
+  2022-07-22  dvol=       6,216,487
+  2022-07-25  dvol=       3,144,628
+  2022-07-26  dvol=       2,828,357
+  2022-07-27  dvol=       1,322,170
+  2022-07-28  dvol=       2,076,041
+  2022-07-29  dvol=       2,356,357
+  2022-08-01  dvol=       1,657,918 <<<
+  2022-08-02  dvol=       2,876,800
+  2022-08-03  dvol=       4,209,405
+  2022-08-04  dvol=       2,647,235
+  2022-08-05  dvol=       2,707,921
+  2022-08-08  dvol=       5,712,185
+  2022-08-09  dvol=       2,971,070
+  2022-08-10  dvol=       3,921,274
+  2022-08-11  dvol=       4,225,915
+  2022-08-12  dvol=       3,757,486
+  2022-08-15  dvol=       1,982,234
+
+---- #20 NXTT trade_date=2025-08-29 side=BUY ----
+  *** FLAG: 2 day(s) with dollar volume ≥10× median of other days in window ***
+  2025-08-15  dvol=       1,056,219
+  2025-08-18  dvol=       1,201,572
+  2025-08-19  dvol=       1,154,692
+  2025-08-20  dvol=       1,325,320
+  2025-08-21  dvol=         835,734
+  2025-08-22  dvol=         538,310
+  2025-08-25  dvol=       1,943,207
+  2025-08-26  dvol=       1,097,607
+  2025-08-27  dvol=       8,513,023
+  2025-08-28  dvol=      21,823,197
+  2025-08-29  dvol=     151,968,249 <<< SPIKE
+  2025-09-02  dvol=      19,949,975
+  2025-09-03  dvol=      14,234,176
+  2025-09-04  dvol=      19,494,271
+  2025-09-05  dvol=      37,361,271
+  2025-09-08  dvol=      42,198,717
+  2025-09-09  dvol=       9,151,279
+  2025-09-10  dvol=      35,673,816
+  2025-09-11  dvol=     265,556,789 SPIKE
+  2025-09-12  dvol=      27,978,055
+  2025-09-15  dvol=       9,797,276
+
+
+### TASK 4 — Entry notional / ADV20 distribution (BUY fills, 2022-2026)
+
+  n_buy_fills                 : 6,217
+  p50 (notional/ADV)          : 8.00%
+  p75                         : 8.00%
+  p90                         : 8.00%
+  p95                         : 8.00%
+  max                         : 8.00%
+  mean                        : 5.09%
+  share > 10% ADV             : 0.00%
+  share > 15% ADV             : 0.00%
+  share > participation_cap_buy : 0.00%
+
+# END COST MODEL AUDIT
+
+Wrote report -> docs/experiments/BASELINE_V1_COST_AUDIT/cost_audit_report.txt
+Wrote JSON   -> docs/experiments/BASELINE_V1_COST_AUDIT/cost_audit_results.json
