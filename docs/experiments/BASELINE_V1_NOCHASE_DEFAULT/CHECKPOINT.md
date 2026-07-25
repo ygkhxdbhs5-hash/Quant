@@ -30,7 +30,26 @@
 
 `repro_id=5146837eafd9` (+10.55% / $10.25M / 1052) could not be recovered (dirty-tree data loss). See `ROOT_CAUSE.md`.
 
+## Clean four-way cost reference (corrected)
+
+| Field | Value |
+|---|---|
+| repro_id | `c8ce2d33f4c2` |
+| payload_sha256_16 | `a24320c8485a1276` |
+| git_dirty | **False** |
+| artifact | `clean_fourway_cost_report.txt` / `.json` |
+
+| Variant | CAGR | Sharpe | MDD | Cost $ | n_trades |
+|---|---:|---:|---:|---:|---:|
+| Fixed CS v2 chase ON | −8.00% | −0.223 | −55.47% | 17,743,691 | 1,420 |
+| Fixed CS v2 no-chase (default) | **+1.89%** | 0.194 | −31.97% | 12,536,785 | 1,589 |
+| Flat 10bps RT (5bps/side) | **+1.12%** | 0.166 | −39.85% | 1,805,089 | 1,415 |
+| Flat 30bps RT (15bps/side) | −0.30% | 0.108 | −41.63% | 5,280,676 | 1,420 |
+
+`topup_chase_report_2.txt` flat10=+13.02% / flat30=+10.34% are **INVALID** (dirty-tree). Flat legs above match the original clean `topup_chase_report.txt`.
+
 ## Artifacts
 
-- `nochase_clean_reference.txt` / `.json` — single in-memory payload
-- `ROOT_CAUSE.md` — Task 1/2 findings
+- `nochase_clean_reference.txt` / `.json` — tagged no-chase checkpoint payload
+- `clean_fourway_cost_report.txt` / `.json` — four-way clean reference
+- `ROOT_CAUSE.md` — dirty-tree recovery findings

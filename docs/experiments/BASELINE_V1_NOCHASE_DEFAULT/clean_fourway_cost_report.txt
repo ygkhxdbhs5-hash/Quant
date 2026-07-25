@@ -1,0 +1,31 @@
+# Clean four-way cost/fill reference (VALID)
+
+Window: 2022-01-01 → 2026-06-30
+repro_id=c8ce2d33f4c2
+payload_sha256_16=a24320c8485a1276
+git_head=c6fa502d177546400e6077c1f15839affb2bc624
+git_dirty=False
+panels=5ce58a430ac1beec
+
+## INVALID — do not cite (dirty-tree topup_chase_report_2)
+  chase-on -0.24%, no-chase +10.55%, flat10 +13.02%, flat30 +10.34%
+  Status: INVALID / UNREPRODUCIBLE (code state lost). Superseded by this report.
+
+## Four-way comparison (clean committed state only)
+Variant                                         CAGR   Sharpe       MDD         Cost $   n_trades
+----------------------------------------------------------------------------------------------------
+Fixed CS v2 (chase ON, legacy)                -8.00%   -0.223   -55.47%     17,743,691      1,420
+  fingerprint_note: enable_topup_chasing=True cost_model=corwin_schultz_v2 flat_one_way=None
+Fixed CS v2 + NO-CHASE (default)              +1.89%    0.194   -31.97%     12,536,785      1,589
+  fingerprint_note: enable_topup_chasing=False cost_model=corwin_schultz_v2 flat_one_way=None
+Flat 10bps RT (5bps/side)                     +1.12%    0.166   -39.85%      1,805,089      1,415
+  fingerprint_note: enable_topup_chasing=True cost_model=flat flat_one_way=0.0005
+Flat 30bps RT (15bps/side)                    -0.30%    0.108   -41.63%      5,280,676      1,420
+  fingerprint_note: enable_topup_chasing=True cost_model=flat flat_one_way=0.0015
+----------------------------------------------------------------------------------------------------
+
+Flat variants: chase ON + flat cost model (cost sensitivity; not fill-policy change).
+CS v2 variants: Fixed CS v2 + ADV winsorize; chase ON vs no-chase default.
+Entry/exit/sizing/leverage unchanged.
+
+# END

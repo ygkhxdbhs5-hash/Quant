@@ -14,3 +14,15 @@ A claimed chart with BUY counts 738+3843 (~4,581), no-chase CAGR ~10.6%, flat-10
 3. Comparing chart from a different experiment/window.
 
 Going forward: refuse to compare text vs chart unless `repro_id` in the text banner matches the chart footer.
+
+## INVALID artifact: `topup_chase_report_2.txt`
+
+**Status: INVALID / UNREPRODUCIBLE — do not cite.**
+
+Claimed dirty-tree numbers (chase-on −0.24%, no-chase +10.55%, flat10 +13.02%,
+flat30 +10.34%; fingerprint `5146837eafd9`) came from a lost dirty working tree.
+The file is retained only as an audit stub marking those KPIs superseded.
+
+**Authoritative clean four-way reference** (re-derived, `git_dirty=False`):
+`docs/experiments/BASELINE_V1_NOCHASE_DEFAULT/clean_fourway_cost_report.txt`
+(flat10 ≈ +1.12% CAGR matches this directory's original clean report, not report_2).
