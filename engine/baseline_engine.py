@@ -36,6 +36,7 @@ from engine.regime_exposure import (
     determine_regime_exposure,
     exposure_tier_label,
 )
+from engine.regime_exposure_fast import determine_regime_exposure_fast
 from engine.research.experiment_history import ExperimentHistory
 from engine.research.kpi_report import build_hierarchical_kpi_report
 from engine.research.trade_journal import TradeJournal
@@ -125,7 +126,9 @@ class BaselineEngineV1:
         else:
             self.ENABLE_QUALITY_FACTOR = True  # new default after quality A/B
 
-        # Regime exposure (isolated variant; default OFF until A/B adoption).
+        # Regime exposure variants (both default OFF; mom+quality remains default).
+        #   enable_regime_exposure      — rejected sma200 + level breadth
+        #   enable_regime_exposure_fast — sma50 + breadth RoC (this round's test)
         # Scales equal-weight targets by 1.0 / 0.5 / 0.0; never >1.0x.
         self.ENABLE_REGIME_EXPOSURE = bool(
             cfg.get(
@@ -133,6 +136,18 @@ class BaselineEngineV1:
                 cfg.get("ENABLE_REGIME_EXPOSURE", bcfg.get("ENABLE_REGIME_EXPOSURE", False)),
             )
         )
+        self.ENABLE_REGIME_EXPOSURE_FAST = bool(
+            cfg.get(
+                "enable_regime_exposure_fast",
+                cfg.get(
+                    "ENABLE_REGIME_EXPOSURE_FAST",
+                    bcfg.get("ENABLE_REGIME_EXPOSURE_FAST", False),
+                ),
+            )
+        )
+        if self.ENABLE_REGIME_EXPOSURE and self.ENABLE_REGIME_EXPOSURE_FAST:
+            # Prefer the faster variant when both are accidentally set.
+            self.ENABLE_REGIME_EXPOSURE = False
 
         print(">> Baseline v1: loading local panels (infrastructure artifacts)...")
         universe_path = Path(paths.get("metadata", "data/metadata")) / "universe.pkl"
@@ -250,8 +265,8 @@ class BaselineEngineV1:
         # 12-1 momentum panel (exact definition)
         self.mom_12_1_m = compute_mom_12_1_panel(close_m)
 
-        # Regime SMAs (only used when enable_regime_exposure)
-        if self.ENABLE_REGIME_EXPOSURE:
+        # Regime SMAs (used by either regime variant)
+        if self.ENABLE_REGIME_EXPOSURE or self.ENABLE_REGIME_EXPOSURE_FAST:
             self.sma50_m, self.sma200_m = compute_sma_panels(close_m)
         else:
             self.sma50_m = None
@@ -795,8 +810,13 @@ class BaselineEngineV1:
             eq = self.qqq_cash
         self.qqq_equity_curve.append({"Date": current_date, "Total_Equity": eq})
 
+    def _regime_active(self) -> bool:
+        return bool(self.ENABLE_REGIME_EXPOSURE or self.ENABLE_REGIME_EXPOSURE_FAST)
+
     def _active_strategy_id(self) -> str:
         base = strategy_id_quality() if self.ENABLE_QUALITY_FACTOR else strategy_id_mom()
+        if self.ENABLE_REGIME_EXPOSURE_FAST:
+            return base + "_regime_fast"
         if self.ENABLE_REGIME_EXPOSURE:
             return base + "_regime"
         return base
@@ -807,6 +827,7 @@ class BaselineEngineV1:
         )
         knobs["strategy_id"] = self._active_strategy_id()
         knobs["enable_regime_exposure"] = bool(self.ENABLE_REGIME_EXPOSURE)
+        knobs["enable_regime_exposure_fast"] = bool(self.ENABLE_REGIME_EXPOSURE_FAST)
         knobs["regime_max_exposure"] = 1.0  # no >1.0x in this pass
         return knobs
 
@@ -845,35 +866,77 @@ class BaselineEngineV1:
 
     def _resolve_regime_exposure(self, idx: int, live: List[str], current_date) -> float:
         """Return target gross exposure for this rebalance (1.0 if regime off)."""
-        if not self.ENABLE_REGIME_EXPOSURE:
+        if not self._regime_active():
             return float(self.GROSS_EXPOSURE)
         liquid = self._liquid_universe_for_breadth(live, current_date)
-        state = determine_regime_exposure(
-            close_m=self.close_m,
-            sma50_m=self.sma50_m,
-            sma200_m=self.sma200_m,
-            date_idx=idx,
-            benchmark=self.BENCHMARK_TICKER,
-            liquid_symbols=liquid,
-        )
-        if state is None:
-            exposure = float(self.GROSS_EXPOSURE)
-            breadth = None
-            above = None
+        if self.ENABLE_REGIME_EXPOSURE_FAST:
+            state = determine_regime_exposure_fast(
+                close_m=self.close_m,
+                sma50_m=self.sma50_m,
+                date_idx=idx,
+                benchmark=self.BENCHMARK_TICKER,
+                liquid_symbols=liquid,
+            )
+            if state is None:
+                exposure = float(self.GROSS_EXPOSURE)
+                log = {
+                    "date": current_date,
+                    "regime_variant": "sma50_breadth_roc",
+                    "exposure": exposure,
+                    "tier": exposure_tier_label(exposure),
+                    "breadth": None,
+                    "breadth_prev_20d": None,
+                    "breadth_improving": None,
+                    "benchmark_above_ma50": None,
+                    "benchmark_above_ma200": None,
+                    "n_liquid_for_breadth": len(liquid),
+                }
+            else:
+                exposure = float(min(state.exposure, 1.0))
+                log = {
+                    "date": current_date,
+                    "regime_variant": "sma50_breadth_roc",
+                    "exposure": exposure,
+                    "tier": exposure_tier_label(exposure),
+                    "breadth": float(state.breadth),
+                    "breadth_prev_20d": state.breadth_prev_20d,
+                    "breadth_improving": bool(state.breadth_improving),
+                    "benchmark_above_ma50": bool(state.benchmark_above_ma50),
+                    "benchmark_above_ma200": None,
+                    "n_liquid_for_breadth": len(liquid),
+                }
         else:
-            exposure = float(min(state.exposure, 1.0))  # never >1.0x
-            breadth = float(state.breadth)
-            above = bool(state.benchmark_above_ma200)
-        self.diag_regime_months.append(
-            {
-                "date": current_date,
-                "exposure": exposure,
-                "tier": exposure_tier_label(exposure),
-                "breadth": breadth,
-                "benchmark_above_ma200": above,
-                "n_liquid_for_breadth": len(liquid),
-            }
-        )
+            state = determine_regime_exposure(
+                close_m=self.close_m,
+                sma50_m=self.sma50_m,
+                sma200_m=self.sma200_m,
+                date_idx=idx,
+                benchmark=self.BENCHMARK_TICKER,
+                liquid_symbols=liquid,
+            )
+            if state is None:
+                exposure = float(self.GROSS_EXPOSURE)
+                log = {
+                    "date": current_date,
+                    "regime_variant": "sma200_breadth",
+                    "exposure": exposure,
+                    "tier": exposure_tier_label(exposure),
+                    "breadth": None,
+                    "benchmark_above_ma200": None,
+                    "n_liquid_for_breadth": len(liquid),
+                }
+            else:
+                exposure = float(min(state.exposure, 1.0))
+                log = {
+                    "date": current_date,
+                    "regime_variant": "sma200_breadth",
+                    "exposure": exposure,
+                    "tier": exposure_tier_label(exposure),
+                    "breadth": float(state.breadth),
+                    "benchmark_above_ma200": bool(state.benchmark_above_ma200),
+                    "n_liquid_for_breadth": len(liquid),
+                }
+        self.diag_regime_months.append(log)
         return exposure
 
     def run(self) -> pd.DataFrame:
@@ -888,6 +951,7 @@ class BaselineEngineV1:
         print(f"  disable_topup_chasing: {self.DISABLE_TOPUP_CHASING}")
         print(f"  enable_quality_factor: {self.ENABLE_QUALITY_FACTOR}")
         print(f"  enable_regime_exposure: {self.ENABLE_REGIME_EXPOSURE}")
+        print(f"  enable_regime_exposure_fast: {self.ENABLE_REGIME_EXPOSURE_FAST}")
         if self.COST_MODEL == "flat":
             print(f"  flat_cost_one_way: {self.FLAT_COST_ONE_WAY}")
         if self.diag_cs_raw_stats:
@@ -966,7 +1030,7 @@ class BaselineEngineV1:
                     )
                     targets = equal_weight_targets(selected, exposure=float(exposure))
                     # Allow one-shot resize only when exposure tier changed.
-                    allow_resize = bool(self.ENABLE_REGIME_EXPOSURE and exposure_changed)
+                    allow_resize = bool(self._regime_active() and exposure_changed)
                 self._queue_rebalance_to_targets(
                     targets, idx, allow_exposure_resize=allow_resize
                 )
