@@ -111,9 +111,9 @@ research:
   USE_TIME_STOP: false
   TIME_STOP_DAYS: 20
 
-  # Hard % stop loss from entry (optional; off = no baseline impact)
-  USE_STOP_LOSS: false
-  STOP_LOSS_PCT: 0.20         # 0.0–0.50; sell if close <= entry × (1 − pct)
+  # Hard % stop loss from entry (additive — ATR / EMA still run when not hit)
+  USE_STOP_LOSS: true
+  STOP_LOSS_PCT: 0.15         # 0.0–0.50; sell if close <= entry × (1 − pct)
 
   # Holding
   MIN_HOLD_DAYS: 0

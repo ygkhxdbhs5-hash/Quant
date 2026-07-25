@@ -40,9 +40,9 @@ class ResearchToggles:
     USE_TIME_STOP: bool = False
     TIME_STOP_DAYS: int = 20  # only used when USE_TIME_STOP=True
 
-    # --- Hard % stop loss from entry (optional; off by default) ---
-    USE_STOP_LOSS: bool = False
-    STOP_LOSS_PCT: float = 0.20  # 0.0–0.50; sell if close <= entry * (1 - pct)
+    # --- Hard % stop loss from entry (additive with ATR / EMA exits) ---
+    USE_STOP_LOSS: bool = True
+    STOP_LOSS_PCT: float = 0.15  # 0.0–0.50; sell if close <= entry * (1 - pct)
 
     # --- Holding ---
     # Suppresses discretionary exits only (trend / exhaustion / time-stop).
@@ -114,7 +114,8 @@ class ResearchToggles:
             and int(self.EXIT_RANK) == int(selection_buffer_size)
             and int(self.MIN_HOLD_DAYS) == 0
             and self.USE_TIME_STOP is False
-            and self.USE_STOP_LOSS is False
+            and self.USE_STOP_LOSS is True
+            and abs(float(self.STOP_LOSS_PCT) - 0.15) < 1e-12
             and self.MONTHLY_REBALANCE is True
         )
 
@@ -164,8 +165,8 @@ def load_research_toggles(cfg: Dict[str, Any]) -> ResearchToggles:
         USE_EXHAUSTION_EXIT=bool(_get("USE_EXHAUSTION_EXIT", True)),
         USE_TIME_STOP=bool(_get("USE_TIME_STOP", False)),
         TIME_STOP_DAYS=int(_get("TIME_STOP_DAYS", 20)),
-        USE_STOP_LOSS=bool(_get("USE_STOP_LOSS", False)),
-        STOP_LOSS_PCT=float(max(0.0, min(0.50, float(_get("STOP_LOSS_PCT", 0.20))))),
+        USE_STOP_LOSS=bool(_get("USE_STOP_LOSS", True)),
+        STOP_LOSS_PCT=float(max(0.0, min(0.50, float(_get("STOP_LOSS_PCT", 0.15))))),
         MIN_HOLD_DAYS=int(_get("MIN_HOLD_DAYS", 0)),
         MAX_PORTFOLIO_SIZE=int(_get("MAX_PORTFOLIO_SIZE", entry_rank)),
         MAX_INDUSTRY_WEIGHT=float(_get("MAX_INDUSTRY_WEIGHT", industry_w)),

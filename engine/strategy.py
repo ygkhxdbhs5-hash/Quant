@@ -1255,10 +1255,15 @@ class StandaloneEngine:
 
             reasons = []
 
+            # Exit rules are independent / additive:
+            # - Hard % stop fires only when loss from entry reaches STOP_LOSS_PCT.
+            # - When the hard stop is NOT hit, ATR trail and EMA/trend exits still
+            #   evaluate normally and can exit the position on their own.
+
             # --- Risk / emergency exits (always active, including during min-hold) ---
-            # 0) Hard % stop loss from entry
-            if getattr(self, "USE_STOP_LOSS", False):
-                pct = float(getattr(self, "STOP_LOSS_PCT", 0.0))
+            # 0) Hard % stop loss from entry (default 15%)
+            if getattr(self, "USE_STOP_LOSS", True):
+                pct = float(getattr(self, "STOP_LOSS_PCT", 0.15))
                 pct = max(0.0, min(0.50, pct))
                 ot = getattr(self.trade_journal, "open", {}).get(sym)
                 entry_px = float(ot.entry_price) if ot is not None else np.nan
@@ -1269,13 +1274,14 @@ class StandaloneEngine:
                             f"stop_loss(entry={entry_px:.2f},pct={pct:.0%},stop={stop_level:.2f})"
                         )
 
-            # 1) ATR trailing stop — primary catastrophic exit (never gated by min-hold)
+            # 1) ATR trailing stop — always evaluated (even if hard stop not hit)
             if self.USE_ATR_EXIT and pd.notna(atr14) and atr14 > 0:
                 atr_stop = peak - (self.atr_multiplier * float(atr14))
                 if close_px < atr_stop:
                     reasons.append(f"atr_trail(stop={atr_stop:.2f})")
 
             # --- Discretionary exits (suppressed until MIN_HOLD_DAYS elapses) ---
+            # Always evaluated when not in min-hold, including when hard stop not hit.
             if not in_min_hold:
                 # 2) Confirmation-based trend exit (EMA9 alone never sells)
                 if self.USE_EMA9_EXIT:

@@ -25,8 +25,8 @@ def test_toggles_baseline_defaults():
     assert t.MIN_HOLD_DAYS == 0
     assert t.USE_TIME_STOP is False
     assert t.TIME_STOP_DAYS == 20
-    assert t.USE_STOP_LOSS is False
-    assert t.STOP_LOSS_PCT == 0.20
+    assert t.USE_STOP_LOSS is True
+    assert t.STOP_LOSS_PCT == 0.15
     assert t.MAX_PORTFOLIO_SIZE == 50
     assert t.MONTHLY_REBALANCE is True
     assert t.MAX_INDUSTRY_WEIGHT == 0.40
@@ -46,8 +46,8 @@ def test_research_config_panel_printout():
     assert "USE_EXHAUSTION_EXIT = True" in panel
     assert "USE_TIME_STOP = False" in panel
     assert "TIME_STOP_DAYS = 20" in panel
-    assert "USE_STOP_LOSS = False" in panel
-    assert "STOP_LOSS_PCT = 20.00%" in panel
+    assert "USE_STOP_LOSS = True" in panel
+    assert "STOP_LOSS_PCT = 15.00%" in panel
     assert "MIN_HOLD_DAYS = 0" in panel
     assert "MAX_PORTFOLIO_SIZE = 50" in panel
     assert "MAX_INDUSTRY_WEIGHT = 0.40" in panel

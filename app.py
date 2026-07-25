@@ -278,24 +278,24 @@ with st.sidebar:
     st.markdown("**Hard Stop Loss**")
     use_stop_loss = st.checkbox(
         "USE_STOP_LOSS",
-        value=bool(_r_get("USE_STOP_LOSS", False)),
+        value=bool(_r_get("USE_STOP_LOSS", True)),
         help=(
-            "Hard filter: sell if close ≤ entry × (1 − STOP_LOSS_PCT). "
-            "Measured from entry price (not peak). Off by default — no baseline impact. "
-            "Risk exit: active even during MIN_HOLD_DAYS."
+            "Hard filter: sell if loss from entry reaches STOP_LOSS_PCT (default 15%). "
+            "Additive — ATR trail and EMA/trend exits still work when this stop is not hit. "
+            "Active even during MIN_HOLD_DAYS."
         ),
     )
     stop_loss_pct_ui = st.slider(
         "STOP_LOSS_PCT",
         min_value=0.0,
         max_value=50.0,
-        value=float(_r_get("STOP_LOSS_PCT", 0.20)) * 100.0
-        if float(_r_get("STOP_LOSS_PCT", 0.20)) <= 1.0
-        else float(_r_get("STOP_LOSS_PCT", 20.0)),
+        value=float(_r_get("STOP_LOSS_PCT", 0.15)) * 100.0
+        if float(_r_get("STOP_LOSS_PCT", 0.15)) <= 1.0
+        else float(_r_get("STOP_LOSS_PCT", 15.0)),
         step=1.0,
         format="%.0f%%",
         disabled=not use_stop_loss,
-        help="0% = break-even stop (sell at/below entry). 50% = allow 50% drawdown from entry.",
+        help="Default 15%. ATR / EMA exits still apply when drawdown is below this level.",
     )
 
     st.markdown("**Holding / Portfolio / Risk**")
