@@ -62,6 +62,12 @@ from engine.entry_quality import (
     compute_eqs_components,
     eqs_config_from_mapping,
 )
+from engine.fundamental_quality import (
+    compute_quality_score,
+    extract_fundamental_metrics,
+    format_quality_diagnostics,
+    quality_bonus,
+)
 
 
 def _short_reason(exit_reason: str) -> str:
@@ -252,6 +258,12 @@ class StandaloneEngine:
 
         # Entry Quality Score (EQS) — live ranking blend with CMVS
         self.eqs_weights, self.EQS_BLEND_WEIGHT = eqs_config_from_mapping(cfg)
+        # Fundamental quality bonus (recovered screens → tiny additive tie-break)
+        self.USE_QUALITY_BONUS = bool(self.research_toggles.USE_QUALITY_BONUS)
+        self.EQS_WEIGHT = float(self.research_toggles.EQS_WEIGHT)
+        self._last_quality_diag: str = ""
+        self._last_quality_map: dict = {}
+        self._last_quality_bonus_map: dict = {}
 
         self.trade_journal = TradeJournal(
             shadow_horizon_days=int(self.research_toggles.SHADOW_HORIZON_DAYS)
@@ -766,6 +778,19 @@ class StandaloneEngine:
                 "above_ema50": float(above_ema50) if pd.notna(above_ema50) else 0.0,
                 "green_streak": float(green_streak),
             })
+            # Recovered fundamental fields (never used to drop the name)
+            fund = extract_fundamental_metrics(self, sym, current_date, float(price))
+            rows[-1].update(
+                {
+                    "roic_raw": fund["roic_raw"],
+                    "op_margin_raw": fund["op_margin_raw"],
+                    "gross_prof_raw": fund["gross_prof_raw"],
+                    "rev_growth_raw": fund["rev_growth_raw"],
+                    "fcf_sales_yield": fund["fcf_sales_yield"],
+                    "debt_to_equity": fund["debt_to_equity"],
+                    "has_fundamentals": bool(fund["has_fundamentals"]),
+                }
+            )
 
         df = pd.DataFrame(rows)
         if df.empty:
@@ -781,13 +806,15 @@ class StandaloneEngine:
         return df
 
     def rank_universe(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Live ranking: CMVS quality core + Entry Quality Score (EQS).
+        """Live ranking: CMVS + technical EQS + optional fundamental quality bonus.
 
-        FinalScore = CMVS_raw + EQS_BLEND_WEIGHT * EQS
+        baseline_final = CMVS + EQS_BLEND_WEIGHT * technical_EQS
+        final_score    = baseline_final + EQS_WEIGHT * quality_score
 
-        EQS measures setup health (trend, pullback, volume/VCP, RS accel,
-        sector, overextension) and actively changes purchase priority.
-        Hard rejects remain in ``build_factors``.
+        ``quality_score`` reuses the commented fundamental screens / pre-CMVS
+        quality ranks as a soft [0, 1] bonus only (never excludes names).
+        ``EQS_WEIGHT == 0`` (or ``USE_QUALITY_BONUS=False``) → identical to baseline.
+        Hard rejects remain in ``build_factors`` (price/volume traps only).
         """
         if df.empty:
             return df
@@ -830,8 +857,33 @@ class StandaloneEngine:
             df[c] = comps[c]
         eqs = combine_eqs(comps, eqs_w)
         df["eqs"] = eqs
-        df["final_score"] = blend_cmvs_eqs(cmvs, eqs, blend_w)
+        baseline_final = blend_cmvs_eqs(cmvs, eqs, blend_w)
+
+        # ----- Fundamental quality bonus (recovered screens; never excludes) -----
+        q_score, q_parts = compute_quality_score(
+            df, min_industry_size=int(getattr(self, "MIN_INDUSTRY_SIZE", 8))
+        )
+        df["quality_score"] = q_score
+        for k, s in q_parts.items():
+            df[k] = s
+        use_q = bool(getattr(self, "USE_QUALITY_BONUS", True))
+        eqs_w_fund = float(getattr(self, "EQS_WEIGHT", 0.05))
+        q_bonus = quality_bonus(q_score, use_quality_bonus=use_q, eqs_weight=eqs_w_fund)
+        df["quality_bonus"] = q_bonus
+        # EQS_WEIGHT == 0 (or bonus off) → bit-identical ordering to baseline_final
+        df["final_score"] = (baseline_final + q_bonus).astype(float)
         df["factor_mode"] = "cmvs_v3_eqs"
+        self._last_quality_map = {
+            str(sym): float(q)
+            for sym, q in zip(df["symbol"].tolist(), df["quality_score"].tolist())
+        }
+        self._last_quality_bonus_map = {
+            str(sym): float(b)
+            for sym, b in zip(df["symbol"].tolist(), df["quality_bonus"].tolist())
+        }
+        self._last_quality_diag = format_quality_diagnostics(
+            df["quality_score"], eqs_weight=eqs_w_fund, use_quality_bonus=use_q
+        )
         return df.sort_values("final_score", ascending=False).reset_index(drop=True)
 
     def construct_portfolio(self, ranked_df, date_idx, ctx: RebalanceContext) -> pd.DataFrame:
@@ -1529,6 +1581,8 @@ class StandaloneEngine:
                 ticker=str(sym),
                 rank=rank_map.get(str(sym)),
                 ema9_break=self._ema9_break_signal(sym, date_idx),
+                quality_score=self._last_quality_map.get(str(sym)),
+                quality_bonus=self._last_quality_bonus_map.get(str(sym)),
             )
 
     def handle_official_delisting(self, date_idx):
@@ -1688,6 +1742,9 @@ class StandaloneEngine:
                     continue
 
                 ctx.ranked_df = self.rank_universe(ctx.factor_df)
+                # Fundamental quality bonus diagnostics (monthly rebalance)
+                if getattr(self, "_last_quality_diag", ""):
+                    print(self._last_quality_diag)
                 # Research Fact: persist ranks/CMVS for entry/exit journals
                 self._last_rank_map = {
                     str(sym): int(i + 1)
@@ -1701,6 +1758,15 @@ class StandaloneEngine:
                             ctx.ranked_df["final_score"].tolist(),
                         )
                     }
+                if "quality_bonus" in ctx.ranked_df.columns:
+                    top_n = ctx.ranked_df.head(int(self.ENTRY_RANK))
+                    if not top_n.empty:
+                        print(
+                            f"    [QUALITY RANK] top{int(self.ENTRY_RANK)} "
+                            f"avg_quality={float(top_n['quality_score'].mean()):.4f} "
+                            f"avg_bonus={float(top_n['quality_bonus'].mean()):.4f} "
+                            f"eqs_weight={float(getattr(self, 'EQS_WEIGHT', 0.0)):.4f}"
+                        )
                 # Top-N by CMVS final_score (construct_portfolio still applies buffer/corr caps)
                 ctx.targets_df = self.construct_portfolio(ctx.ranked_df, idx, ctx)
                 # Do not re-buy names that triggered a CMVS exit today OR are on cooldown

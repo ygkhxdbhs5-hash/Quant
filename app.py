@@ -297,6 +297,27 @@ with st.sidebar:
         0.05,
     )
 
+    st.markdown("**Fundamental Quality Bonus**")
+    use_quality_bonus = st.checkbox(
+        "USE_QUALITY_BONUS",
+        value=bool(_r_get("USE_QUALITY_BONUS", True)),
+        help=(
+            "Soft ranking bonus from recovered fundamental screens "
+            "(ROIC, FCF/Sales, D/E, revenue growth, op margin, gross profitability). "
+            "Never drops names; missing data → 0. "
+            "final = CMVS(+technical EQS) + EQS_WEIGHT × quality_score."
+        ),
+    )
+    eqs_weight = st.slider(
+        "EQS_WEIGHT (fundamental bonus)",
+        0.0,
+        0.10,
+        float(_r_get("EQS_WEIGHT", 0.05)),
+        0.01,
+        disabled=not use_quality_bonus,
+        help="Keep small (0.03–0.08). 0 → identical rankings to baseline.",
+    )
+
     research_ui = {
         "ENTRY_RANK": int(entry_rank),
         "EXIT_RANK": int(exit_rank),
@@ -311,6 +332,8 @@ with st.sidebar:
         "MAX_PORTFOLIO_SIZE": int(max_portfolio),
         "MONTHLY_REBALANCE": bool(monthly_rebalance),
         "MAX_INDUSTRY_WEIGHT": float(max_industry_weight),
+        "USE_QUALITY_BONUS": bool(use_quality_bonus),
+        "EQS_WEIGHT": float(eqs_weight) if use_quality_bonus else 0.0,
         "SHADOW_HORIZON_DAYS": int(_r_get("SHADOW_HORIZON_DAYS", 20)),
     }
 
@@ -423,6 +446,8 @@ with tab_bt:
             MAX_PORTFOLIO_SIZE=int(research_ui["MAX_PORTFOLIO_SIZE"]),
             MAX_INDUSTRY_WEIGHT=float(research_ui["MAX_INDUSTRY_WEIGHT"]),
             MONTHLY_REBALANCE=bool(research_ui["MONTHLY_REBALANCE"]),
+            USE_QUALITY_BONUS=bool(research_ui["USE_QUALITY_BONUS"]),
+            EQS_WEIGHT=float(research_ui["EQS_WEIGHT"]),
             SHADOW_HORIZON_DAYS=int(research_ui["SHADOW_HORIZON_DAYS"]),
         ).format_panel(),
         language="text",

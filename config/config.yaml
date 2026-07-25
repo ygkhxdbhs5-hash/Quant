@@ -126,6 +126,10 @@ research:
   # Observation tooling (does not affect trades)
   SHADOW_HORIZON_DAYS: 20
 
+  # Fundamental quality bonus (recovered soft screens → small ranking bonus only)
+  USE_QUALITY_BONUS: true
+  EQS_WEIGHT: 0.05            # final += EQS_WEIGHT * quality_score; 0 => identical to baseline
+
 # Volatility expansion is scored in rank_universe as (close-open)/ATR20
 # (vol_breakout_atr_mult kept unused; was the old hard filter threshold)
 vol_breakout_atr_mult: 1.5

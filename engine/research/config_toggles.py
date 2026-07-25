@@ -50,6 +50,11 @@ class ResearchToggles:
     # --- Rebalance ---
     MONTHLY_REBALANCE: bool = True  # False → daily rebalance (research mode)
 
+    # --- Fundamental quality bonus (recovered soft screens → small ranking bonus) ---
+    # Never excludes names; missing fundamentals contribute 0.
+    USE_QUALITY_BONUS: bool = True
+    EQS_WEIGHT: float = 0.05  # final += EQS_WEIGHT * quality_score (keep tiny vs CMVS)
+
     # --- Observation / research tooling (does not affect trades) ---
     SHADOW_HORIZON_DAYS: int = 20
 
@@ -80,6 +85,9 @@ class ResearchToggles:
             "MONTHLY_REBALANCE = " + str(self.MONTHLY_REBALANCE),
             "",
             "MAX_INDUSTRY_WEIGHT = " + f"{float(self.MAX_INDUSTRY_WEIGHT):.2f}",
+            "",
+            "USE_QUALITY_BONUS = " + str(self.USE_QUALITY_BONUS),
+            "EQS_WEIGHT = " + str(float(self.EQS_WEIGHT)),
         ]
 
     def format_panel(self) -> str:
@@ -134,6 +142,8 @@ def load_research_toggles(cfg: Dict[str, Any]) -> ResearchToggles:
             "MAX_PORTFOLIO_SIZE": "max_portfolio_size",
             "MAX_INDUSTRY_WEIGHT": "max_industry_weight",
             "MONTHLY_REBALANCE": "monthly_rebalance",
+            "USE_QUALITY_BONUS": "use_quality_bonus",
+            "EQS_WEIGHT": "eqs_weight",
             "SHADOW_HORIZON_DAYS": "shadow_horizon_days",
         }
         flat = flat_map.get(key, key.lower())
@@ -156,5 +166,7 @@ def load_research_toggles(cfg: Dict[str, Any]) -> ResearchToggles:
         MAX_PORTFOLIO_SIZE=int(_get("MAX_PORTFOLIO_SIZE", entry_rank)),
         MAX_INDUSTRY_WEIGHT=float(_get("MAX_INDUSTRY_WEIGHT", industry_w)),
         MONTHLY_REBALANCE=bool(_get("MONTHLY_REBALANCE", True)),
+        USE_QUALITY_BONUS=bool(_get("USE_QUALITY_BONUS", True)),
+        EQS_WEIGHT=float(_get("EQS_WEIGHT", 0.05)),
         SHADOW_HORIZON_DAYS=int(_get("SHADOW_HORIZON_DAYS", 20)),
     )
