@@ -208,6 +208,7 @@ def format_chase_report(
     task1: Dict[str, Any],
     task2: Dict[str, Any],
     comparison_rows: List[Dict[str, Any]],
+    repro: Optional[Dict[str, Any]] = None,
 ) -> str:
     def pct(x):
         if x is None or (isinstance(x, float) and not np.isfinite(x)):
@@ -230,6 +231,19 @@ def format_chase_report(
         "# Fixed CS v2 cost model; entry/exit signals unchanged.",
         "#" * 72,
         "",
+    ]
+    if repro:
+        from engine.repro_fingerprint import format_fingerprint_banner
+
+        lines += [
+            "### REPRO FINGERPRINT (must match chart footer)",
+            f"  {format_fingerprint_banner(repro)}",
+            f"  fingerprint_sha256 : {repro.get('fingerprint_sha256')}",
+            f"  git_head           : {repro.get('git_head')}"
+            f"{' (dirty tree)' if repro.get('git_dirty') else ''}",
+            "",
+        ]
+    lines += [
         "### TASK 1 — New entry vs top-up chasing (BUY orders, Fixed CS v2 + chase ON)",
         f"  n_buy_orders           : {task1.get('n_buy_orders', 0):,}",
         f"  new_entry   count / %  : {task1.get('n_new_entry', 0):,} / {pct(task1.get('pct_new_entry'))}",
