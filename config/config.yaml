@@ -111,9 +111,9 @@ research:
   USE_TIME_STOP: false
   TIME_STOP_DAYS: 20
 
-  # Hard % stop loss from entry (additive — ATR / EMA still run when not hit)
+  # Intraday hard stop from entry (Low triggers; fill = min(Open, stop))
   USE_STOP_LOSS: true
-  STOP_LOSS_PCT: 0.15         # 0.0–0.50; sell if close <= entry × (1 − pct)
+  STOP_LOSS_PCT: 0.15         # 0.0–0.50; if Low <= entry×(1−pct) → sell same day
 
   # Holding
   MIN_HOLD_DAYS: 0

@@ -1099,6 +1099,86 @@ class StandaloneEngine:
             return 0
         return int((adv * cap_ratio) / price)
 
+    def _arm_cooldown_after_loss(self, sym: str, date_idx: int, closed, exit_price: float) -> None:
+        if closed is None or float(closed.final_return) >= 0.0:
+            return
+        atr_pct = (
+            float(self.atr_pct_m[sym].iloc[date_idx])
+            if sym in self.atr_pct_m.columns and pd.notna(self.atr_pct_m[sym].iloc[date_idx])
+            else 0.0
+        )
+        vol20 = (
+            float(self.vol20_m[sym].iloc[date_idx])
+            if sym in self.vol20_m.columns and pd.notna(self.vol20_m[sym].iloc[date_idx])
+            else 0.0
+        )
+        rec = self.reentry_cooldown.record_exit(
+            symbol=sym,
+            date_idx=date_idx,
+            exit_price=float(exit_price),
+            exit_reason=str(closed.exit_reason),
+            final_return=float(closed.final_return),
+            atr_pct=atr_pct,
+            vol20=vol20,
+            peak_return=float(closed.peak_return),
+        )
+        if rec is not None:
+            print(
+                f"    [COOLDOWN ARM] {sym} loss={closed.final_return:.1%} "
+                f"reason={_short_reason(closed.exit_reason)} "
+                f"holdout={rec.hard_expiry_idx - date_idx}d "
+                f"streak={rec.consecutive_losses}"
+            )
+
+    def _execute_sell_fill(
+        self,
+        sym: str,
+        date_idx: int,
+        qty: int,
+        fill_price: float,
+        reason: str,
+        *,
+        honor_participation_cap: bool = True,
+    ) -> int:
+        """Fill a sell at ``fill_price``; returns executed qty. Journals full exits."""
+        if sym not in self.portfolio or qty <= 0:
+            return 0
+        if pd.isna(fill_price) or float(fill_price) <= 0:
+            return 0
+        px = float(fill_price)
+        current_date = self.close_m.index[date_idx]
+        held = int(self.portfolio[sym])
+        if honor_participation_cap:
+            cap = self._max_shares_participation(
+                sym, date_idx, px, self.PARTICIPATION_CAP_SELL
+            )
+            exec_qty = min(held, int(qty), max(int(cap), 0))
+        else:
+            exec_qty = min(held, int(qty))
+        if exec_qty <= 0:
+            return 0
+        cost_ratio = self._cost_ratio(sym, date_idx, exec_qty, px)
+        self.cash += exec_qty * px * (1 - cost_ratio)
+        self.portfolio[sym] -= exec_qty
+        if self.portfolio[sym] <= 0:
+            del self.portfolio[sym]
+            self.highest_prices.pop(sym, None)
+            snap = self._symbol_snapshot(sym, date_idx)
+            closed = self.trade_journal.on_exit(
+                symbol=sym,
+                date=current_date,
+                date_idx=date_idx,
+                price=px,
+                exit_reason=str(reason or "sell"),
+                close_m=self.close_m,
+                exit_rank=snap["rank"],
+                exit_cmvs=snap["cmvs"],
+                exit_rsi=snap["rsi"],
+                exit_atr=snap["atr"],
+            )
+            self._arm_cooldown_after_loss(sym, date_idx, closed, px)
+        return exec_qty
+
     def execute_pending_orders(self, date_idx):
         if not self.pending_orders:
             return
@@ -1108,6 +1188,14 @@ class StandaloneEngine:
         for order in self.pending_orders:
             sym, qty = order["symbol"], order["qty"]
             o_price = current_opens.get(sym, np.nan)
+            # Optional same-bar fill override (e.g. intraday hard stop)
+            if order.get("fill_price") is not None:
+                try:
+                    fp = float(order["fill_price"])
+                    if pd.notna(fp) and fp > 0:
+                        o_price = fp
+                except (TypeError, ValueError):
+                    pass
             if pd.isna(o_price) or o_price <= 0:
                 continue
             if order["type"] == "BUY":
@@ -1143,83 +1231,100 @@ class StandaloneEngine:
                         atr=snap["atr"],
                     )
             else:
-                if sym in self.portfolio:
-                    cap = self._max_shares_participation(sym, date_idx, o_price, self.PARTICIPATION_CAP_SELL)
-                    exec_qty = min(self.portfolio[sym], qty, max(cap, 0))
-                    if exec_qty <= 0:
-                        continue
-                    cost_ratio = self._cost_ratio(sym, date_idx, exec_qty, o_price)
-                    self.cash += exec_qty * o_price * (1 - cost_ratio)
-                    self.portfolio[sym] -= exec_qty
-                    if self.portfolio[sym] <= 0:
-                        del self.portfolio[sym]
-                        self.highest_prices.pop(sym, None)
-                        # Research Fact: full exit + shadow counterfactual
-                        snap = self._symbol_snapshot(sym, date_idx)
-                        closed = self.trade_journal.on_exit(
-                            symbol=sym,
-                            date=current_date,
-                            date_idx=date_idx,
-                            price=float(o_price),
-                            exit_reason=str(order.get("reason") or "sell"),
-                            close_m=self.close_m,
-                            exit_rank=snap["rank"],
-                            exit_cmvs=snap["cmvs"],
-                            exit_rsi=snap["rsi"],
-                            exit_atr=snap["atr"],
-                        )
-                        # Priority 1: arm adaptive cooldown after losing exits
-                        if closed is not None and float(closed.final_return) < 0.0:
-                            atr_pct = (
-                                float(self.atr_pct_m[sym].iloc[date_idx])
-                                if sym in self.atr_pct_m.columns
-                                and pd.notna(self.atr_pct_m[sym].iloc[date_idx])
-                                else 0.0
-                            )
-                            vol20 = (
-                                float(self.vol20_m[sym].iloc[date_idx])
-                                if sym in self.vol20_m.columns
-                                and pd.notna(self.vol20_m[sym].iloc[date_idx])
-                                else 0.0
-                            )
-                            rec = self.reentry_cooldown.record_exit(
-                                symbol=sym,
-                                date_idx=date_idx,
-                                exit_price=float(o_price),
-                                exit_reason=str(closed.exit_reason),
-                                final_return=float(closed.final_return),
-                                atr_pct=atr_pct,
-                                vol20=vol20,
-                                peak_return=float(closed.peak_return),
-                            )
-                            if rec is not None:
-                                print(
-                                    f"    [COOLDOWN ARM] {sym} loss={closed.final_return:.1%} "
-                                    f"reason={_short_reason(closed.exit_reason)} "
-                                    f"holdout={rec.hard_expiry_idx - date_idx}d "
-                                    f"streak={rec.consecutive_losses}"
-                                )
+                self._execute_sell_fill(
+                    sym,
+                    date_idx,
+                    int(qty),
+                    float(o_price),
+                    str(order.get("reason") or "sell"),
+                    honor_participation_cap=True,
+                )
         self.pending_orders = []
 
+    def check_and_execute_hard_stop_loss(self, date_idx) -> set:
+        """Intraday hard stop: Low triggers; fill at min(Open, stop_price) same day.
+
+        Highest priority after delisting/liquidity. Returns symbols fully exited.
+        ATR / EMA / rebalance exits must not run for these names the same day.
+        """
+        stopped: set = set()
+        if not getattr(self, "USE_STOP_LOSS", True):
+            return stopped
+
+        pct = float(getattr(self, "STOP_LOSS_PCT", 0.15))
+        pct = max(0.0, min(0.50, pct))
+        current_date = self.close_m.index[date_idx]
+        opens = self.open_m.loc[current_date]
+        lows = self.low_m.loc[current_date]
+
+        for sym in list(self.portfolio.keys()):
+            qty = int(self.portfolio.get(sym, 0))
+            if qty <= 0:
+                continue
+            ot = getattr(self.trade_journal, "open", {}).get(sym)
+            if ot is None:
+                continue
+            entry_px = float(ot.entry_price)
+            if not (entry_px > 0):
+                continue
+            stop_price = entry_px * (1.0 - pct)
+            low_px = lows.get(sym, np.nan)
+            open_px = opens.get(sym, np.nan)
+            if pd.isna(low_px) or pd.isna(open_px) or float(open_px) <= 0:
+                continue
+            if float(low_px) > stop_price:
+                continue  # hard stop not triggered — other exits may still fire
+
+            # Gap-aware fill: open below stop → exit at open; else at stop
+            sell_price = float(min(float(open_px), stop_price))
+            reason = (
+                f"stop_loss(entry={entry_px:.2f},pct={pct:.0%},"
+                f"stop={stop_price:.2f},low={float(low_px):.2f},"
+                f"open={float(open_px):.2f},fill={sell_price:.2f})"
+            )
+            exec_qty = self._execute_sell_fill(
+                sym,
+                date_idx,
+                qty,
+                sell_price,
+                reason,
+                honor_participation_cap=True,
+            )
+            if exec_qty <= 0:
+                continue
+            self.previous_target_symbols.discard(sym)
+            self._cmvs_forced_exits.add(sym)
+            if sym not in self.portfolio:
+                stopped.add(sym)
+            print(
+                f"    🛑 [HARD STOP] {sym} entry={entry_px:.2f} stop={stop_price:.2f} "
+                f"low={float(low_px):.2f} open={float(open_px):.2f} "
+                f"fill={sell_price:.2f} qty={exec_qty} -> SELL filled"
+            )
+        return stopped
+
     def check_cmvs_exits(self, date_idx):
-        """Daily exits: ATR trail + optional hard % stop + trend + exhaustion.
+        """Daily exits: ATR trail + trend + exhaustion (after hard stop).
 
         EMA9/short-EMA break alone never sells. Trend exits require multiple
         confirmations; high-ATR% names use EMA20 and a higher confirmation bar.
         Healthy long-term uptrends skip trend exits on shallow pullbacks.
 
+        Hard stop-loss is handled separately (Low-triggered, same-day fill) and
+        has higher priority — names already stopped are skipped here.
         MIN_HOLD_DAYS suppresses only discretionary exits (trend / exhaustion /
-        time-stop). Risk emergency exits — ATR trailing stop and optional hard
-        % stop loss — remain active immediately after entry.
+        time-stop). ATR trailing stop remains active during min-hold.
         """
         current_date = self.close_m.index[date_idx]
         current_closes = self.close_m.loc[current_date]
         pending_sell_syms = {
             o["symbol"] for o in self.pending_orders if o.get("type") == "SELL"
         }
+        # Names already hard-stopped this bar must not get ATR/EMA/rebalance exits
+        hard_stopped = set(getattr(self, "_hard_stopped_today", set()) or set())
 
         for sym in list(self.portfolio.keys()):
-            if sym in pending_sell_syms:
+            if sym in pending_sell_syms or sym in hard_stopped:
                 continue
             price = current_closes.get(sym, np.nan)
             if pd.isna(price) or price <= 0:
@@ -1255,33 +1360,14 @@ class StandaloneEngine:
 
             reasons = []
 
-            # Exit rules are independent / additive:
-            # - Hard % stop fires only when loss from entry reaches STOP_LOSS_PCT.
-            # - When the hard stop is NOT hit, ATR trail and EMA/trend exits still
-            #   evaluate normally and can exit the position on their own.
-
-            # --- Risk / emergency exits (always active, including during min-hold) ---
-            # 0) Hard % stop loss from entry (default 15%)
-            if getattr(self, "USE_STOP_LOSS", True):
-                pct = float(getattr(self, "STOP_LOSS_PCT", 0.15))
-                pct = max(0.0, min(0.50, pct))
-                ot = getattr(self.trade_journal, "open", {}).get(sym)
-                entry_px = float(ot.entry_price) if ot is not None else np.nan
-                if pd.notna(entry_px) and entry_px > 0:
-                    stop_level = entry_px * (1.0 - pct)
-                    if close_px <= stop_level:
-                        reasons.append(
-                            f"stop_loss(entry={entry_px:.2f},pct={pct:.0%},stop={stop_level:.2f})"
-                        )
-
-            # 1) ATR trailing stop — always evaluated (even if hard stop not hit)
+            # Evaluated only when hard stop did NOT trigger today.
+            # 1) ATR trailing stop — active even during min-hold
             if self.USE_ATR_EXIT and pd.notna(atr14) and atr14 > 0:
                 atr_stop = peak - (self.atr_multiplier * float(atr14))
                 if close_px < atr_stop:
                     reasons.append(f"atr_trail(stop={atr_stop:.2f})")
 
             # --- Discretionary exits (suppressed until MIN_HOLD_DAYS elapses) ---
-            # Always evaluated when not in min-hold, including when hard stop not hit.
             if not in_min_hold:
                 # 2) Confirmation-based trend exit (EMA9 alone never sells)
                 if self.USE_EMA9_EXIT:
@@ -1654,8 +1740,10 @@ class StandaloneEngine:
             self.handle_official_delisting(idx)
             self.handle_silent_delisting(idx)
             self.execute_pending_orders(idx)
-            # CMVS v3 daily exits (ATR trail / EMA / RSI exhaustion) -> SELL orders
+            # Hard stop (Low-triggered, same-day fill) — priority after delisting
             self._cmvs_forced_exits = set()
+            self._hard_stopped_today = self.check_and_execute_hard_stop_loss(idx)
+            # ATR / EMA / exhaustion only if hard stop did not already exit
             self.check_cmvs_exits(idx)
             # Prior: self.check_trailing_stops(idx)
             # Observation only — after exits are decided so same-day overlap is visible.

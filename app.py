@@ -280,9 +280,10 @@ with st.sidebar:
         "USE_STOP_LOSS",
         value=bool(_r_get("USE_STOP_LOSS", True)),
         help=(
-            "Hard filter: sell if loss from entry reaches STOP_LOSS_PCT (default 15%). "
-            "Additive — ATR trail and EMA/trend exits still work when this stop is not hit. "
-            "Active even during MIN_HOLD_DAYS."
+            "Intraday hard stop: triggers when day's Low ≤ entry × (1 − pct). "
+            "Fill = min(Open, stop). Gap-downs exit at Open. "
+            "Checked every trading day; highest priority after delisting. "
+            "ATR / EMA / trend exits run only if this stop did not trigger."
         ),
     )
     stop_loss_pct_ui = st.slider(
@@ -295,7 +296,7 @@ with st.sidebar:
         step=1.0,
         format="%.0f%%",
         disabled=not use_stop_loss,
-        help="Default 15%. ATR / EMA exits still apply when drawdown is below this level.",
+        help="Default 15%. Uses Low (not Close); fill at min(Open, stop).",
     )
 
     st.markdown("**Holding / Portfolio / Risk**")
