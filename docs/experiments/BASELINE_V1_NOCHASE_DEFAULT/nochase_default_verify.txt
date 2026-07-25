@@ -1,0 +1,26 @@
+# Baseline v1 no-chase default — verification
+
+Window: 2022-01-01 → 2026-06-30
+repro_id=8752d36df771
+payload_sha256_16=151194ae81d39104
+git_head=4d2f2a43739e101307ea8f2941b57d5bdf317a4b dirty=True
+
+## Observed (new default)
+CAGR=+1.8891%  Sharpe=0.194  MDD=-31.97%
+cost=$12,536,784.83  n_trades=1589
+enable_topup_chasing=False
+
+## Reference (user fingerprint 5146837eafd9)
+CAGR=+10.55%  Sharpe=0.602  MDD=-21.20%
+cost=$10,248,678  n_trades=1052
+payload_sha256_16=75f6331be63401bb
+
+## Match checks
+- CAGR: FAIL
+- Sharpe: FAIL
+- Maximum_Drawdown: FAIL
+- total_cost_dollars: FAIL
+- n_closed_trades: FAIL
+
+OVERALL: FAIL — STOP (do not promote checkpoint claiming reference KPIs)
+

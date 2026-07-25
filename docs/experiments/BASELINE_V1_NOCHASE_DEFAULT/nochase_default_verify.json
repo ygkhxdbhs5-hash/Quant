@@ -1,0 +1,73 @@
+{
+  "repro": {
+    "git_head": "4d2f2a43739e101307ea8f2941b57d5bdf317a4b",
+    "git_dirty": true,
+    "window": {
+      "start": "2022-01-01",
+      "end": "2026-06-30"
+    },
+    "config_slice": {
+      "start_date": "2022-01-01",
+      "end_date": "2026-06-30",
+      "initial_cash": 50000000,
+      "cost_model": "corwin_schultz_v2",
+      "winsorize_adv": true,
+      "enable_topup_chasing": false,
+      "disable_topup_chasing": null,
+      "flat_cost_one_way": null,
+      "participation_cap_buy": 0.08,
+      "participation_cap_sell": 0.15,
+      "commission_rate": 0.0005,
+      "slippage_rate": 0.0002,
+      "universe_sample_size": 500,
+      "universe_sample_seed": 42,
+      "baseline_v1": null
+    },
+    "code_file_sha256_16": {
+      "engine/baseline_engine.py": "ce8e18e0cf7f8017",
+      "engine/strategy_baseline_v1.py": "ecf9dfd091079c2c",
+      "engine/execution_costs.py": "2effc46d3bffc006",
+      "engine/topup_chase_diagnostics.py": "c76cc5f0965fe076",
+      "engine/report_charts.py": "5f694822f04c375f",
+      "engine/cost_model_audit.py": "19bd6e4e66187d72",
+      "run_topup_chase_report.py": "18f8be69fbfcfc5d",
+      "config/config.yaml": "32d546d9cfb81b90"
+    },
+    "data_cache": {
+      "panels.pkl": "5ce58a430ac1beec",
+      "universe.pkl": "3445a4589dd34c15",
+      "panels_bytes": 48091715,
+      "universe_bytes": 306708
+    },
+    "extra": {
+      "report": "nochase_baseline_verify",
+      "enable_topup_chasing": false
+    },
+    "fingerprint_sha256": "8752d36df77180b437b31509865fd6969ab1a7627854616bb0c9527e1b2843ff",
+    "fingerprint_id": "8752d36df771"
+  },
+  "metrics": {
+    "CAGR": 0.01889137238373162,
+    "Sharpe": 0.1939417548208622,
+    "Maximum_Drawdown": -0.3197007467585337,
+    "Alpha_CAGR": -0.12572832110869347,
+    "total_cost_dollars": 12536784.831154697,
+    "n_cost_events": 3297,
+    "cost_model": "corwin_schultz_v2",
+    "flat_cost_one_way": 0.0005,
+    "n_closed_trades": 1589,
+    "enable_topup_chasing": false,
+    "disable_topup_chasing": true,
+    "label": "default_nochase"
+  },
+  "reference": {
+    "repro_id": "5146837eafd9",
+    "payload_sha256_16": "75f6331be63401bb",
+    "CAGR": 0.1055,
+    "Sharpe": 0.602,
+    "Maximum_Drawdown": -0.212,
+    "total_cost_dollars": 10248678.0,
+    "n_closed_trades": 1052
+  },
+  "payload_sha256_16": "151194ae81d39104"
+}
