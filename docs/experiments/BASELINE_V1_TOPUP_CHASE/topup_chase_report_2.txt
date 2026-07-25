@@ -1,0 +1,34 @@
+########################################################################
+# *** INVALID / UNREPRODUCIBLE — DO NOT CITE ***
+# Filename kept for historical audit trail only.
+########################################################################
+#
+# Origin: claimed Streamlit / dirty-tree run associated with
+#   repro_id=5146837eafd9  payload_sha256_16=75f6331be63401bb
+#   git_head=4d2f2a43739e… (dirty tree)
+#
+# The uncommitted code state that produced these numbers was NEVER recovered
+# (no git stash, no local history, no matching agent artifact). Therefore every
+# KPI below is INVALID and must not be used in comparisons, checkpoints, or
+# future experiment baselines.
+#
+# Claimed (INVALID) numbers:
+#   Chase-ON (Fixed CS v2):   CAGR  -0.24%, Sharpe 0.115, MDD -34.02%,
+#                             cost ~$15.42M, n_trades=929
+#   No-chase (Fixed CS v2):   CAGR +10.55%, Sharpe 0.602, MDD -21.20%,
+#                             cost $10,248,678, n_trades=1,052
+#   Flat 10bps RT:            CAGR +13.02%
+#   Flat 30bps RT:            CAGR +10.34%
+#
+# SUPERSEDED BY (clean committed state only):
+#   docs/experiments/BASELINE_V1_NOCHASE_DEFAULT/clean_fourway_cost_report.txt
+#   tag: baseline-v1-nochase  (no-chase CS v2 leg)
+#   prior clean no-chase repro_id=97c21a974bf8
+#
+# Also see:
+#   docs/experiments/BASELINE_V1_NOCHASE_DEFAULT/ROOT_CAUSE.md
+#   docs/experiments/BASELINE_V1_TOPUP_CHASE/RECONCILIATION.md
+#
+########################################################################
+# END — INVALID ARTIFACT STUB
+########################################################################
