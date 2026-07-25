@@ -1,0 +1,51 @@
+# Mom+Quality vs Mom+Quality+Regime A/B (VALID — clean committed state)
+
+Window: 2022-01-01 → 2026-06-30
+repro_id=a2f5d870e697
+payload_sha256_16=e394f38c12771d81
+git_head=9313413109d328c2c047a5d55af28c78b302eef9
+git_dirty=False
+
+Regime: QQQ vs SMA200 + breadth(% liquid names > SMA50); tiers 1.0/0.5/0.0; no >1.0x.
+Unchanged: mom+quality entry, ATR 2.5, equal-weight×exposure, monthly, no-chase, CS v2.
+
+## TASK 3 — Side-by-side
+Metric                             Mom+Qual        +Regime
+----------------------------------------------------------
+CAGR                                 +3.02%         +2.40%
+Sharpe                                0.268          0.255
+MDD                                 -25.60%        -19.13%
+Cost $                           13,404,546     11,810,933
+n_trades                              1,580          1,550
+Avg hold days                          28.9           27.9
+Turnover (repl/yr)                    11.74          11.51
+Alpha vs QQQ                        -11.44%        -12.06%
+----------------------------------------------------------
+% months @ 1.0x                   100% (fixed)          53.7%
+% months @ 0.5x                             0%          40.7%
+% months @ 0.0x                             0%           5.6%
+
+## TASK 4 — +Regime per-year vs QQQ
+Year       Strat CAGR     QQQ CAGR        Alpha    Strat MDD       note
+----------------------------------------------------------------------
+2022          -12.62%      -34.03%      +21.40%      -12.84%           
+2023           +2.06%      +55.83%      -53.77%       -8.89%           
+2024           +8.20%      +27.09%      -18.89%       -9.54%           
+2025           -1.97%      +20.54%      -22.51%       -8.35%           
+2026          +38.91%      +45.33%       -6.43%       -6.17%    partial
+----------------------------------------------------------------------
+CALLOUT: 2023 Alpha: MQ -51.00% → MQ+Regime -53.77% (Δ=-2.77%; WORSENED)
+
+## Q1 2023 regime tiers (rally onset)
+  2023-01-03: tier=0.5x exposure=0.5 above_ma200=False breadth=0.34156378600823045
+  2023-02-01: tier=1.0x exposure=1.0 above_ma200=True breadth=0.763265306122449
+  2023-03-01: tier=1.0x exposure=1.0 above_ma200=True breadth=0.4897119341563786
+
+## Decision rule
+  sharpe_improved             : False
+  alpha_2023_improved         : False
+  alpha_2023_worsened         : True
+  cagr_not_materially_worse   : True
+  KEEP as new default         : False
+
+# END
