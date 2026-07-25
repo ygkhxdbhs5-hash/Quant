@@ -99,6 +99,13 @@ class BaselineEngineV1:
         self.trade_journal = TradeJournal(shadow_horizon_days=20)
         self.research_artifacts: Dict[str, Any] = {}
 
+        # --- Diagnostic instrumentation only (does not affect trading decisions) ---
+        self.diag_total_cost_dollars = 0.0
+        self.diag_cost_events: List[dict] = []
+        self.diag_monthly_liquidity: List[dict] = []
+        self.diag_closed_lots: List[dict] = []  # includes qty for $ PnL
+        self.diag_equity_curve: List[dict] = []  # net + gross (gross = net + cum costs)
+
         # QQQ buy & hold (buy once, never rebalance)
         self.qqq_shares = 0.0
         self.qqq_cash = self.INITIAL_CASH
@@ -158,6 +165,25 @@ class BaselineEngineV1:
         ]
 
     # ----- execution model (mirrors existing StandaloneEngine fills) -----
+    def _record_cost(self, *, date, symbol, side, qty, price, cost_ratio) -> float:
+        """Observation-only: aggregate execution cost dollars (formula unchanged)."""
+        notional = float(qty) * float(price)
+        dollars = notional * float(cost_ratio)
+        self.diag_total_cost_dollars += dollars
+        self.diag_cost_events.append(
+            {
+                "date": date,
+                "symbol": symbol,
+                "side": side,
+                "qty": int(qty),
+                "price": float(price),
+                "cost_ratio": float(cost_ratio),
+                "cost_dollars": float(dollars),
+                "notional": float(notional),
+            }
+        )
+        return dollars
+
     def _cost_ratio(self, symbol, date_idx, qty, price):
         adv = self.adv20_m[symbol].iloc[date_idx] if symbol in self.adv20_m.columns else np.nan
         sigma = self.vol20_m[symbol].iloc[date_idx] if symbol in self.vol20_m.columns else np.nan
@@ -188,13 +214,22 @@ class BaselineEngineV1:
         if exec_qty <= 0:
             return 0
         cost = self._cost_ratio(sym, date_idx, exec_qty, px)
+        self._record_cost(
+            date=current_date, symbol=sym, side="SELL", qty=exec_qty, price=px, cost_ratio=cost
+        )
+        # Capture lot info before journal pop (for $ loss diagnostics)
+        ot = self.trade_journal.open.get(sym)
+        entry_px = float(ot.entry_price) if ot is not None else float("nan")
+        entry_date = ot.entry_date if ot is not None else None
+        lot_qty = int(ot.qty) if ot is not None else exec_qty
+
         proceeds = exec_qty * px * (1.0 - cost)
         self.cash += proceeds
         self.portfolio[sym] = held - exec_qty
         if self.portfolio[sym] <= 0:
             del self.portfolio[sym]
             self.highest_closes.pop(sym, None)
-            self.trade_journal.on_exit(
+            closed = self.trade_journal.on_exit(
                 symbol=sym,
                 date=current_date,
                 date_idx=date_idx,
@@ -210,6 +245,22 @@ class BaselineEngineV1:
                     else None
                 ),
             )
+            if closed is not None and np.isfinite(entry_px) and entry_px > 0:
+                dollar_pnl = float(lot_qty) * (px - entry_px)
+                self.diag_closed_lots.append(
+                    {
+                        "symbol": sym,
+                        "entry_date": entry_date,
+                        "exit_date": current_date,
+                        "entry_price": entry_px,
+                        "exit_price": px,
+                        "qty": int(lot_qty),
+                        "pct_return": float(closed.final_return),
+                        "dollar_pnl": dollar_pnl,
+                        "exit_reason": reason,
+                        "holding_days": int(closed.holding_days),
+                    }
+                )
         return exec_qty
 
     def execute_pending_orders(self, date_idx):
@@ -234,7 +285,16 @@ class BaselineEngineV1:
                     exec_qty = int(self.cash / (float(o_price) * (1.0 + cost)))
                     if exec_qty <= 0:
                         continue
+                    cost = self._cost_ratio(sym, date_idx, exec_qty, float(o_price))
                     spend = exec_qty * float(o_price) * (1.0 + cost)
+                self._record_cost(
+                    date=current_date,
+                    symbol=sym,
+                    side="BUY",
+                    qty=exec_qty,
+                    price=float(o_price),
+                    cost_ratio=cost,
+                )
                 self.cash -= spend
                 self.portfolio[sym] = self.portfolio.get(sym, 0) + exec_qty
                 px = float(o_price)
@@ -267,8 +327,12 @@ class BaselineEngineV1:
                 if current_date == d_date:
                     last_close = self.close_m[sym].iloc[date_idx]
                     if pd.notna(last_close):
+                        ot = self.trade_journal.open.get(sym)
+                        qty = int(self.portfolio[sym])
+                        entry_px = float(ot.entry_price) if ot else float("nan")
+                        entry_date = ot.entry_date if ot else None
                         self.cash += self.portfolio[sym] * float(last_close)
-                        self.trade_journal.on_exit(
+                        closed = self.trade_journal.on_exit(
                             symbol=sym,
                             date=current_date,
                             date_idx=date_idx,
@@ -280,6 +344,21 @@ class BaselineEngineV1:
                             exit_rsi=None,
                             exit_atr=None,
                         )
+                        if closed is not None and np.isfinite(entry_px) and entry_px > 0:
+                            self.diag_closed_lots.append(
+                                {
+                                    "symbol": sym,
+                                    "entry_date": entry_date,
+                                    "exit_date": current_date,
+                                    "entry_price": entry_px,
+                                    "exit_price": float(last_close),
+                                    "qty": qty,
+                                    "pct_return": float(closed.final_return),
+                                    "dollar_pnl": qty * (float(last_close) - entry_px),
+                                    "exit_reason": "official_delist",
+                                    "holding_days": int(closed.holding_days),
+                                }
+                            )
                     del self.portfolio[sym]
                     self.highest_closes.pop(sym, None)
 
@@ -287,9 +366,13 @@ class BaselineEngineV1:
             if current_date == last_date + pd.Timedelta(days=1) and sym in self.portfolio:
                 last_valid = self.close_m[sym].iloc[self.close_m.index.get_loc(last_date)]
                 if pd.notna(last_valid):
+                    ot = self.trade_journal.open.get(sym)
+                    qty = int(self.portfolio[sym])
+                    entry_px = float(ot.entry_price) if ot else float("nan")
+                    entry_date = ot.entry_date if ot else None
                     px = float(last_valid) * self.SILENT_DELIST_RECOVERY
                     self.cash += self.portfolio[sym] * px
-                    self.trade_journal.on_exit(
+                    closed = self.trade_journal.on_exit(
                         symbol=sym,
                         date=current_date,
                         date_idx=date_idx,
@@ -301,6 +384,21 @@ class BaselineEngineV1:
                         exit_rsi=None,
                         exit_atr=None,
                     )
+                    if closed is not None and np.isfinite(entry_px) and entry_px > 0:
+                        self.diag_closed_lots.append(
+                            {
+                                "symbol": sym,
+                                "entry_date": entry_date,
+                                "exit_date": current_date,
+                                "entry_price": entry_px,
+                                "exit_price": px,
+                                "qty": qty,
+                                "pct_return": float(closed.final_return),
+                                "dollar_pnl": qty * (px - entry_px),
+                                "exit_reason": "silent_delist",
+                                "holding_days": int(closed.holding_days),
+                            }
+                        )
                 del self.portfolio[sym]
                 self.highest_closes.pop(sym, None)
 
@@ -438,6 +536,22 @@ class BaselineEngineV1:
                     for s in self._investable
                     if s in self.close_m.columns and pd.notna(self.close_m[s].iloc[idx])
                 ]
+                # Diagnostic: liquidity pool depth (read-only; same filter as strategy)
+                dvol_row = pd.to_numeric(
+                    self.dvol_m.loc[current_date, [s for s in live if s in self.dvol_m.columns]],
+                    errors="coerce",
+                ).dropna()
+                n_liquid = int(min(self.TOP_LIQUID_POOL, len(dvol_row)))
+                self.diag_monthly_liquidity.append(
+                    {
+                        "date": current_date,
+                        "n_live": len(live),
+                        "n_with_dvol": int(len(dvol_row)),
+                        "n_liquid_after_filter": n_liquid,
+                        "top_liquid_pool": int(self.TOP_LIQUID_POOL),
+                        "flag_thin": bool(n_liquid < 100),
+                    }
+                )
                 self.current_candidates = select_monthly_candidates(
                     date_idx=idx,
                     close_m=self.close_m,
@@ -492,6 +606,15 @@ class BaselineEngineV1:
             total_equity = self.cash + pv
             if current_date >= self._run_start:
                 self.equity_curve.append({"Date": current_date, "Total_Equity": total_equity})
+                # Gross ≈ net + cumulative execution costs paid so far (diagnostic only)
+                self.diag_equity_curve.append(
+                    {
+                        "Date": current_date,
+                        "Net_Equity": total_equity,
+                        "Gross_Equity": total_equity + float(self.diag_total_cost_dollars),
+                        "Cum_Cost_Dollars": float(self.diag_total_cost_dollars),
+                    }
+                )
                 self._mark_qqq(idx)
 
         equity = pd.DataFrame(self.equity_curve).set_index("Date") if self.equity_curve else pd.DataFrame()
