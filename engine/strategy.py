@@ -414,6 +414,38 @@ class StandaloneEngine:
         self.dist_ema50_m = close_m / self.ema50_m.replace(0, np.nan) - 1.0
         self.above_ema50_m = (close_m > self.ema50_m).astype(float)
 
+        # --- Institutional Entry panels (vectorized; used by monthly factor build) ---
+        self.mom_6m_m = close_m / close_m.shift(126) - 1.0
+        self.mom_3m_m = close_m / close_m.shift(63) - 1.0
+        with np.errstate(divide="ignore", invalid="ignore"):
+            amihud_daily = ret_m.abs() / volume_m.replace(0, np.nan)
+        self.amihud_m = amihud_daily.replace([np.inf, -np.inf], np.nan).rolling(
+            20, min_periods=5
+        ).mean()
+        print("    ADX(14) panel…")
+        from engine.institutional_entry.trend import compute_adx_panel
+
+        self.adx14_m = compute_adx_panel(high_m, low_m, close_m)
+        self._adx_cache = {}  # unused when adx14_m present
+
+        # Cache non-ETF investable column list (skip daily profile_meta scans)
+        self._investable_symbols = [
+            s
+            for s in close_m.columns
+            if s != self.BENCHMARK_TICKER
+            and not self.profile_meta.get(s, {}).get("isEtf", False)
+        ]
+
+        # PIT fundamentals: sorted timestamp arrays for O(log n) as-of lookup
+        self._fund_ts = {}
+        for sym, hist in (self.fundamental_history or {}).items():
+            if hist is None or getattr(hist, "empty", True):
+                continue
+            try:
+                self._fund_ts[sym] = hist.index.values.astype("datetime64[ns]")
+            except Exception:
+                continue
+
         hl = np.log(high_m / low_m) ** 2
         hl2_high = high_m.rolling(2, min_periods=2).max()
         hl2_low = low_m.rolling(2, min_periods=2).min()
@@ -428,6 +460,16 @@ class StandaloneEngine:
         hist = self.fundamental_history.get(symbol)
         if hist is None or hist.empty:
             return None
+        ts = getattr(self, "_fund_ts", {}).get(symbol)
+        if ts is not None and len(ts):
+            try:
+                asof = np.datetime64(pd.Timestamp(as_of_date).to_datetime64())
+                i = int(np.searchsorted(ts, asof, side="right") - 1)
+                if i < 0:
+                    return None
+                return hist.iloc[i]
+            except Exception:
+                pass
         past = hist.loc[:as_of_date]
         if past.empty:
             return None
@@ -578,15 +620,17 @@ class StandaloneEngine:
 
         above_ma = bm_price >= bm_ma200
 
-        above_50 = 0
-        total = 0
-        for sym in active_symbols:
-            sma50 = self.sma50_m[sym].iloc[date_idx]
-            price = self.close_m[sym].iloc[date_idx]
-            if pd.notna(sma50) and pd.notna(price):
-                total += 1
-                if price > sma50:
-                    above_50 += 1
+        # Vectorized breadth: share of names with price > SMA50
+        syms = [s for s in active_symbols if s in self.close_m.columns and s in self.sma50_m.columns]
+        if syms:
+            px = self.close_m.loc[current_date, syms]
+            sma = self.sma50_m.loc[current_date, syms]
+            valid = px.notna() & sma.notna()
+            total = int(valid.sum())
+            above_50 = int((px[valid] > sma[valid]).sum()) if total else 0
+        else:
+            total = 0
+            above_50 = 0
         breadth = (above_50 / total) if total > 0 else 1.0
 
         if not above_ma and breadth < 0.20:
@@ -825,7 +869,7 @@ class StandaloneEngine:
                 f"    [FACTORS] {current_date.date()} institutional_v1 n={len(df)} "
                 f"(Q/M/T/L/R Z-score composite; CMVS entry unused)"
             )
-            print(format_factor_log(df, max_rows=None))
+            print(format_factor_log(df, max_rows=20))
         return df
 
     def rank_universe(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -1756,48 +1800,19 @@ class StandaloneEngine:
     def _observe_rank_diagnostics(self, date_idx: int) -> None:
         """Daily observation-only rank diagnostics for current holdings.
 
-        Does not queue orders, mutate targets, or change exit decisions.
-        Counts ``rank > EXIT_RANK`` even when another exit rule also fired.
+        Uses the latest monthly cross-sectional rank map (updated on rebalance).
+        Does NOT rebuild Top-ADV institutional factors every day — that was the
+        dominant backtest cost and does not affect trading decisions.
         """
         if not self.portfolio:
             return
-        current_date = self.close_m.index[date_idx]
-        current_closes = self.close_m.loc[current_date]
         holdings = [s for s, qty in self.portfolio.items() if int(qty) > 0]
         if not holdings:
             return
-
-        active_symbols = [
-            s
-            for s in self.close_m.columns
-            if s != self.BENCHMARK_TICKER
-            and pd.notna(current_closes.get(s))
-            and not self.profile_meta.get(s, {}).get("isEtf", False)
-        ]
-        if not active_symbols:
+        rank_map = getattr(self, "_last_rank_map", None) or {}
+        if not rank_map:
             return
-
-        top_adv_symbols = (
-            self.dvol_m.loc[current_date, active_symbols]
-            .nlargest(min(self.TOP_ADV_POOL, len(active_symbols)))
-            .index.tolist()
-        )
-        # Union holdings so held names remain rankable on non-rebalance days.
-        pool = list(dict.fromkeys(list(top_adv_symbols) + holdings))
-        universe_symbols = self.get_universe(pool, date_idx, quiet=True)
-        for h in holdings:
-            if h not in universe_symbols:
-                universe_symbols.append(h)
-
-        factor_df = self.build_factors(date_idx, universe_symbols, quiet=True)
-        if factor_df.empty:
-            return
-        ranked_df = self.rank_universe(factor_df)
-        rank_map = {
-            str(sym): int(i + 1)
-            for i, sym in enumerate(ranked_df["symbol"].tolist())
-        }
-
+        current_date = self.close_m.index[date_idx]
         for sym in holdings:
             self.rank_diagnostics.observe(
                 date=current_date,
@@ -1984,12 +1999,21 @@ class StandaloneEngine:
         trading_days = self.close_m.index
         warmup = max(self.MOM_WINDOW, self.LOWVOL_WINDOW) + 5
         if self.MONTHLY_REBALANCE:
-            rebalance_days = set(pd.to_datetime(
-                self.close_m.groupby(self.close_m.index.to_period("M")).apply(lambda x: x.index[0]).values
-            ))
+            # First available session of each calendar month (fast path)
+            months = trading_days.to_period("M")
+            rebalance_days = set(pd.to_datetime(trading_days[~months.duplicated(keep="first")]))
         else:
             # Research mode: rebalance every trading day (same construct_portfolio path)
             rebalance_days = set(pd.to_datetime(trading_days[warmup:]))
+
+        investable = list(getattr(self, "_investable_symbols", None) or [])
+        if not investable:
+            investable = [
+                s
+                for s in self.close_m.columns
+                if s != self.BENCHMARK_TICKER
+                and not self.profile_meta.get(s, {}).get("isEtf", False)
+            ]
 
         for idx, current_date in enumerate(trading_days):
             if idx < warmup:
@@ -2008,20 +2032,21 @@ class StandaloneEngine:
             self._observe_rank_diagnostics(idx)
 
             current_closes = self.close_m.loc[current_date]
-            portfolio_value = sum(
-                qty * current_closes.get(s, np.nan) for s, qty in self.portfolio.items() if pd.notna(current_closes.get(s))
-            )
+            if self.portfolio:
+                held = list(self.portfolio.keys())
+                px = current_closes.reindex(held)
+                qty = pd.Series({s: self.portfolio[s] for s in held}, dtype=float)
+                portfolio_value = float((qty * px).sum(skipna=True))
+            else:
+                portfolio_value = 0.0
             total_equity = self.cash + portfolio_value
             self.equity_curve.append({"Date": current_date, "Total_Equity": total_equity})
 
             if current_date in rebalance_days:
                 ctx = RebalanceContext(as_of_date=current_date)
 
-                active_symbols = [
-                    s for s in self.close_m.columns
-                    if s != self.BENCHMARK_TICKER and pd.notna(current_closes.get(s))
-                    and not self.profile_meta.get(s, {}).get("isEtf", False)
-                ]
+                live = current_closes.reindex(investable)
+                active_symbols = live.index[live.notna()].tolist()
 
                 ctx.regime = self.determine_market_regime(idx, active_symbols)
                 if ctx.regime is None:

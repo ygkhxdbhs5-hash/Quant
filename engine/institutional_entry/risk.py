@@ -99,3 +99,64 @@ def risk_raw_row(
         "idiovol_raw": idio,
         "maxdd_raw": max_drawdown_12m(close, date_idx),
     }
+
+
+def beta_idiovol_panel_at(
+    stock_ret: pd.DataFrame,
+    mkt_ret: pd.Series,
+    date_idx: int,
+    window: int = 126,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Vectorized beta + residual vol for many symbols at one date (same defs as scalar)."""
+    n = stock_ret.shape[1]
+    betas = np.full(n, np.nan, dtype=float)
+    idios = np.full(n, np.nan, dtype=float)
+    if date_idx < window or mkt_ret is None or stock_ret.empty:
+        return betas, idios
+    lo = date_idx - window + 1
+    y = stock_ret.iloc[lo : date_idx + 1].to_numpy(dtype=float, copy=False)
+    x = pd.to_numeric(mkt_ret.iloc[lo : date_idx + 1], errors="coerce").to_numpy(dtype=float)
+    min_obs = max(40, window // 3)
+    x_ok = np.isfinite(x)
+    for j in range(n):
+        yj = y[:, j]
+        mask = x_ok & np.isfinite(yj)
+        if int(mask.sum()) < min_obs:
+            continue
+        xx = x[mask]
+        yy = yj[mask]
+        var_x = float(np.var(xx))
+        if var_x <= 0:
+            continue
+        cov = float(np.cov(yy, xx, ddof=0)[0, 1])
+        b = cov / var_x
+        betas[j] = b
+        resid = yy - b * xx
+        idios[j] = float(np.std(resid, ddof=0))
+    return betas, idios
+
+
+def max_drawdown_panel_at(
+    close: pd.DataFrame,
+    date_idx: int,
+    window: int = 252,
+) -> np.ndarray:
+    """Max drawdown over trailing window for many symbols at one date."""
+    n = close.shape[1]
+    out = np.full(n, np.nan, dtype=float)
+    if date_idx < 5 or close.empty:
+        return out
+    lo = max(0, date_idx - window + 1)
+    px = close.iloc[lo : date_idx + 1].to_numpy(dtype=float, copy=False)
+    for j in range(n):
+        col = px[:, j]
+        valid = col[np.isfinite(col) & (col > 0)]
+        if valid.size < 20:
+            continue
+        peak = np.maximum.accumulate(valid)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            dd = 1.0 - valid / peak
+        val = float(np.nanmax(dd))
+        if np.isfinite(val):
+            out[j] = val
+    return out

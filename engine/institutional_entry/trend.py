@@ -39,41 +39,55 @@ def compute_adx_series(
 ) -> pd.Series:
     """Wilder ADX(period) for one symbol (PIT time series)."""
     try:
-        high = pd.to_numeric(high, errors="coerce")
-        low = pd.to_numeric(low, errors="coerce")
-        close = pd.to_numeric(close, errors="coerce")
-        prev_close = close.shift(1)
-        tr = pd.concat(
-            [
-                (high - low).abs(),
-                (high - prev_close).abs(),
-                (low - prev_close).abs(),
-            ],
-            axis=1,
-        ).max(axis=1)
-
-        up = high.diff()
-        down = -low.diff()
-        plus_dm = np.where((up > down) & (up > 0), up, 0.0)
-        minus_dm = np.where((down > up) & (down > 0), down, 0.0)
-        plus_dm = pd.Series(plus_dm, index=high.index, dtype=float)
-        minus_dm = pd.Series(minus_dm, index=high.index, dtype=float)
-
-        alpha = 1.0 / float(period)
-        atr = tr.ewm(alpha=alpha, min_periods=period, adjust=False).mean()
-        plus_di = 100.0 * (
-            plus_dm.ewm(alpha=alpha, min_periods=period, adjust=False).mean()
-            / atr.replace(0, np.nan)
+        panel = compute_adx_panel(
+            high.to_frame("_"),
+            low.to_frame("_"),
+            close.to_frame("_"),
+            period=period,
         )
-        minus_di = 100.0 * (
-            minus_dm.ewm(alpha=alpha, min_periods=period, adjust=False).mean()
-            / atr.replace(0, np.nan)
-        )
-        dx = 100.0 * (plus_di - minus_di).abs() / (plus_di + minus_di).replace(0, np.nan)
-        adx = dx.ewm(alpha=alpha, min_periods=period, adjust=False).mean()
-        return adx.astype(float)
+        return panel["_"].astype(float)
     except Exception:
         return pd.Series(np.nan, index=close.index, dtype=float)
+
+
+def compute_adx_panel(
+    high: pd.DataFrame,
+    low: pd.DataFrame,
+    close: pd.DataFrame,
+    period: int = 14,
+) -> pd.DataFrame:
+    """Wilder ADX(period) for a full price panel (vectorized)."""
+    prev_close = close.shift(1)
+    tr = (high - low).abs()
+    tr = np.maximum(tr, (high - prev_close).abs())
+    tr = np.maximum(tr, (low - prev_close).abs())
+    tr = pd.DataFrame(tr, index=close.index, columns=close.columns)
+
+    up = high.diff()
+    down = -low.diff()
+    plus_dm = pd.DataFrame(
+        np.where((up > down) & (up > 0), up, 0.0),
+        index=close.index,
+        columns=close.columns,
+    )
+    minus_dm = pd.DataFrame(
+        np.where((down > up) & (down > 0), down, 0.0),
+        index=close.index,
+        columns=close.columns,
+    )
+
+    alpha = 1.0 / float(period)
+    atr = tr.ewm(alpha=alpha, min_periods=period, adjust=False).mean()
+    plus_di = 100.0 * (
+        plus_dm.ewm(alpha=alpha, min_periods=period, adjust=False).mean()
+        / atr.replace(0, np.nan)
+    )
+    minus_di = 100.0 * (
+        minus_dm.ewm(alpha=alpha, min_periods=period, adjust=False).mean()
+        / atr.replace(0, np.nan)
+    )
+    dx = 100.0 * (plus_di - minus_di).abs() / (plus_di + minus_di).replace(0, np.nan)
+    return dx.ewm(alpha=alpha, min_periods=period, adjust=False).mean().astype(float)
 
 
 def trend_raw_row(
