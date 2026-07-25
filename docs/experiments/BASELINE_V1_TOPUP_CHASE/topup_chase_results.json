@@ -1,0 +1,1975 @@
+{
+  "window": {
+    "start": "2022-01-01",
+    "end": "2026-06-30"
+  },
+  "task1_new_entry_vs_topup": {
+    "n_buy_orders": 6830,
+    "n_new_entry": 1188,
+    "pct_new_entry": 0.1739385065885798,
+    "mean_fill_pct_new_entry": 0.624192544198813,
+    "n_top_up": 5642,
+    "pct_top_up": 0.8260614934114202,
+    "mean_fill_pct_top_up": 0.4774582826247839,
+    "n_unknown": 0,
+    "pct_unknown": 0.0,
+    "mean_fill_pct_unknown": null,
+    "buy_cost_total": 8948145.095167603,
+    "buy_cost_new_entry": 4087394.960903802,
+    "buy_notional_new_entry": 818853076.425,
+    "buy_cost_top_up": 4860750.1342638,
+    "buy_notional_top_up": 735233706.9004999,
+    "buy_cost_unknown": 0.0,
+    "buy_notional_unknown": 0.0,
+    "sell_cost_total": 8795546.298353773,
+    "all_cost_total": 17743691.393521376,
+    "chronic_topup_symbols_3plus": [
+      {
+        "symbol": "RELL",
+        "n_topup_attempts": 93,
+        "avg_fill_pct_per_attempt": 0.3965816335823972,
+        "total_topup_cost_dollars": 118701.5528922743,
+        "total_topup_notional": 14906792.9455,
+        "flat_10bps_one_way_cost_on_same_notional": 7453.39647275,
+        "cost_multiple_vs_flat_10bps": 15.925833722418131
+      },
+      {
+        "symbol": "ESEA",
+        "n_topup_attempts": 89,
+        "avg_fill_pct_per_attempt": 0.2752865863411186,
+        "total_topup_cost_dollars": 106779.6373236057,
+        "total_topup_notional": 12963431.53,
+        "flat_10bps_one_way_cost_on_same_notional": 6481.715765,
+        "cost_multiple_vs_flat_10bps": 16.47397713738003
+      },
+      {
+        "symbol": "ATLC",
+        "n_topup_attempts": 52,
+        "avg_fill_pct_per_attempt": 0.6361881187073669,
+        "total_topup_cost_dollars": 97514.95516402935,
+        "total_topup_notional": 12470244.334999999,
+        "flat_10bps_one_way_cost_on_same_notional": 6235.1221675,
+        "cost_multiple_vs_flat_10bps": 15.63962221499317
+      },
+      {
+        "symbol": "TAYD",
+        "n_topup_attempts": 155,
+        "avg_fill_pct_per_attempt": 0.15542675345658907,
+        "total_topup_cost_dollars": 84608.08809522484,
+        "total_topup_notional": 9770327.6853,
+        "flat_10bps_one_way_cost_on_same_notional": 4885.16384265,
+        "cost_multiple_vs_flat_10bps": 17.31939620050255
+      },
+      {
+        "symbol": "KLXE",
+        "n_topup_attempts": 60,
+        "avg_fill_pct_per_attempt": 0.5114237852270349,
+        "total_topup_cost_dollars": 82574.12160530646,
+        "total_topup_notional": 10100754.81,
+        "flat_10bps_one_way_cost_on_same_notional": 5050.377405,
+        "cost_multiple_vs_flat_10bps": 16.350089306901303
+      },
+      {
+        "symbol": "CLFD",
+        "n_topup_attempts": 34,
+        "avg_fill_pct_per_attempt": 0.9340755406720138,
+        "total_topup_cost_dollars": 81290.06194443077,
+        "total_topup_notional": 12808118.3927,
+        "flat_10bps_one_way_cost_on_same_notional": 6404.05919635,
+        "cost_multiple_vs_flat_10bps": 12.69352132015927
+      },
+      {
+        "symbol": "TSAT",
+        "n_topup_attempts": 66,
+        "avg_fill_pct_per_attempt": 0.548740457849919,
+        "total_topup_cost_dollars": 80617.18370399179,
+        "total_topup_notional": 10266287.275,
+        "flat_10bps_one_way_cost_on_same_notional": 5133.1436375,
+        "cost_multiple_vs_flat_10bps": 15.705226542862698
+      },
+      {
+        "symbol": "COGT",
+        "n_topup_attempts": 47,
+        "avg_fill_pct_per_attempt": 0.9403363852861154,
+        "total_topup_cost_dollars": 80264.2740142878,
+        "total_topup_notional": 12440278.204000004,
+        "flat_10bps_one_way_cost_on_same_notional": 6220.139102000002,
+        "cost_multiple_vs_flat_10bps": 12.903935538753451
+      },
+      {
+        "symbol": "CURI",
+        "n_topup_attempts": 72,
+        "avg_fill_pct_per_attempt": 0.39057545518203146,
+        "total_topup_cost_dollars": 78509.58581464237,
+        "total_topup_notional": 9134922.45,
+        "flat_10bps_one_way_cost_on_same_notional": 4567.461225,
+        "cost_multiple_vs_flat_10bps": 17.18888939547426
+      },
+      {
+        "symbol": "MREO",
+        "n_topup_attempts": 50,
+        "avg_fill_pct_per_attempt": 0.7094288958310635,
+        "total_topup_cost_dollars": 73149.2401355918,
+        "total_topup_notional": 9483892.98,
+        "flat_10bps_one_way_cost_on_same_notional": 4741.94649,
+        "cost_multiple_vs_flat_10bps": 15.425994428627936
+      },
+      {
+        "symbol": "ACRS",
+        "n_topup_attempts": 58,
+        "avg_fill_pct_per_attempt": 0.6046421976456658,
+        "total_topup_cost_dollars": 73118.77310940527,
+        "total_topup_notional": 9460417.406000001,
+        "flat_10bps_one_way_cost_on_same_notional": 4730.208703000001,
+        "cost_multiple_vs_flat_10bps": 15.45783234956034
+      },
+      {
+        "symbol": "ETON",
+        "n_topup_attempts": 53,
+        "avg_fill_pct_per_attempt": 0.6497207604928782,
+        "total_topup_cost_dollars": 72894.36231121786,
+        "total_topup_notional": 9509286.339999998,
+        "flat_10bps_one_way_cost_on_same_notional": 4754.643169999999,
+        "cost_multiple_vs_flat_10bps": 15.33119515070105
+      },
+      {
+        "symbol": "ULH",
+        "n_topup_attempts": 61,
+        "avg_fill_pct_per_attempt": 0.42149341264329476,
+        "total_topup_cost_dollars": 72048.7421579761,
+        "total_topup_notional": 9328042.52,
+        "flat_10bps_one_way_cost_on_same_notional": 4664.0212599999995,
+        "cost_multiple_vs_flat_10bps": 15.447773099982848
+      },
+      {
+        "symbol": "USLM",
+        "n_topup_attempts": 75,
+        "avg_fill_pct_per_attempt": 0.48591693727736396,
+        "total_topup_cost_dollars": 69762.1123789368,
+        "total_topup_notional": 10998672.962899998,
+        "flat_10bps_one_way_cost_on_same_notional": 5499.336481449999,
+        "cost_multiple_vs_flat_10bps": 12.685550814039798
+      },
+      {
+        "symbol": "HAFC",
+        "n_topup_attempts": 46,
+        "avg_fill_pct_per_attempt": 0.6481087503350728,
+        "total_topup_cost_dollars": 69297.35234009572,
+        "total_topup_notional": 10763932.390999997,
+        "flat_10bps_one_way_cost_on_same_notional": 5381.966195499998,
+        "cost_multiple_vs_flat_10bps": 12.875843106936836
+      },
+      {
+        "symbol": "FULC",
+        "n_topup_attempts": 50,
+        "avg_fill_pct_per_attempt": 0.8865068625295821,
+        "total_topup_cost_dollars": 69192.87970579839,
+        "total_topup_notional": 10061054.879999999,
+        "flat_10bps_one_way_cost_on_same_notional": 5030.52744,
+        "cost_multiple_vs_flat_10bps": 13.754597411717606
+      },
+      {
+        "symbol": "NKTR",
+        "n_topup_attempts": 72,
+        "avg_fill_pct_per_attempt": 0.5726053407560706,
+        "total_topup_cost_dollars": 67046.61781043869,
+        "total_topup_notional": 9960216.6375,
+        "flat_10bps_one_way_cost_on_same_notional": 4980.10831875,
+        "cost_multiple_vs_flat_10bps": 13.462883439303846
+      },
+      {
+        "symbol": "SENEA",
+        "n_topup_attempts": 61,
+        "avg_fill_pct_per_attempt": 0.6064146230722646,
+        "total_topup_cost_dollars": 66511.43485632862,
+        "total_topup_notional": 10150947.176600002,
+        "flat_10bps_one_way_cost_on_same_notional": 5075.473588300001,
+        "cost_multiple_vs_flat_10bps": 13.104478567212132
+      },
+      {
+        "symbol": "HUDI",
+        "n_topup_attempts": 77,
+        "avg_fill_pct_per_attempt": 0.22965086026214204,
+        "total_topup_cost_dollars": 66422.03901629573,
+        "total_topup_notional": 8066555.797,
+        "flat_10bps_one_way_cost_on_same_notional": 4033.2778985,
+        "cost_multiple_vs_flat_10bps": 16.468500482200465
+      },
+      {
+        "symbol": "KC",
+        "n_topup_attempts": 53,
+        "avg_fill_pct_per_attempt": 0.9673186950364235,
+        "total_topup_cost_dollars": 63917.07526841001,
+        "total_topup_notional": 10659727.073,
+        "flat_10bps_one_way_cost_on_same_notional": 5329.863536500001,
+        "cost_multiple_vs_flat_10bps": 11.992253616005877
+      },
+      {
+        "symbol": "JFIN",
+        "n_topup_attempts": 99,
+        "avg_fill_pct_per_attempt": 0.15721022562680498,
+        "total_topup_cost_dollars": 62259.81377513361,
+        "total_topup_notional": 7189589.580200001,
+        "flat_10bps_one_way_cost_on_same_notional": 3594.7947901000002,
+        "cost_multiple_vs_flat_10bps": 17.31943474119747
+      },
+      {
+        "symbol": "ALMU",
+        "n_topup_attempts": 44,
+        "avg_fill_pct_per_attempt": 0.7753261971662403,
+        "total_topup_cost_dollars": 57679.73755332068,
+        "total_topup_notional": 8113722.630999999,
+        "flat_10bps_one_way_cost_on_same_notional": 4056.8613155,
+        "cost_multiple_vs_flat_10bps": 14.217823353473884
+      },
+      {
+        "symbol": "OPRX",
+        "n_topup_attempts": 28,
+        "avg_fill_pct_per_attempt": 0.7035555876930779,
+        "total_topup_cost_dollars": 57210.92424426442,
+        "total_topup_notional": 7511622.370000002,
+        "flat_10bps_one_way_cost_on_same_notional": 3755.811185000001,
+        "cost_multiple_vs_flat_10bps": 15.232641212836796
+      },
+      {
+        "symbol": "TPST",
+        "n_topup_attempts": 58,
+        "avg_fill_pct_per_attempt": 0.3753893170348906,
+        "total_topup_cost_dollars": 56628.95785172694,
+        "total_topup_notional": 6646019.897400001,
+        "flat_10bps_one_way_cost_on_same_notional": 3323.0099487000007,
+        "cost_multiple_vs_flat_10bps": 17.041465034999618
+      },
+      {
+        "symbol": "ALDX",
+        "n_topup_attempts": 33,
+        "avg_fill_pct_per_attempt": 0.6990264122507233,
+        "total_topup_cost_dollars": 55604.69228085079,
+        "total_topup_notional": 7611789.83,
+        "flat_10bps_one_way_cost_on_same_notional": 3805.8949150000003,
+        "cost_multiple_vs_flat_10bps": 14.610149129892827
+      },
+      {
+        "symbol": "PPTA",
+        "n_topup_attempts": 48,
+        "avg_fill_pct_per_attempt": 0.9253647853998954,
+        "total_topup_cost_dollars": 54239.885490073546,
+        "total_topup_notional": 9192031.235,
+        "flat_10bps_one_way_cost_on_same_notional": 4596.0156175,
+        "cost_multiple_vs_flat_10bps": 11.801501562254764
+      },
+      {
+        "symbol": "AMPG",
+        "n_topup_attempts": 51,
+        "avg_fill_pct_per_attempt": 0.40712302099547043,
+        "total_topup_cost_dollars": 52712.408864816585,
+        "total_topup_notional": 6435282.804,
+        "flat_10bps_one_way_cost_on_same_notional": 3217.6414019999997,
+        "cost_multiple_vs_flat_10bps": 16.382313091835517
+      },
+      {
+        "symbol": "INSG",
+        "n_topup_attempts": 49,
+        "avg_fill_pct_per_attempt": 0.48185751080567585,
+        "total_topup_cost_dollars": 52647.405618882156,
+        "total_topup_notional": 6296221.61,
+        "flat_10bps_one_way_cost_on_same_notional": 3148.1108050000003,
+        "cost_multiple_vs_flat_10bps": 16.723491922604723
+      },
+      {
+        "symbol": "CECO",
+        "n_topup_attempts": 33,
+        "avg_fill_pct_per_attempt": 0.9283117237941592,
+        "total_topup_cost_dollars": 51278.27340284246,
+        "total_topup_notional": 8704104.09,
+        "flat_10bps_one_way_cost_on_same_notional": 4352.052045,
+        "cost_multiple_vs_flat_10bps": 11.782550592830159
+      },
+      {
+        "symbol": "CSPI",
+        "n_topup_attempts": 107,
+        "avg_fill_pct_per_attempt": 0.16622919039575448,
+        "total_topup_cost_dollars": 51211.849929585915,
+        "total_topup_notional": 5493664.397899999,
+        "flat_10bps_one_way_cost_on_same_notional": 2746.8321989499996,
+        "cost_multiple_vs_flat_10bps": 18.64396738510714
+      },
+      {
+        "symbol": "GEOS",
+        "n_topup_attempts": 66,
+        "avg_fill_pct_per_attempt": 0.2782131116800401,
+        "total_topup_cost_dollars": 50877.74874049548,
+        "total_topup_notional": 5956980.551499999,
+        "flat_10bps_one_way_cost_on_same_notional": 2978.4902757499995,
+        "cost_multiple_vs_flat_10bps": 17.081723970941688
+      },
+      {
+        "symbol": "ULBI",
+        "n_topup_attempts": 77,
+        "avg_fill_pct_per_attempt": 0.17755544738477752,
+        "total_topup_cost_dollars": 46805.42427421049,
+        "total_topup_notional": 5211867.59,
+        "flat_10bps_one_way_cost_on_same_notional": 2605.933795,
+        "cost_multiple_vs_flat_10bps": 17.96109493035317
+      },
+      {
+        "symbol": "EVLV",
+        "n_topup_attempts": 30,
+        "avg_fill_pct_per_attempt": 0.9912262650616029,
+        "total_topup_cost_dollars": 46541.76414869304,
+        "total_topup_notional": 7534041.978,
+        "flat_10bps_one_way_cost_on_same_notional": 3767.020989,
+        "cost_multiple_vs_flat_10bps": 12.355058356350728
+      },
+      {
+        "symbol": "INTR",
+        "n_topup_attempts": 31,
+        "avg_fill_pct_per_attempt": 0.7154030581419046,
+        "total_topup_cost_dollars": 46256.87333614687,
+        "total_topup_notional": 6912242.900000001,
+        "flat_10bps_one_way_cost_on_same_notional": 3456.1214500000006,
+        "cost_multiple_vs_flat_10bps": 13.384041621612244
+      },
+      {
+        "symbol": "FCUV",
+        "n_topup_attempts": 72,
+        "avg_fill_pct_per_attempt": 0.0702105351292867,
+        "total_topup_cost_dollars": 45126.04487094328,
+        "total_topup_notional": 4928125.3831,
+        "flat_10bps_one_way_cost_on_same_notional": 2464.06269155,
+        "cost_multiple_vs_flat_10bps": 18.313675632399224
+      },
+      {
+        "symbol": "GCT",
+        "n_topup_attempts": 48,
+        "avg_fill_pct_per_attempt": 0.9755679457381866,
+        "total_topup_cost_dollars": 44459.934185601815,
+        "total_topup_notional": 8141754.0,
+        "flat_10bps_one_way_cost_on_same_notional": 4070.877,
+        "cost_multiple_vs_flat_10bps": 10.92146340594467
+      },
+      {
+        "symbol": "WKEY",
+        "n_topup_attempts": 57,
+        "avg_fill_pct_per_attempt": 0.4752983246027329,
+        "total_topup_cost_dollars": 44269.27703091525,
+        "total_topup_notional": 5368324.895,
+        "flat_10bps_one_way_cost_on_same_notional": 2684.1624475,
+        "cost_multiple_vs_flat_10bps": 16.492771170443568
+      },
+      {
+        "symbol": "TCPC",
+        "n_topup_attempts": 33,
+        "avg_fill_pct_per_attempt": 0.4450971882130947,
+        "total_topup_cost_dollars": 43582.91843914348,
+        "total_topup_notional": 8027397.540000001,
+        "flat_10bps_one_way_cost_on_same_notional": 4013.6987700000004,
+        "cost_multiple_vs_flat_10bps": 10.858542440927494
+      },
+      {
+        "symbol": "OMEX",
+        "n_topup_attempts": 43,
+        "avg_fill_pct_per_attempt": 0.6336280243629109,
+        "total_topup_cost_dollars": 41529.73147779952,
+        "total_topup_notional": 5208744.6736,
+        "flat_10bps_one_way_cost_on_same_notional": 2604.3723368,
+        "cost_multiple_vs_flat_10bps": 15.946157502512571
+      },
+      {
+        "symbol": "PYXS",
+        "n_topup_attempts": 34,
+        "avg_fill_pct_per_attempt": 0.5318449209645412,
+        "total_topup_cost_dollars": 41298.860922261876,
+        "total_topup_notional": 4996889.9,
+        "flat_10bps_one_way_cost_on_same_notional": 2498.44495,
+        "cost_multiple_vs_flat_10bps": 16.529826251429665
+      },
+      {
+        "symbol": "RMTI",
+        "n_topup_attempts": 52,
+        "avg_fill_pct_per_attempt": 0.22186321544296522,
+        "total_topup_cost_dollars": 39611.5638923589,
+        "total_topup_notional": 4731490.199999999,
+        "flat_10bps_one_way_cost_on_same_notional": 2365.7450999999996,
+        "cost_multiple_vs_flat_10bps": 16.743800459465774
+      },
+      {
+        "symbol": "PHUN",
+        "n_topup_attempts": 28,
+        "avg_fill_pct_per_attempt": 0.6136507575728191,
+        "total_topup_cost_dollars": 38103.056323272845,
+        "total_topup_notional": 5402944.875,
+        "flat_10bps_one_way_cost_on_same_notional": 2701.4724375,
+        "cost_multiple_vs_flat_10bps": 14.104551204873378
+      },
+      {
+        "symbol": "ACLS",
+        "n_topup_attempts": 28,
+        "avg_fill_pct_per_attempt": 1.0009094535194158,
+        "total_topup_cost_dollars": 37067.66418451954,
+        "total_topup_notional": 7911235.970000001,
+        "flat_10bps_one_way_cost_on_same_notional": 3955.6179850000003,
+        "cost_multiple_vs_flat_10bps": 9.37089080014372
+      },
+      {
+        "symbol": "SYBT",
+        "n_topup_attempts": 22,
+        "avg_fill_pct_per_attempt": 0.7021057042519885,
+        "total_topup_cost_dollars": 37022.30335230217,
+        "total_topup_notional": 6363783.329999999,
+        "flat_10bps_one_way_cost_on_same_notional": 3181.8916649999996,
+        "cost_multiple_vs_flat_10bps": 11.635312339366582
+      },
+      {
+        "symbol": "TSHA",
+        "n_topup_attempts": 33,
+        "avg_fill_pct_per_attempt": 0.9120166186748879,
+        "total_topup_cost_dollars": 36792.06785502957,
+        "total_topup_notional": 5305774.29,
+        "flat_10bps_one_way_cost_on_same_notional": 2652.887145,
+        "cost_multiple_vs_flat_10bps": 13.868689410468521
+      },
+      {
+        "symbol": "ACET",
+        "n_topup_attempts": 19,
+        "avg_fill_pct_per_attempt": 0.9571635332060662,
+        "total_topup_cost_dollars": 36554.27397878161,
+        "total_topup_notional": 5376487.68,
+        "flat_10bps_one_way_cost_on_same_notional": 2688.24384,
+        "cost_multiple_vs_flat_10bps": 13.597826742823154
+      },
+      {
+        "symbol": "WRLD",
+        "n_topup_attempts": 12,
+        "avg_fill_pct_per_attempt": 0.7635080361460048,
+        "total_topup_cost_dollars": 35657.80983010769,
+        "total_topup_notional": 5106855.43,
+        "flat_10bps_one_way_cost_on_same_notional": 2553.427715,
+        "cost_multiple_vs_flat_10bps": 13.964683480420236
+      },
+      {
+        "symbol": "LNSR",
+        "n_topup_attempts": 54,
+        "avg_fill_pct_per_attempt": 0.35077115767759653,
+        "total_topup_cost_dollars": 35535.232088445984,
+        "total_topup_notional": 4762432.24,
+        "flat_10bps_one_way_cost_on_same_notional": 2381.21612,
+        "cost_multiple_vs_flat_10bps": 14.92314443446905
+      },
+      {
+        "symbol": "SMBC",
+        "n_topup_attempts": 51,
+        "avg_fill_pct_per_attempt": 0.21734593429600155,
+        "total_topup_cost_dollars": 35193.255010736946,
+        "total_topup_notional": 5406343.3228,
+        "flat_10bps_one_way_cost_on_same_notional": 2703.1716614,
+        "cost_multiple_vs_flat_10bps": 13.019245323291825
+      },
+      {
+        "symbol": "FSTR",
+        "n_topup_attempts": 58,
+        "avg_fill_pct_per_attempt": 0.139166552784273,
+        "total_topup_cost_dollars": 34922.249287436505,
+        "total_topup_notional": 4246189.423,
+        "flat_10bps_one_way_cost_on_same_notional": 2123.0947115000004,
+        "cost_multiple_vs_flat_10bps": 16.44874771637643
+      },
+      {
+        "symbol": "GLSI",
+        "n_topup_attempts": 39,
+        "avg_fill_pct_per_attempt": 0.3250288251424819,
+        "total_topup_cost_dollars": 34177.83748892508,
+        "total_topup_notional": 4093547.3776000002,
+        "flat_10bps_one_way_cost_on_same_notional": 2046.7736888000002,
+        "cost_multiple_vs_flat_10bps": 16.69839595649832
+      },
+      {
+        "symbol": "HWKN",
+        "n_topup_attempts": 29,
+        "avg_fill_pct_per_attempt": 0.634842567110187,
+        "total_topup_cost_dollars": 33880.59577850414,
+        "total_topup_notional": 5812861.299999999,
+        "flat_10bps_one_way_cost_on_same_notional": 2906.4306499999993,
+        "cost_multiple_vs_flat_10bps": 11.657114811428288
+      },
+      {
+        "symbol": "IMNM",
+        "n_topup_attempts": 48,
+        "avg_fill_pct_per_attempt": 0.6675370128328888,
+        "total_topup_cost_dollars": 33499.73401107304,
+        "total_topup_notional": 5246851.989,
+        "flat_10bps_one_way_cost_on_same_notional": 2623.4259945,
+        "cost_multiple_vs_flat_10bps": 12.769460271151186
+      },
+      {
+        "symbol": "POET",
+        "n_topup_attempts": 28,
+        "avg_fill_pct_per_attempt": 0.9645538481038788,
+        "total_topup_cost_dollars": 33331.00561525747,
+        "total_topup_notional": 4944005.87,
+        "flat_10bps_one_way_cost_on_same_notional": 2472.002935,
+        "cost_multiple_vs_flat_10bps": 13.483400502215613
+      },
+      {
+        "symbol": "ABEO",
+        "n_topup_attempts": 27,
+        "avg_fill_pct_per_attempt": 0.6999142300424294,
+        "total_topup_cost_dollars": 33285.42569546233,
+        "total_topup_notional": 4443567.99,
+        "flat_10bps_one_way_cost_on_same_notional": 2221.7839950000002,
+        "cost_multiple_vs_flat_10bps": 14.981395927943177
+      },
+      {
+        "symbol": "CCAP",
+        "n_topup_attempts": 51,
+        "avg_fill_pct_per_attempt": 0.32616528184962507,
+        "total_topup_cost_dollars": 32700.45976753241,
+        "total_topup_notional": 6096958.839999999,
+        "flat_10bps_one_way_cost_on_same_notional": 3048.4794199999997,
+        "cost_multiple_vs_flat_10bps": 10.72681007882035
+      },
+      {
+        "symbol": "THRY",
+        "n_topup_attempts": 11,
+        "avg_fill_pct_per_attempt": 0.7482962779552971,
+        "total_topup_cost_dollars": 32550.35377717488,
+        "total_topup_notional": 4718012.76,
+        "flat_10bps_one_way_cost_on_same_notional": 2359.00638,
+        "cost_multiple_vs_flat_10bps": 13.798332235614762
+      },
+      {
+        "symbol": "ADSE",
+        "n_topup_attempts": 66,
+        "avg_fill_pct_per_attempt": 0.3070902692882886,
+        "total_topup_cost_dollars": 31456.53709483013,
+        "total_topup_notional": 4029182.1215999997,
+        "flat_10bps_one_way_cost_on_same_notional": 2014.5910608,
+        "cost_multiple_vs_flat_10bps": 15.614353556368235
+      },
+      {
+        "symbol": "PESI",
+        "n_topup_attempts": 69,
+        "avg_fill_pct_per_attempt": 0.11278384843189357,
+        "total_topup_cost_dollars": 31153.12200807232,
+        "total_topup_notional": 3129150.0650000004,
+        "flat_10bps_one_way_cost_on_same_notional": 1564.5750325000001,
+        "cost_multiple_vs_flat_10bps": 19.911555125798877
+      },
+      {
+        "symbol": "APA",
+        "n_topup_attempts": 30,
+        "avg_fill_pct_per_attempt": 0.9991540059843743,
+        "total_topup_cost_dollars": 30881.900615245097,
+        "total_topup_notional": 11745910.905000001,
+        "flat_10bps_one_way_cost_on_same_notional": 5872.9554525,
+        "cost_multiple_vs_flat_10bps": 5.258323660891943
+      },
+      {
+        "symbol": "TYRA",
+        "n_topup_attempts": 55,
+        "avg_fill_pct_per_attempt": 0.29246374315417295,
+        "total_topup_cost_dollars": 29751.01135439383,
+        "total_topup_notional": 3649174.1046,
+        "flat_10bps_one_way_cost_on_same_notional": 1824.5870523,
+        "cost_multiple_vs_flat_10bps": 16.305613545207898
+      },
+      {
+        "symbol": "EOSE",
+        "n_topup_attempts": 49,
+        "avg_fill_pct_per_attempt": 0.9885413478435611,
+        "total_topup_cost_dollars": 29194.395272439047,
+        "total_topup_notional": 7323644.927,
+        "flat_10bps_one_way_cost_on_same_notional": 3661.8224635,
+        "cost_multiple_vs_flat_10bps": 7.972640826648599
+      },
+      {
+        "symbol": "ALHC",
+        "n_topup_attempts": 24,
+        "avg_fill_pct_per_attempt": 0.956734106011592,
+        "total_topup_cost_dollars": 28635.338147327155,
+        "total_topup_notional": 5552373.9,
+        "flat_10bps_one_way_cost_on_same_notional": 2776.1869500000003,
+        "cost_multiple_vs_flat_10bps": 10.314628900379764
+      },
+      {
+        "symbol": "FNKO",
+        "n_topup_attempts": 23,
+        "avg_fill_pct_per_attempt": 0.9971709782840309,
+        "total_topup_cost_dollars": 28390.123034621214,
+        "total_topup_notional": 4587997.080000001,
+        "flat_10bps_one_way_cost_on_same_notional": 2293.9985400000005,
+        "cost_multiple_vs_flat_10bps": 12.375824369365644
+      },
+      {
+        "symbol": "ATLX",
+        "n_topup_attempts": 26,
+        "avg_fill_pct_per_attempt": 0.2826917058634291,
+        "total_topup_cost_dollars": 26926.428721523396,
+        "total_topup_notional": 3267108.47,
+        "flat_10bps_one_way_cost_on_same_notional": 1633.554235,
+        "cost_multiple_vs_flat_10bps": 16.483339300652847
+      },
+      {
+        "symbol": "CPSH",
+        "n_topup_attempts": 42,
+        "avg_fill_pct_per_attempt": 0.14587666296435178,
+        "total_topup_cost_dollars": 26897.227630117646,
+        "total_topup_notional": 2896994.145,
+        "flat_10bps_one_way_cost_on_same_notional": 1448.4970725,
+        "cost_multiple_vs_flat_10bps": 18.56905902039208
+      },
+      {
+        "symbol": "CGNT",
+        "n_topup_attempts": 22,
+        "avg_fill_pct_per_attempt": 0.564046786341444,
+        "total_topup_cost_dollars": 26333.4644418266,
+        "total_topup_notional": 3337055.67,
+        "flat_10bps_one_way_cost_on_same_notional": 1668.527835,
+        "cost_multiple_vs_flat_10bps": 15.782454382504561
+      },
+      {
+        "symbol": "OPBK",
+        "n_topup_attempts": 71,
+        "avg_fill_pct_per_attempt": 0.04067266158538375,
+        "total_topup_cost_dollars": 26265.89957448521,
+        "total_topup_notional": 3138568.1562000006,
+        "flat_10bps_one_way_cost_on_same_notional": 1569.2840781000002,
+        "cost_multiple_vs_flat_10bps": 16.73750466281826
+      },
+      {
+        "symbol": "INSE",
+        "n_topup_attempts": 23,
+        "avg_fill_pct_per_attempt": 0.3276465689363379,
+        "total_topup_cost_dollars": 26049.399913576257,
+        "total_topup_notional": 3507100.9499999997,
+        "flat_10bps_one_way_cost_on_same_notional": 1753.550475,
+        "cost_multiple_vs_flat_10bps": 14.855232446945251
+      },
+      {
+        "symbol": "SKYE",
+        "n_topup_attempts": 31,
+        "avg_fill_pct_per_attempt": 0.11610323364754659,
+        "total_topup_cost_dollars": 26031.607210755818,
+        "total_topup_notional": 2776367.0362000004,
+        "flat_10bps_one_way_cost_on_same_notional": 1388.1835181000004,
+        "cost_multiple_vs_flat_10bps": 18.752280855765484
+      },
+      {
+        "symbol": "MCBS",
+        "n_topup_attempts": 50,
+        "avg_fill_pct_per_attempt": 0.059064871490785834,
+        "total_topup_cost_dollars": 25545.534745987163,
+        "total_topup_notional": 3048962.2600000002,
+        "flat_10bps_one_way_cost_on_same_notional": 1524.4811300000001,
+        "cost_multiple_vs_flat_10bps": 16.756871727226404
+      },
+      {
+        "symbol": "MVST",
+        "n_topup_attempts": 35,
+        "avg_fill_pct_per_attempt": 0.9752343445018604,
+        "total_topup_cost_dollars": 25134.883761903453,
+        "total_topup_notional": 4536837.17,
+        "flat_10bps_one_way_cost_on_same_notional": 2268.418585,
+        "cost_multiple_vs_flat_10bps": 11.080355243123462
+      },
+      {
+        "symbol": "MEOH",
+        "n_topup_attempts": 12,
+        "avg_fill_pct_per_attempt": 1.0068785398842406,
+        "total_topup_cost_dollars": 24920.645994080198,
+        "total_topup_notional": 4899708.48,
+        "flat_10bps_one_way_cost_on_same_notional": 2449.85424,
+        "cost_multiple_vs_flat_10bps": 10.172297431899539
+      },
+      {
+        "symbol": "GLRE",
+        "n_topup_attempts": 47,
+        "avg_fill_pct_per_attempt": 0.11887711149576237,
+        "total_topup_cost_dollars": 24371.280760132537,
+        "total_topup_notional": 3212324.0544,
+        "flat_10bps_one_way_cost_on_same_notional": 1606.1620272,
+        "cost_multiple_vs_flat_10bps": 15.173612840678754
+      },
+      {
+        "symbol": "VRCA",
+        "n_topup_attempts": 22,
+        "avg_fill_pct_per_attempt": 0.2782931971381531,
+        "total_topup_cost_dollars": 24340.755293995844,
+        "total_topup_notional": 2923960.6000000006,
+        "flat_10bps_one_way_cost_on_same_notional": 1461.9803000000004,
+        "cost_multiple_vs_flat_10bps": 16.649167771956872
+      },
+      {
+        "symbol": "SGMT",
+        "n_topup_attempts": 12,
+        "avg_fill_pct_per_attempt": 0.768602086527843,
+        "total_topup_cost_dollars": 24172.76982078269,
+        "total_topup_notional": 3011858.0499999993,
+        "flat_10bps_one_way_cost_on_same_notional": 1505.9290249999997,
+        "cost_multiple_vs_flat_10bps": 16.05173246513573
+      },
+      {
+        "symbol": "NXL",
+        "n_topup_attempts": 33,
+        "avg_fill_pct_per_attempt": 0.32576030416494567,
+        "total_topup_cost_dollars": 23624.219949542872,
+        "total_topup_notional": 2731157.0700000003,
+        "flat_10bps_one_way_cost_on_same_notional": 1365.578535,
+        "cost_multiple_vs_flat_10bps": 17.299788583410084
+      },
+      {
+        "symbol": "BLFS",
+        "n_topup_attempts": 18,
+        "avg_fill_pct_per_attempt": 0.9399062381893728,
+        "total_topup_cost_dollars": 23517.708086254574,
+        "total_topup_notional": 3216643.6899999995,
+        "flat_10bps_one_way_cost_on_same_notional": 1608.3218449999997,
+        "cost_multiple_vs_flat_10bps": 14.622513621491336
+      },
+      {
+        "symbol": "CVGI",
+        "n_topup_attempts": 24,
+        "avg_fill_pct_per_attempt": 0.34097994731714004,
+        "total_topup_cost_dollars": 23248.208894206524,
+        "total_topup_notional": 3280934.4400000004,
+        "flat_10bps_one_way_cost_on_same_notional": 1640.4672200000002,
+        "cost_multiple_vs_flat_10bps": 14.171699751614982
+      },
+      {
+        "symbol": "SHMD",
+        "n_topup_attempts": 15,
+        "avg_fill_pct_per_attempt": 0.8379679484200302,
+        "total_topup_cost_dollars": 23203.512070175242,
+        "total_topup_notional": 3093356.1000000006,
+        "flat_10bps_one_way_cost_on_same_notional": 1546.6780500000002,
+        "cost_multiple_vs_flat_10bps": 15.002160320420426
+      },
+      {
+        "symbol": "TLSA",
+        "n_topup_attempts": 54,
+        "avg_fill_pct_per_attempt": 0.1177718652675276,
+        "total_topup_cost_dollars": 22562.922343747694,
+        "total_topup_notional": 2136140.7430999996,
+        "flat_10bps_one_way_cost_on_same_notional": 1068.07037155,
+        "cost_multiple_vs_flat_10bps": 21.124939839875942
+      },
+      {
+        "symbol": "AOSL",
+        "n_topup_attempts": 18,
+        "avg_fill_pct_per_attempt": 0.9886545730202317,
+        "total_topup_cost_dollars": 22364.292639122505,
+        "total_topup_notional": 4115833.45,
+        "flat_10bps_one_way_cost_on_same_notional": 2057.916725,
+        "cost_multiple_vs_flat_10bps": 10.867442966683942
+      },
+      {
+        "symbol": "NMRA",
+        "n_topup_attempts": 15,
+        "avg_fill_pct_per_attempt": 0.5652836236478308,
+        "total_topup_cost_dollars": 21950.129035691367,
+        "total_topup_notional": 2689899.3738,
+        "flat_10bps_one_way_cost_on_same_notional": 1344.9496869000002,
+        "cost_multiple_vs_flat_10bps": 16.320409045400524
+      },
+      {
+        "symbol": "TMDX",
+        "n_topup_attempts": 31,
+        "avg_fill_pct_per_attempt": 1.0058347575915167,
+        "total_topup_cost_dollars": 21423.417985195778,
+        "total_topup_notional": 4902705.009999999,
+        "flat_10bps_one_way_cost_on_same_notional": 2451.3525049999994,
+        "cost_multiple_vs_flat_10bps": 8.739427700218
+      },
+      {
+        "symbol": "TGTX",
+        "n_topup_attempts": 41,
+        "avg_fill_pct_per_attempt": 0.999924013239419,
+        "total_topup_cost_dollars": 20897.847399730203,
+        "total_topup_notional": 5930766.619999999,
+        "flat_10bps_one_way_cost_on_same_notional": 2965.3833099999997,
+        "cost_multiple_vs_flat_10bps": 7.047266816825176
+      },
+      {
+        "symbol": "DXPE",
+        "n_topup_attempts": 18,
+        "avg_fill_pct_per_attempt": 0.8191111471372954,
+        "total_topup_cost_dollars": 20427.51350148749,
+        "total_topup_notional": 3403141.9,
+        "flat_10bps_one_way_cost_on_same_notional": 1701.57095,
+        "cost_multiple_vs_flat_10bps": 12.005090649606759
+      },
+      {
+        "symbol": "MSTR",
+        "n_topup_attempts": 61,
+        "avg_fill_pct_per_attempt": 0.9993663272385307,
+        "total_topup_cost_dollars": 19955.202127934743,
+        "total_topup_notional": 10881133.394000001,
+        "flat_10bps_one_way_cost_on_same_notional": 5440.566697000001,
+        "cost_multiple_vs_flat_10bps": 3.6678535967472468
+      },
+      {
+        "symbol": "BATRA",
+        "n_topup_attempts": 24,
+        "avg_fill_pct_per_attempt": 0.4354549054348138,
+        "total_topup_cost_dollars": 19691.073029876665,
+        "total_topup_notional": 3594063.5,
+        "flat_10bps_one_way_cost_on_same_notional": 1797.03175,
+        "cost_multiple_vs_flat_10bps": 10.95755432806163
+      },
+      {
+        "symbol": "PLBY",
+        "n_topup_attempts": 38,
+        "avg_fill_pct_per_attempt": 0.3795935167677735,
+        "total_topup_cost_dollars": 18955.658852792083,
+        "total_topup_notional": 2535055.1974,
+        "flat_10bps_one_way_cost_on_same_notional": 1267.5275987,
+        "cost_multiple_vs_flat_10bps": 14.954829285163779
+      },
+      {
+        "symbol": "TIGR",
+        "n_topup_attempts": 20,
+        "avg_fill_pct_per_attempt": 1.0089080304114104,
+        "total_topup_cost_dollars": 18760.374720848427,
+        "total_topup_notional": 3866082.8100000005,
+        "flat_10bps_one_way_cost_on_same_notional": 1933.0414050000004,
+        "cost_multiple_vs_flat_10bps": 9.705107543130161
+      },
+      {
+        "symbol": "RMBS",
+        "n_topup_attempts": 20,
+        "avg_fill_pct_per_attempt": 0.9909526611794959,
+        "total_topup_cost_dollars": 18736.361001969988,
+        "total_topup_notional": 4665924.197,
+        "flat_10bps_one_way_cost_on_same_notional": 2332.9620984999997,
+        "cost_multiple_vs_flat_10bps": 8.03114676145691
+      },
+      {
+        "symbol": "CLBT",
+        "n_topup_attempts": 29,
+        "avg_fill_pct_per_attempt": 0.8617120627841457,
+        "total_topup_cost_dollars": 18117.42268520374,
+        "total_topup_notional": 3389866.13,
+        "flat_10bps_one_way_cost_on_same_notional": 1694.933065,
+        "cost_multiple_vs_flat_10bps": 10.689167058761544
+      },
+      {
+        "symbol": "COIN",
+        "n_topup_attempts": 39,
+        "avg_fill_pct_per_attempt": 0.9975132080380384,
+        "total_topup_cost_dollars": 17854.92606847236,
+        "total_topup_notional": 8763355.054999998,
+        "flat_10bps_one_way_cost_on_same_notional": 4381.677527499999,
+        "cost_multiple_vs_flat_10bps": 4.074906461375224
+      },
+      {
+        "symbol": "OTTR",
+        "n_topup_attempts": 12,
+        "avg_fill_pct_per_attempt": 0.9764668602112018,
+        "total_topup_cost_dollars": 17646.400099501378,
+        "total_topup_notional": 3743396.44,
+        "flat_10bps_one_way_cost_on_same_notional": 1871.69822,
+        "cost_multiple_vs_flat_10bps": 9.428015644264159
+      },
+      {
+        "symbol": "DSGR",
+        "n_topup_attempts": 16,
+        "avg_fill_pct_per_attempt": 0.4110529551985615,
+        "total_topup_cost_dollars": 17002.028713945245,
+        "total_topup_notional": 2175200.4400000004,
+        "flat_10bps_one_way_cost_on_same_notional": 1087.6002200000003,
+        "cost_multiple_vs_flat_10bps": 15.632608748410552
+      },
+      {
+        "symbol": "LEXX",
+        "n_topup_attempts": 40,
+        "avg_fill_pct_per_attempt": 0.05314747524634735,
+        "total_topup_cost_dollars": 16754.837556138038,
+        "total_topup_notional": 1645681.8499999999,
+        "flat_10bps_one_way_cost_on_same_notional": 822.840925,
+        "cost_multiple_vs_flat_10bps": 20.362183074618024
+      },
+      {
+        "symbol": "RRGB",
+        "n_topup_attempts": 9,
+        "avg_fill_pct_per_attempt": 0.6274910483657669,
+        "total_topup_cost_dollars": 16694.005038605465,
+        "total_topup_notional": 2214777.82,
+        "flat_10bps_one_way_cost_on_same_notional": 1107.38891,
+        "cost_multiple_vs_flat_10bps": 15.075105852925208
+      },
+      {
+        "symbol": "LBTYA",
+        "n_topup_attempts": 8,
+        "avg_fill_pct_per_attempt": 0.9971419290835444,
+        "total_topup_cost_dollars": 16351.797478743163,
+        "total_topup_notional": 3079869.8899999997,
+        "flat_10bps_one_way_cost_on_same_notional": 1539.934945,
+        "cost_multiple_vs_flat_10bps": 10.618498873498298
+      },
+      {
+        "symbol": "OPTX",
+        "n_topup_attempts": 11,
+        "avg_fill_pct_per_attempt": 0.9675184351114804,
+        "total_topup_cost_dollars": 16110.554767177882,
+        "total_topup_notional": 2303382.63,
+        "flat_10bps_one_way_cost_on_same_notional": 1151.691315,
+        "cost_multiple_vs_flat_10bps": 13.988604895555612
+      },
+      {
+        "symbol": "HITI",
+        "n_topup_attempts": 20,
+        "avg_fill_pct_per_attempt": 0.12092236649302682,
+        "total_topup_cost_dollars": 16044.968051783317,
+        "total_topup_notional": 1716978.3,
+        "flat_10bps_one_way_cost_on_same_notional": 858.48915,
+        "cost_multiple_vs_flat_10bps": 18.68977383323169
+      },
+      {
+        "symbol": "LYEL",
+        "n_topup_attempts": 14,
+        "avg_fill_pct_per_attempt": 0.35316508235921784,
+        "total_topup_cost_dollars": 16034.903952007799,
+        "total_topup_notional": 1968711.62,
+        "flat_10bps_one_way_cost_on_same_notional": 984.3558100000001,
+        "cost_multiple_vs_flat_10bps": 16.28974379905148
+      },
+      {
+        "symbol": "FTCI",
+        "n_topup_attempts": 21,
+        "avg_fill_pct_per_attempt": 0.2388078470719416,
+        "total_topup_cost_dollars": 15911.557845334726,
+        "total_topup_notional": 1533688.2799999998,
+        "flat_10bps_one_way_cost_on_same_notional": 766.8441399999999,
+        "cost_multiple_vs_flat_10bps": 20.749402669145685
+      },
+      {
+        "symbol": "CRCT",
+        "n_topup_attempts": 12,
+        "avg_fill_pct_per_attempt": 0.5916925820952447,
+        "total_topup_cost_dollars": 15727.562977304025,
+        "total_topup_notional": 2120897.47,
+        "flat_10bps_one_way_cost_on_same_notional": 1060.4487350000002,
+        "cost_multiple_vs_flat_10bps": 14.831045064431166
+      },
+      {
+        "symbol": "CLDX",
+        "n_topup_attempts": 14,
+        "avg_fill_pct_per_attempt": 0.9966276744348221,
+        "total_topup_cost_dollars": 15710.52200818167,
+        "total_topup_notional": 3012404.5700000003,
+        "flat_10bps_one_way_cost_on_same_notional": 1506.202285,
+        "cost_multiple_vs_flat_10bps": 10.430552499249242
+      },
+      {
+        "symbol": "OSUR",
+        "n_topup_attempts": 12,
+        "avg_fill_pct_per_attempt": 0.6475879490681127,
+        "total_topup_cost_dollars": 15108.00938898125,
+        "total_topup_notional": 2206425.92,
+        "flat_10bps_one_way_cost_on_same_notional": 1103.21296,
+        "cost_multiple_vs_flat_10bps": 13.694553940864918
+      },
+      {
+        "symbol": "WAVE",
+        "n_topup_attempts": 28,
+        "avg_fill_pct_per_attempt": 0.227066361829301,
+        "total_topup_cost_dollars": 15045.355848376821,
+        "total_topup_notional": 1589906.2699999998,
+        "flat_10bps_one_way_cost_on_same_notional": 794.9531349999999,
+        "cost_multiple_vs_flat_10bps": 18.926091597056
+      },
+      {
+        "symbol": "APGE",
+        "n_topup_attempts": 13,
+        "avg_fill_pct_per_attempt": 0.9983043211092986,
+        "total_topup_cost_dollars": 14916.199637501199,
+        "total_topup_notional": 2527811.7799999993,
+        "flat_10bps_one_way_cost_on_same_notional": 1263.9058899999998,
+        "cost_multiple_vs_flat_10bps": 11.801669535301558
+      },
+      {
+        "symbol": "QTTB",
+        "n_topup_attempts": 13,
+        "avg_fill_pct_per_attempt": 0.3836546795843798,
+        "total_topup_cost_dollars": 14652.98744912591,
+        "total_topup_notional": 1826803.73,
+        "flat_10bps_one_way_cost_on_same_notional": 913.401865,
+        "cost_multiple_vs_flat_10bps": 16.042213192903773
+      },
+      {
+        "symbol": "CBNK",
+        "n_topup_attempts": 27,
+        "avg_fill_pct_per_attempt": 0.13136922576990692,
+        "total_topup_cost_dollars": 14536.264672128043,
+        "total_topup_notional": 2088059.6700000002,
+        "flat_10bps_one_way_cost_on_same_notional": 1044.029835,
+        "cost_multiple_vs_flat_10bps": 13.923227272645942
+      },
+      {
+        "symbol": "FBIO",
+        "n_topup_attempts": 12,
+        "avg_fill_pct_per_attempt": 0.7052375746619233,
+        "total_topup_cost_dollars": 14496.326909652118,
+        "total_topup_notional": 1743014.2199999997,
+        "flat_10bps_one_way_cost_on_same_notional": 871.5071099999999,
+        "cost_multiple_vs_flat_10bps": 16.63363011421917
+      },
+      {
+        "symbol": "MGRC",
+        "n_topup_attempts": 7,
+        "avg_fill_pct_per_attempt": 0.8680028391089011,
+        "total_topup_cost_dollars": 14432.798012308409,
+        "total_topup_notional": 2815461.13,
+        "flat_10bps_one_way_cost_on_same_notional": 1407.730565,
+        "cost_multiple_vs_flat_10bps": 10.252528694870248
+      },
+      {
+        "symbol": "ALNT",
+        "n_topup_attempts": 9,
+        "avg_fill_pct_per_attempt": 0.9923587120092243,
+        "total_topup_cost_dollars": 13176.395656657787,
+        "total_topup_notional": 2210503.93,
+        "flat_10bps_one_way_cost_on_same_notional": 1105.2519650000002,
+        "cost_multiple_vs_flat_10bps": 11.921621561340347
+      },
+      {
+        "symbol": "MVBF",
+        "n_topup_attempts": 23,
+        "avg_fill_pct_per_attempt": 0.06909201299447658,
+        "total_topup_cost_dollars": 12969.350266573303,
+        "total_topup_notional": 1758402.8996000001,
+        "flat_10bps_one_way_cost_on_same_notional": 879.2014498000001,
+        "cost_multiple_vs_flat_10bps": 14.751283985625317
+      },
+      {
+        "symbol": "SLDP",
+        "n_topup_attempts": 24,
+        "avg_fill_pct_per_attempt": 1.004319767762997,
+        "total_topup_cost_dollars": 12498.405717175978,
+        "total_topup_notional": 3303588.15,
+        "flat_10bps_one_way_cost_on_same_notional": 1651.794075,
+        "cost_multiple_vs_flat_10bps": 7.566564081043805
+      },
+      {
+        "symbol": "NXTT",
+        "n_topup_attempts": 9,
+        "avg_fill_pct_per_attempt": 0.26331806985143613,
+        "total_topup_cost_dollars": 11906.572480000003,
+        "total_topup_notional": 1476585.35,
+        "flat_10bps_one_way_cost_on_same_notional": 738.292675,
+        "cost_multiple_vs_flat_10bps": 16.127171355181062
+      },
+      {
+        "symbol": "FBYD",
+        "n_topup_attempts": 13,
+        "avg_fill_pct_per_attempt": 0.15649468245870965,
+        "total_topup_cost_dollars": 11880.227568,
+        "total_topup_notional": 1448808.2400000002,
+        "flat_10bps_one_way_cost_on_same_notional": 724.4041200000001,
+        "cost_multiple_vs_flat_10bps": 16.4
+      },
+      {
+        "symbol": "WRAP",
+        "n_topup_attempts": 14,
+        "avg_fill_pct_per_attempt": 0.33842274612498846,
+        "total_topup_cost_dollars": 11488.850958974948,
+        "total_topup_notional": 1339839.3199999998,
+        "flat_10bps_one_way_cost_on_same_notional": 669.9196599999999,
+        "cost_multiple_vs_flat_10bps": 17.149595160373334
+      },
+      {
+        "symbol": "CDLX",
+        "n_topup_attempts": 10,
+        "avg_fill_pct_per_attempt": 0.9937522806455974,
+        "total_topup_cost_dollars": 11456.120552972037,
+        "total_topup_notional": 1761974.0,
+        "flat_10bps_one_way_cost_on_same_notional": 880.987,
+        "cost_multiple_vs_flat_10bps": 13.00373394042368
+      },
+      {
+        "symbol": "RVMD",
+        "n_topup_attempts": 18,
+        "avg_fill_pct_per_attempt": 1.0244778578698939,
+        "total_topup_cost_dollars": 11087.471695423787,
+        "total_topup_notional": 2811321.4799999995,
+        "flat_10bps_one_way_cost_on_same_notional": 1405.6607399999998,
+        "cost_multiple_vs_flat_10bps": 7.887729506782546
+      },
+      {
+        "symbol": "PDD",
+        "n_topup_attempts": 20,
+        "avg_fill_pct_per_attempt": 0.9977587900993303,
+        "total_topup_cost_dollars": 11050.8385828912,
+        "total_topup_notional": 5193953.63,
+        "flat_10bps_one_way_cost_on_same_notional": 2596.976815,
+        "cost_multiple_vs_flat_10bps": 4.25527040482693
+      },
+      {
+        "symbol": "ISTR",
+        "n_topup_attempts": 37,
+        "avg_fill_pct_per_attempt": 0.04828794010351577,
+        "total_topup_cost_dollars": 10758.604686749812,
+        "total_topup_notional": 1341172.11,
+        "flat_10bps_one_way_cost_on_same_notional": 670.5860550000001,
+        "cost_multiple_vs_flat_10bps": 16.043585467565098
+      },
+      {
+        "symbol": "ACMR",
+        "n_topup_attempts": 12,
+        "avg_fill_pct_per_attempt": 1.002140155326553,
+        "total_topup_cost_dollars": 10632.127346657779,
+        "total_topup_notional": 2598720.75,
+        "flat_10bps_one_way_cost_on_same_notional": 1299.360375,
+        "cost_multiple_vs_flat_10bps": 8.182585486846001
+      },
+      {
+        "symbol": "JBSS",
+        "n_topup_attempts": 5,
+        "avg_fill_pct_per_attempt": 0.8799039053427489,
+        "total_topup_cost_dollars": 10352.109360433291,
+        "total_topup_notional": 1931223.5899999999,
+        "flat_10bps_one_way_cost_on_same_notional": 965.6117949999999,
+        "cost_multiple_vs_flat_10bps": 10.720777660377783
+      },
+      {
+        "symbol": "MLGO",
+        "n_topup_attempts": 9,
+        "avg_fill_pct_per_attempt": 0.6567288780412741,
+        "total_topup_cost_dollars": 10262.178677447147,
+        "total_topup_notional": 1265995.2,
+        "flat_10bps_one_way_cost_on_same_notional": 632.9976,
+        "cost_multiple_vs_flat_10bps": 16.212034101625576
+      },
+      {
+        "symbol": "LEGH",
+        "n_topup_attempts": 16,
+        "avg_fill_pct_per_attempt": 0.12979010962816398,
+        "total_topup_cost_dollars": 10136.690441502504,
+        "total_topup_notional": 1568947.67,
+        "flat_10bps_one_way_cost_on_same_notional": 784.473835,
+        "cost_multiple_vs_flat_10bps": 12.921642493662652
+      },
+      {
+        "symbol": "LIVE",
+        "n_topup_attempts": 26,
+        "avg_fill_pct_per_attempt": 0.030405178448798316,
+        "total_topup_cost_dollars": 10019.074468492276,
+        "total_topup_notional": 951124.2768999999,
+        "flat_10bps_one_way_cost_on_same_notional": 475.56213844999996,
+        "cost_multiple_vs_flat_10bps": 21.06785561429985
+      },
+      {
+        "symbol": "LNKS",
+        "n_topup_attempts": 11,
+        "avg_fill_pct_per_attempt": 0.6119000513320799,
+        "total_topup_cost_dollars": 9394.911353200001,
+        "total_topup_notional": 1062217.851,
+        "flat_10bps_one_way_cost_on_same_notional": 531.1089255,
+        "cost_multiple_vs_flat_10bps": 17.689236429900667
+      },
+      {
+        "symbol": "FUND",
+        "n_topup_attempts": 37,
+        "avg_fill_pct_per_attempt": 0.027698513041971098,
+        "total_topup_cost_dollars": 9379.277614345554,
+        "total_topup_notional": 1194989.4027,
+        "flat_10bps_one_way_cost_on_same_notional": 597.49470135,
+        "cost_multiple_vs_flat_10bps": 15.697674963733892
+      },
+      {
+        "symbol": "SPT",
+        "n_topup_attempts": 4,
+        "avg_fill_pct_per_attempt": 0.9840767632709083,
+        "total_topup_cost_dollars": 9296.17114386839,
+        "total_topup_notional": 1828142.64,
+        "flat_10bps_one_way_cost_on_same_notional": 914.07132,
+        "cost_multiple_vs_flat_10bps": 10.170072006928727
+      },
+      {
+        "symbol": "COSM",
+        "n_topup_attempts": 33,
+        "avg_fill_pct_per_attempt": 0.02196389504213181,
+        "total_topup_cost_dollars": 9184.999410968609,
+        "total_topup_notional": 873723.9824999999,
+        "flat_10bps_one_way_cost_on_same_notional": 436.86199124999996,
+        "cost_multiple_vs_flat_10bps": 21.024945165605796
+      },
+      {
+        "symbol": "ERIE",
+        "n_topup_attempts": 7,
+        "avg_fill_pct_per_attempt": 1.001537172276617,
+        "total_topup_cost_dollars": 8976.491750407813,
+        "total_topup_notional": 1723224.04,
+        "flat_10bps_one_way_cost_on_same_notional": 861.61202,
+        "cost_multiple_vs_flat_10bps": 10.41825269615878
+      },
+      {
+        "symbol": "MBX",
+        "n_topup_attempts": 12,
+        "avg_fill_pct_per_attempt": 0.9907904112380056,
+        "total_topup_cost_dollars": 8904.59988772925,
+        "total_topup_notional": 1748133.1099999999,
+        "flat_10bps_one_way_cost_on_same_notional": 874.066555,
+        "cost_multiple_vs_flat_10bps": 10.187553609952792
+      },
+      {
+        "symbol": "HCM",
+        "n_topup_attempts": 6,
+        "avg_fill_pct_per_attempt": 0.514675814578318,
+        "total_topup_cost_dollars": 8871.86371456341,
+        "total_topup_notional": 1106194.52,
+        "flat_10bps_one_way_cost_on_same_notional": 553.09726,
+        "cost_multiple_vs_flat_10bps": 16.040332064858557
+      },
+      {
+        "symbol": "CARG",
+        "n_topup_attempts": 10,
+        "avg_fill_pct_per_attempt": 0.9862434626851806,
+        "total_topup_cost_dollars": 8825.491465627054,
+        "total_topup_notional": 1781721.12,
+        "flat_10bps_one_way_cost_on_same_notional": 890.8605600000001,
+        "cost_multiple_vs_flat_10bps": 9.906703542501706
+      },
+      {
+        "symbol": "NXST",
+        "n_topup_attempts": 6,
+        "avg_fill_pct_per_attempt": 1.0029377714932788,
+        "total_topup_cost_dollars": 8694.934493537872,
+        "total_topup_notional": 2779092.5300000003,
+        "flat_10bps_one_way_cost_on_same_notional": 1389.5462650000002,
+        "cost_multiple_vs_flat_10bps": 6.257391144538732
+      },
+      {
+        "symbol": "ATRA",
+        "n_topup_attempts": 13,
+        "avg_fill_pct_per_attempt": 0.09922927553225204,
+        "total_topup_cost_dollars": 8687.263410891499,
+        "total_topup_notional": 828697.2999999999,
+        "flat_10bps_one_way_cost_on_same_notional": 414.34864999999996,
+        "cost_multiple_vs_flat_10bps": 20.966071473604416
+      },
+      {
+        "symbol": "HIVE",
+        "n_topup_attempts": 7,
+        "avg_fill_pct_per_attempt": 0.9886283988973471,
+        "total_topup_cost_dollars": 7986.988446121737,
+        "total_topup_notional": 1437165.6199999996,
+        "flat_10bps_one_way_cost_on_same_notional": 718.5828099999999,
+        "cost_multiple_vs_flat_10bps": 11.114917216182416
+      },
+      {
+        "symbol": "RXT",
+        "n_topup_attempts": 8,
+        "avg_fill_pct_per_attempt": 0.5604023016685686,
+        "total_topup_cost_dollars": 7837.534069203403,
+        "total_topup_notional": 969216.72,
+        "flat_10bps_one_way_cost_on_same_notional": 484.60836,
+        "cost_multiple_vs_flat_10bps": 16.17292377953076
+      },
+      {
+        "symbol": "TWST",
+        "n_topup_attempts": 15,
+        "avg_fill_pct_per_attempt": 0.9984627196784405,
+        "total_topup_cost_dollars": 7817.371432568638,
+        "total_topup_notional": 1739204.35,
+        "flat_10bps_one_way_cost_on_same_notional": 869.6021750000001,
+        "cost_multiple_vs_flat_10bps": 8.989595078426106
+      },
+      {
+        "symbol": "SCWO",
+        "n_topup_attempts": 18,
+        "avg_fill_pct_per_attempt": 0.04914257696255639,
+        "total_topup_cost_dollars": 7780.572994866836,
+        "total_topup_notional": 727255.4,
+        "flat_10bps_one_way_cost_on_same_notional": 363.6277,
+        "cost_multiple_vs_flat_10bps": 21.397085521446346
+      },
+      {
+        "symbol": "BFRG",
+        "n_topup_attempts": 7,
+        "avg_fill_pct_per_attempt": 0.23068875465256758,
+        "total_topup_cost_dollars": 7754.911824226286,
+        "total_topup_notional": 950070.8,
+        "flat_10bps_one_way_cost_on_same_notional": 475.03540000000004,
+        "cost_multiple_vs_flat_10bps": 16.32491352060559
+      },
+      {
+        "symbol": "DKNG",
+        "n_topup_attempts": 14,
+        "avg_fill_pct_per_attempt": 1.0003331499180246,
+        "total_topup_cost_dollars": 7673.635220943207,
+        "total_topup_notional": 3373849.8099999996,
+        "flat_10bps_one_way_cost_on_same_notional": 1686.9249049999999,
+        "cost_multiple_vs_flat_10bps": 4.548889638299109
+      },
+      {
+        "symbol": "FWRG",
+        "n_topup_attempts": 6,
+        "avg_fill_pct_per_attempt": 0.4858457947893335,
+        "total_topup_cost_dollars": 7435.58080829152,
+        "total_topup_notional": 1178969.75,
+        "flat_10bps_one_way_cost_on_same_notional": 589.484875,
+        "cost_multiple_vs_flat_10bps": 12.613692265287588
+      },
+      {
+        "symbol": "PATK",
+        "n_topup_attempts": 8,
+        "avg_fill_pct_per_attempt": 0.9952810235304322,
+        "total_topup_cost_dollars": 7287.227628949546,
+        "total_topup_notional": 1578783.8292999999,
+        "flat_10bps_one_way_cost_on_same_notional": 789.39191465,
+        "cost_multiple_vs_flat_10bps": 9.231444474802547
+      },
+      {
+        "symbol": "VSME",
+        "n_topup_attempts": 5,
+        "avg_fill_pct_per_attempt": 0.6006349818165453,
+        "total_topup_cost_dollars": 7136.8760680000005,
+        "total_topup_notional": 870350.74,
+        "flat_10bps_one_way_cost_on_same_notional": 435.17537,
+        "cost_multiple_vs_flat_10bps": 16.400000000000002
+      },
+      {
+        "symbol": "YTRA",
+        "n_topup_attempts": 44,
+        "avg_fill_pct_per_attempt": 0.012681140585017714,
+        "total_topup_cost_dollars": 7001.0285264761,
+        "total_topup_notional": 675801.0961,
+        "flat_10bps_one_way_cost_on_same_notional": 337.90054805,
+        "cost_multiple_vs_flat_10bps": 20.719198494582315
+      },
+      {
+        "symbol": "BODI",
+        "n_topup_attempts": 11,
+        "avg_fill_pct_per_attempt": 0.0860093002722143,
+        "total_topup_cost_dollars": 6855.381132504186,
+        "total_topup_notional": 771627.83,
+        "flat_10bps_one_way_cost_on_same_notional": 385.813915,
+        "cost_multiple_vs_flat_10bps": 17.768620741696644
+      },
+      {
+        "symbol": "SELF",
+        "n_topup_attempts": 36,
+        "avg_fill_pct_per_attempt": 0.01645347438823818,
+        "total_topup_cost_dollars": 6834.297706026174,
+        "total_topup_notional": 734830.6523,
+        "flat_10bps_one_way_cost_on_same_notional": 367.41532615,
+        "cost_multiple_vs_flat_10bps": 18.601014219085737
+      },
+      {
+        "symbol": "ENPH",
+        "n_topup_attempts": 15,
+        "avg_fill_pct_per_attempt": 1.0013561099016344,
+        "total_topup_cost_dollars": 6803.057213315093,
+        "total_topup_notional": 3348925.1199999996,
+        "flat_10bps_one_way_cost_on_same_notional": 1674.46256,
+        "cost_multiple_vs_flat_10bps": 4.06283029303151
+      },
+      {
+        "symbol": "ALTO",
+        "n_topup_attempts": 5,
+        "avg_fill_pct_per_attempt": 1.004886510435776,
+        "total_topup_cost_dollars": 6797.3570740296345,
+        "total_topup_notional": 1026209.72,
+        "flat_10bps_one_way_cost_on_same_notional": 513.10486,
+        "cost_multiple_vs_flat_10bps": 13.247500859823534
+      },
+      {
+        "symbol": "OESX",
+        "n_topup_attempts": 10,
+        "avg_fill_pct_per_attempt": 0.07915656935730311,
+        "total_topup_cost_dollars": 6736.243279000001,
+        "total_topup_notional": 691163.97,
+        "flat_10bps_one_way_cost_on_same_notional": 345.581985,
+        "cost_multiple_vs_flat_10bps": 19.492460751390155
+      },
+      {
+        "symbol": "LCUT",
+        "n_topup_attempts": 11,
+        "avg_fill_pct_per_attempt": 0.0588479054498065,
+        "total_topup_cost_dollars": 6593.643337404662,
+        "total_topup_notional": 628268.8968,
+        "flat_10bps_one_way_cost_on_same_notional": 314.1344484,
+        "cost_multiple_vs_flat_10bps": 20.989876694480547
+      },
+      {
+        "symbol": "CHRW",
+        "n_topup_attempts": 4,
+        "avg_fill_pct_per_attempt": 0.9961644619004069,
+        "total_topup_cost_dollars": 6333.124753572079,
+        "total_topup_notional": 1461599.82,
+        "flat_10bps_one_way_cost_on_same_notional": 730.7999100000001,
+        "cost_multiple_vs_flat_10bps": 8.666017424074502
+      },
+      {
+        "symbol": "Z",
+        "n_topup_attempts": 6,
+        "avg_fill_pct_per_attempt": 0.9938800557471711,
+        "total_topup_cost_dollars": 6309.757917152667,
+        "total_topup_notional": 1075602.6199999999,
+        "flat_10bps_one_way_cost_on_same_notional": 537.80131,
+        "cost_multiple_vs_flat_10bps": 11.732507526158066
+      },
+      {
+        "symbol": "SYNA",
+        "n_topup_attempts": 7,
+        "avg_fill_pct_per_attempt": 0.9927885022043114,
+        "total_topup_cost_dollars": 6300.630315733932,
+        "total_topup_notional": 1845716.94,
+        "flat_10bps_one_way_cost_on_same_notional": 922.85847,
+        "cost_multiple_vs_flat_10bps": 6.827298573457241
+      },
+      {
+        "symbol": "IQ",
+        "n_topup_attempts": 14,
+        "avg_fill_pct_per_attempt": 0.9982801999661749,
+        "total_topup_cost_dollars": 6025.44592591518,
+        "total_topup_notional": 1868481.0799999998,
+        "flat_10bps_one_way_cost_on_same_notional": 934.2405399999999,
+        "cost_multiple_vs_flat_10bps": 6.449565896503678
+      },
+      {
+        "symbol": "SERV",
+        "n_topup_attempts": 10,
+        "avg_fill_pct_per_attempt": 1.0035096878820864,
+        "total_topup_cost_dollars": 5778.423363751732,
+        "total_topup_notional": 1420143.78,
+        "flat_10bps_one_way_cost_on_same_notional": 710.07189,
+        "cost_multiple_vs_flat_10bps": 8.13780047503603
+      },
+      {
+        "symbol": "SNFCA",
+        "n_topup_attempts": 19,
+        "avg_fill_pct_per_attempt": 0.05779963653421655,
+        "total_topup_cost_dollars": 5602.446536088938,
+        "total_topup_notional": 607267.9918999999,
+        "flat_10bps_one_way_cost_on_same_notional": 303.63399595,
+        "cost_multiple_vs_flat_10bps": 18.451315105741664
+      },
+      {
+        "symbol": "PANW",
+        "n_topup_attempts": 13,
+        "avg_fill_pct_per_attempt": 1.0044450458217622,
+        "total_topup_cost_dollars": 5595.787157507414,
+        "total_topup_notional": 3032924.0544,
+        "flat_10bps_one_way_cost_on_same_notional": 1516.4620272,
+        "cost_multiple_vs_flat_10bps": 3.6900278787985825
+      },
+      {
+        "symbol": "WDC",
+        "n_topup_attempts": 12,
+        "avg_fill_pct_per_attempt": 1.002197655505474,
+        "total_topup_cost_dollars": 5471.15991363956,
+        "total_topup_notional": 2400006.4799999995,
+        "flat_10bps_one_way_cost_on_same_notional": 1200.0032399999998,
+        "cost_multiple_vs_flat_10bps": 4.559287617956399
+      },
+      {
+        "symbol": "OBT",
+        "n_topup_attempts": 41,
+        "avg_fill_pct_per_attempt": 0.016617171145780638,
+        "total_topup_cost_dollars": 5406.7209280010175,
+        "total_topup_notional": 772714.0687999999,
+        "flat_10bps_one_way_cost_on_same_notional": 386.3570344,
+        "cost_multiple_vs_flat_10bps": 13.994105054661373
+      },
+      {
+        "symbol": "PDLB",
+        "n_topup_attempts": 12,
+        "avg_fill_pct_per_attempt": 0.12258867565921909,
+        "total_topup_cost_dollars": 5285.549390311612,
+        "total_topup_notional": 1118808.0987,
+        "flat_10bps_one_way_cost_on_same_notional": 559.40404935,
+        "cost_multiple_vs_flat_10bps": 9.448536163535392
+      },
+      {
+        "symbol": "INCR",
+        "n_topup_attempts": 21,
+        "avg_fill_pct_per_attempt": 0.015324544387661822,
+        "total_topup_cost_dollars": 4844.839531781602,
+        "total_topup_notional": 465278.1,
+        "flat_10bps_one_way_cost_on_same_notional": 232.63905,
+        "cost_multiple_vs_flat_10bps": 20.825564460401647
+      },
+      {
+        "symbol": "ICMB",
+        "n_topup_attempts": 57,
+        "avg_fill_pct_per_attempt": 0.006963751567142581,
+        "total_topup_cost_dollars": 4783.750543467828,
+        "total_topup_notional": 537359.6272000001,
+        "flat_10bps_one_way_cost_on_same_notional": 268.67981360000005,
+        "cost_multiple_vs_flat_10bps": 17.80465186189867
+      },
+      {
+        "symbol": "ARCC",
+        "n_topup_attempts": 4,
+        "avg_fill_pct_per_attempt": 1.001981975830508,
+        "total_topup_cost_dollars": 4778.940191771315,
+        "total_topup_notional": 1445570.78,
+        "flat_10bps_one_way_cost_on_same_notional": 722.78539,
+        "cost_multiple_vs_flat_10bps": 6.611838393373329
+      },
+      {
+        "symbol": "FNLC",
+        "n_topup_attempts": 18,
+        "avg_fill_pct_per_attempt": 0.028570591645074226,
+        "total_topup_cost_dollars": 4472.560090367943,
+        "total_topup_notional": 628928.6421999999,
+        "flat_10bps_one_way_cost_on_same_notional": 314.46432109999995,
+        "cost_multiple_vs_flat_10bps": 14.222790282607816
+      },
+      {
+        "symbol": "CALC",
+        "n_topup_attempts": 12,
+        "avg_fill_pct_per_attempt": 0.04833851550348774,
+        "total_topup_cost_dollars": 4269.931601534046,
+        "total_topup_notional": 405774.12039999996,
+        "flat_10bps_one_way_cost_on_same_notional": 202.88706019999998,
+        "cost_multiple_vs_flat_10bps": 21.045854759415786
+      },
+      {
+        "symbol": "LUNR",
+        "n_topup_attempts": 24,
+        "avg_fill_pct_per_attempt": 1.0022079188021233,
+        "total_topup_cost_dollars": 4202.758552625758,
+        "total_topup_notional": 1769127.635,
+        "flat_10bps_one_way_cost_on_same_notional": 884.5638175,
+        "cost_multiple_vs_flat_10bps": 4.7512214149837275
+      },
+      {
+        "symbol": "XBIT",
+        "n_topup_attempts": 9,
+        "avg_fill_pct_per_attempt": 0.046701604234708705,
+        "total_topup_cost_dollars": 4113.403051088649,
+        "total_topup_notional": 397696.18999999994,
+        "flat_10bps_one_way_cost_on_same_notional": 198.84809499999997,
+        "cost_multiple_vs_flat_10bps": 20.686157697858
+      },
+      {
+        "symbol": "KROS",
+        "n_topup_attempts": 6,
+        "avg_fill_pct_per_attempt": 0.9354862806314972,
+        "total_topup_cost_dollars": 3926.034337092682,
+        "total_topup_notional": 842163.4650000001,
+        "flat_10bps_one_way_cost_on_same_notional": 421.08173250000004,
+        "cost_multiple_vs_flat_10bps": 9.323687146871615
+      },
+      {
+        "symbol": "CRWD",
+        "n_topup_attempts": 12,
+        "avg_fill_pct_per_attempt": 1.0187068724370987,
+        "total_topup_cost_dollars": 3861.3578607706972,
+        "total_topup_notional": 1933595.8216000001,
+        "flat_10bps_one_way_cost_on_same_notional": 966.7979108000001,
+        "cost_multiple_vs_flat_10bps": 3.993965871911664
+      },
+      {
+        "symbol": "RVSB",
+        "n_topup_attempts": 7,
+        "avg_fill_pct_per_attempt": 0.09829104458486206,
+        "total_topup_cost_dollars": 3726.3164844787552,
+        "total_topup_notional": 464336.12000000005,
+        "flat_10bps_one_way_cost_on_same_notional": 232.16806000000003,
+        "cost_multiple_vs_flat_10bps": 16.05008236050538
+      },
+      {
+        "symbol": "SILC",
+        "n_topup_attempts": 3,
+        "avg_fill_pct_per_attempt": 1.0082675991135468,
+        "total_topup_cost_dollars": 3647.556839250083,
+        "total_topup_notional": 541736.56,
+        "flat_10bps_one_way_cost_on_same_notional": 270.86828,
+        "cost_multiple_vs_flat_10bps": 13.46616458468331
+      },
+      {
+        "symbol": "NHTC",
+        "n_topup_attempts": 41,
+        "avg_fill_pct_per_attempt": 0.006866018975515994,
+        "total_topup_cost_dollars": 3165.5844913061414,
+        "total_topup_notional": 383112.6198,
+        "flat_10bps_one_way_cost_on_same_notional": 191.5563099,
+        "cost_multiple_vs_flat_10bps": 16.525608020736577
+      },
+      {
+        "symbol": "MRKR",
+        "n_topup_attempts": 10,
+        "avg_fill_pct_per_attempt": 0.026802075177332647,
+        "total_topup_cost_dollars": 2623.9614387000006,
+        "total_topup_notional": 245230.041,
+        "flat_10bps_one_way_cost_on_same_notional": 122.6150205,
+        "cost_multiple_vs_flat_10bps": 21.400000000000006
+      },
+      {
+        "symbol": "AUID",
+        "n_topup_attempts": 17,
+        "avg_fill_pct_per_attempt": 0.015271986450464667,
+        "total_topup_cost_dollars": 2531.8627107200005,
+        "total_topup_notional": 243113.09960000002,
+        "flat_10bps_one_way_cost_on_same_notional": 121.55654980000001,
+        "cost_multiple_vs_flat_10bps": 20.828681917064415
+      },
+      {
+        "symbol": "SNDK",
+        "n_topup_attempts": 6,
+        "avg_fill_pct_per_attempt": 1.0017411614691438,
+        "total_topup_cost_dollars": 2531.5484797643926,
+        "total_topup_notional": 1235939.555,
+        "flat_10bps_one_way_cost_on_same_notional": 617.9697775,
+        "cost_multiple_vs_flat_10bps": 4.0965571002610925
+      },
+      {
+        "symbol": "SOBR",
+        "n_topup_attempts": 18,
+        "avg_fill_pct_per_attempt": 0.011228869621794178,
+        "total_topup_cost_dollars": 2200.7627730614927,
+        "total_topup_notional": 215200.04,
+        "flat_10bps_one_way_cost_on_same_notional": 107.60002,
+        "cost_multiple_vs_flat_10bps": 20.453181821541413
+      },
+      {
+        "symbol": "PSHG",
+        "n_topup_attempts": 13,
+        "avg_fill_pct_per_attempt": 0.015064621185711925,
+        "total_topup_cost_dollars": 1946.508975693298,
+        "total_topup_notional": 199714.09050000002,
+        "flat_10bps_one_way_cost_on_same_notional": 99.85704525000001,
+        "cost_multiple_vs_flat_10bps": 19.492955863254902
+      },
+      {
+        "symbol": "ZS",
+        "n_topup_attempts": 10,
+        "avg_fill_pct_per_attempt": 0.9999674286184256,
+        "total_topup_cost_dollars": 1580.3817331699922,
+        "total_topup_notional": 589455.8400000001,
+        "flat_10bps_one_way_cost_on_same_notional": 294.72792000000004,
+        "cost_multiple_vs_flat_10bps": 5.362171772426556
+      },
+      {
+        "symbol": "IDAI",
+        "n_topup_attempts": 15,
+        "avg_fill_pct_per_attempt": 0.007129456511227781,
+        "total_topup_cost_dollars": 1504.070268420731,
+        "total_topup_notional": 140638.695,
+        "flat_10bps_one_way_cost_on_same_notional": 70.3193475,
+        "cost_multiple_vs_flat_10bps": 21.38913857840804
+      },
+      {
+        "symbol": "CEG",
+        "n_topup_attempts": 16,
+        "avg_fill_pct_per_attempt": 1.0024774356816097,
+        "total_topup_cost_dollars": 1451.2723159624431,
+        "total_topup_notional": 779004.682,
+        "flat_10bps_one_way_cost_on_same_notional": 389.502341,
+        "cost_multiple_vs_flat_10bps": 3.725965580172067
+      },
+      {
+        "symbol": "NSPR",
+        "n_topup_attempts": 19,
+        "avg_fill_pct_per_attempt": 0.007730937876497838,
+        "total_topup_cost_dollars": 1382.6579052205302,
+        "total_topup_notional": 130389.5455,
+        "flat_10bps_one_way_cost_on_same_notional": 65.19477275,
+        "cost_multiple_vs_flat_10bps": 21.208109897438522
+      },
+      {
+        "symbol": "LCNB",
+        "n_topup_attempts": 3,
+        "avg_fill_pct_per_attempt": 0.04257922958049698,
+        "total_topup_cost_dollars": 1303.6589060336628,
+        "total_topup_notional": 177676.99,
+        "flat_10bps_one_way_cost_on_same_notional": 88.838495,
+        "cost_multiple_vs_flat_10bps": 14.674482115367475
+      },
+      {
+        "symbol": "VRNS",
+        "n_topup_attempts": 6,
+        "avg_fill_pct_per_attempt": 1.0018678820379792,
+        "total_topup_cost_dollars": 1067.0558320695716,
+        "total_topup_notional": 305629.43,
+        "flat_10bps_one_way_cost_on_same_notional": 152.814715,
+        "cost_multiple_vs_flat_10bps": 6.982677238049828
+      },
+      {
+        "symbol": "FSBC",
+        "n_topup_attempts": 3,
+        "avg_fill_pct_per_attempt": 0.027935540859267746,
+        "total_topup_cost_dollars": 880.3208012259372,
+        "total_topup_notional": 107069.39,
+        "flat_10bps_one_way_cost_on_same_notional": 53.534695,
+        "cost_multiple_vs_flat_10bps": 16.44393044970065
+      },
+      {
+        "symbol": "URBN",
+        "n_topup_attempts": 8,
+        "avg_fill_pct_per_attempt": 1.0040143145202953,
+        "total_topup_cost_dollars": 738.7188684086932,
+        "total_topup_notional": 412597.25999999995,
+        "flat_10bps_one_way_cost_on_same_notional": 206.29862999999997,
+        "cost_multiple_vs_flat_10bps": 3.580822947824197
+      },
+      {
+        "symbol": "FCNCA",
+        "n_topup_attempts": 7,
+        "avg_fill_pct_per_attempt": 1.0007494695219894,
+        "total_topup_cost_dollars": 706.5510623703744,
+        "total_topup_notional": 337307.24999999994,
+        "flat_10bps_one_way_cost_on_same_notional": 168.65362499999998,
+        "cost_multiple_vs_flat_10bps": 4.189361849591875
+      },
+      {
+        "symbol": "RILYG",
+        "n_topup_attempts": 4,
+        "avg_fill_pct_per_attempt": 0.03400312186944544,
+        "total_topup_cost_dollars": 615.871600146775,
+        "total_topup_notional": 134280.165,
+        "flat_10bps_one_way_cost_on_same_notional": 67.1400825,
+        "cost_multiple_vs_flat_10bps": 9.17293481351881
+      },
+      {
+        "symbol": "WBD",
+        "n_topup_attempts": 7,
+        "avg_fill_pct_per_attempt": 0.9998627623650508,
+        "total_topup_cost_dollars": 584.4466965064745,
+        "total_topup_notional": 378292.635,
+        "flat_10bps_one_way_cost_on_same_notional": 189.1463175,
+        "cost_multiple_vs_flat_10bps": 3.0899184516583276
+      },
+      {
+        "symbol": "NCNA",
+        "n_topup_attempts": 8,
+        "avg_fill_pct_per_attempt": 0.005970993681087574,
+        "total_topup_cost_dollars": 569.8392,
+        "total_topup_notional": 53256.0,
+        "flat_10bps_one_way_cost_on_same_notional": 26.628,
+        "cost_multiple_vs_flat_10bps": 21.4
+      },
+      {
+        "symbol": "DXR",
+        "n_topup_attempts": 12,
+        "avg_fill_pct_per_attempt": 0.003214346760602366,
+        "total_topup_cost_dollars": 478.162992623976,
+        "total_topup_notional": 50191.92279999999,
+        "flat_10bps_one_way_cost_on_same_notional": 25.095961399999997,
+        "cost_multiple_vs_flat_10bps": 19.053384128331345
+      },
+      {
+        "symbol": "SABR",
+        "n_topup_attempts": 3,
+        "avg_fill_pct_per_attempt": 0.9934365424931464,
+        "total_topup_cost_dollars": 429.2819798546892,
+        "total_topup_notional": 149267.9,
+        "flat_10bps_one_way_cost_on_same_notional": 74.63395,
+        "cost_multiple_vs_flat_10bps": 5.751832508592795
+      },
+      {
+        "symbol": "MKSI",
+        "n_topup_attempts": 3,
+        "avg_fill_pct_per_attempt": 1.0232136776948808,
+        "total_topup_cost_dollars": 392.18792020377606,
+        "total_topup_notional": 157133.69,
+        "flat_10bps_one_way_cost_on_same_notional": 78.566845,
+        "cost_multiple_vs_flat_10bps": 4.991773822708244
+      },
+      {
+        "symbol": "LKQ",
+        "n_topup_attempts": 3,
+        "avg_fill_pct_per_attempt": 1.0092974536215957,
+        "total_topup_cost_dollars": 390.75739776180046,
+        "total_topup_notional": 195132.11000000002,
+        "flat_10bps_one_way_cost_on_same_notional": 97.566055,
+        "cost_multiple_vs_flat_10bps": 4.005054808886149
+      },
+      {
+        "symbol": "ACGL",
+        "n_topup_attempts": 3,
+        "avg_fill_pct_per_attempt": 0.9959937212236696,
+        "total_topup_cost_dollars": 345.10073851585446,
+        "total_topup_notional": 160623.86,
+        "flat_10bps_one_way_cost_on_same_notional": 80.31192999999999,
+        "cost_multiple_vs_flat_10bps": 4.297004673102172
+      },
+      {
+        "symbol": "AEHL",
+        "n_topup_attempts": 3,
+        "avg_fill_pct_per_attempt": 0.009389193338272879,
+        "total_topup_cost_dollars": 344.67696,
+        "total_topup_notional": 32212.8,
+        "flat_10bps_one_way_cost_on_same_notional": 16.1064,
+        "cost_multiple_vs_flat_10bps": 21.4
+      },
+      {
+        "symbol": "MPWR",
+        "n_topup_attempts": 4,
+        "avg_fill_pct_per_attempt": 0.9994728446427487,
+        "total_topup_cost_dollars": 284.29226982602324,
+        "total_topup_notional": 179628.68999999997,
+        "flat_10bps_one_way_cost_on_same_notional": 89.81434499999999,
+        "cost_multiple_vs_flat_10bps": 3.1653325515653794
+      },
+      {
+        "symbol": "MNDO",
+        "n_topup_attempts": 4,
+        "avg_fill_pct_per_attempt": 0.007232411968471926,
+        "total_topup_cost_dollars": 250.30523024790017,
+        "total_topup_notional": 42420.22,
+        "flat_10bps_one_way_cost_on_same_notional": 21.21011,
+        "cost_multiple_vs_flat_10bps": 11.801222636181526
+      },
+      {
+        "symbol": "RRBI",
+        "n_topup_attempts": 3,
+        "avg_fill_pct_per_attempt": 0.011790840431026114,
+        "total_topup_cost_dollars": 208.47560846232705,
+        "total_topup_notional": 46762.059,
+        "flat_10bps_one_way_cost_on_same_notional": 23.3810295,
+        "cost_multiple_vs_flat_10bps": 8.916442642627308
+      },
+      {
+        "symbol": "FFIV",
+        "n_topup_attempts": 3,
+        "avg_fill_pct_per_attempt": 1.0022374588897078,
+        "total_topup_cost_dollars": 189.0969321133278,
+        "total_topup_notional": 122134.23999999999,
+        "flat_10bps_one_way_cost_on_same_notional": 61.067119999999996,
+        "cost_multiple_vs_flat_10bps": 3.0965424947717826
+      },
+      {
+        "symbol": "REGN",
+        "n_topup_attempts": 3,
+        "avg_fill_pct_per_attempt": 1.002458953375108,
+        "total_topup_cost_dollars": 185.01908169632557,
+        "total_topup_notional": 128324.16,
+        "flat_10bps_one_way_cost_on_same_notional": 64.16208,
+        "cost_multiple_vs_flat_10bps": 2.8836203828854297
+      },
+      {
+        "symbol": "NTES",
+        "n_topup_attempts": 3,
+        "avg_fill_pct_per_attempt": 1.003395602604017,
+        "total_topup_cost_dollars": 176.41781871534997,
+        "total_topup_notional": 106814.28,
+        "flat_10bps_one_way_cost_on_same_notional": 53.40714,
+        "cost_multiple_vs_flat_10bps": 3.30326279810808
+      }
+    ],
+    "n_chronic_topup_symbols": 203,
+    "chronic_topup_total_cost": 4843265.773959786,
+    "chronic_topup_flat10_equiv_cost": 365949.92502175
+  },
+  "task2_cost_components": {
+    "all_fills": {
+      "total_cost": 17743691.393521376,
+      "spread_cost": 5216010.337907251,
+      "impact_cost": 10370235.773086553,
+      "commission_cost": 1541032.34466255,
+      "slippage_cost": 616412.93786502,
+      "pct_spread": 0.2939642164770593,
+      "pct_impact": 0.5844463557832708,
+      "pct_commission": 0.08684959124262134,
+      "pct_slippage": 0.034739836497048544,
+      "n_fills": 12051
+    },
+    "buy_all": {
+      "total_cost": 8948145.095167603,
+      "spread_cost": 2643564.5865981285,
+      "impact_cost": 5216719.760241624,
+      "commission_cost": 777043.39166275,
+      "slippage_cost": 310817.35666510003,
+      "pct_spread": 0.2954315736370626,
+      "pct_impact": 0.5829945429761622,
+      "pct_commission": 0.0868384881334108,
+      "pct_slippage": 0.034735395253364325,
+      "n_fills": 6777
+    },
+    "buy_new_entry": {
+      "total_cost": 4087394.960903802,
+      "spread_cost": 1058484.9663957225,
+      "impact_cost": 2455712.84101058,
+      "commission_cost": 409426.53821249993,
+      "slippage_cost": 163770.615285,
+      "pct_spread": 0.2589632214454928,
+      "pct_impact": 0.6008014553278146,
+      "pct_commission": 0.10016808801906626,
+      "pct_slippage": 0.04006723520762651,
+      "n_fills": 1137
+    },
+    "buy_top_up": {
+      "total_cost": 4860750.1342638,
+      "spread_cost": 1585079.620202406,
+      "impact_cost": 2761006.919231044,
+      "commission_cost": 367616.85345025,
+      "slippage_cost": 147046.74138010002,
+      "pct_spread": 0.3260977372667355,
+      "pct_impact": 0.568020746379966,
+      "pct_commission": 0.07562965453807029,
+      "pct_slippage": 0.03025186181522812,
+      "n_fills": 5640
+    },
+    "sell_all": {
+      "total_cost": 8795546.298353773,
+      "spread_cost": 2572445.751309123,
+      "impact_cost": 5153516.0128449295,
+      "commission_cost": 763988.9529998,
+      "slippage_cost": 305595.58119992004,
+      "pct_spread": 0.2924714013262141,
+      "pct_impact": 0.5859233568936466,
+      "pct_commission": 0.0868608869858138,
+      "pct_slippage": 0.03474435479432553,
+      "n_fills": 5274
+    }
+  },
+  "comparison": [
+    {
+      "CAGR": -0.07996162597028278,
+      "Sharpe": -0.2234778388096133,
+      "Maximum_Drawdown": -0.5547227690531075,
+      "Alpha_CAGR": -0.22458131946270787,
+      "total_cost_dollars": 17743691.393521436,
+      "n_cost_events": 12051,
+      "cost_model": "corwin_schultz_v2",
+      "flat_cost_one_way": 0.0005,
+      "n_closed_trades": 1420,
+      "disable_topup_chasing": false,
+      "label": "Fixed CS v2 (chase ON)"
+    },
+    {
+      "CAGR": 0.01889137238373162,
+      "Sharpe": 0.1939417548208647,
+      "Maximum_Drawdown": -0.31970074675853327,
+      "Alpha_CAGR": -0.12572832110869347,
+      "total_cost_dollars": 12536784.831154697,
+      "n_cost_events": 3297,
+      "cost_model": "corwin_schultz_v2",
+      "flat_cost_one_way": 0.0005,
+      "n_closed_trades": 1589,
+      "disable_topup_chasing": true,
+      "label": "Fixed CS v2 + NO-CHASE"
+    },
+    {
+      "CAGR": 0.011219395011933031,
+      "Sharpe": 0.16626265054874506,
+      "Maximum_Drawdown": -0.39845393246012434,
+      "Alpha_CAGR": -0.13340029848049206,
+      "total_cost_dollars": 1805089.4237674973,
+      "n_cost_events": 12059,
+      "cost_model": "flat",
+      "flat_cost_one_way": 0.0005,
+      "n_closed_trades": 1415,
+      "disable_topup_chasing": false,
+      "label": "Flat 10bps RT (5bps/side)"
+    },
+    {
+      "CAGR": -0.0030259426152021707,
+      "Sharpe": 0.10789331707464618,
+      "Maximum_Drawdown": -0.41630917317119287,
+      "Alpha_CAGR": -0.14764563610762726,
+      "total_cost_dollars": 5280676.216633435,
+      "n_cost_events": 12036,
+      "cost_model": "flat",
+      "flat_cost_one_way": 0.0015,
+      "n_closed_trades": 1420,
+      "disable_topup_chasing": false,
+      "label": "Flat 30bps RT (15bps/side)"
+    }
+  ]
+}
