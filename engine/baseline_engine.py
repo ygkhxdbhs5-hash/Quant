@@ -53,6 +53,10 @@ class BaselineEngineV1:
         self.PARTICIPATION_CAP_SELL = float(cfg.get("participation_cap_sell", 0.15))
         self.COMMISSION_RATE = float(cfg.get("commission_rate", 0.0005))
         self.SLIPPAGE_RATE = float(cfg.get("slippage_rate", 0.0002))
+        # Cost-model variant switch (default = existing Corwin–Schultz + sqrt impact).
+        # Audit / sensitivity only — does not change entry/exit/sizing logic.
+        self.COST_MODEL = str(cfg.get("cost_model", "corwin_schultz")).lower()
+        self.FLAT_COST_ONE_WAY = float(cfg.get("flat_cost_one_way", 0.0005))
 
         # Strategy knobs — defaults from strategy_baseline_v1; optional config.baseline_v1 overrides
         bcfg = dict(cfg.get("baseline_v1") or {})
@@ -165,35 +169,89 @@ class BaselineEngineV1:
         ]
 
     # ----- execution model (mirrors existing StandaloneEngine fills) -----
-    def _record_cost(self, *, date, symbol, side, qty, price, cost_ratio) -> float:
+    def _cost_breakdown(self, symbol, date_idx, qty, price) -> dict:
+        """Decompose execution cost (same dollars as applied to cash).
+
+        Default model formulas are unchanged. Optional ``cost_model=flat`` replaces
+        the ratio with a constant one-way fee for sensitivity audits only.
+        """
+        adv_raw = self.adv20_m[symbol].iloc[date_idx] if symbol in self.adv20_m.columns else np.nan
+        sigma_raw = self.vol20_m[symbol].iloc[date_idx] if symbol in self.vol20_m.columns else np.nan
+        cs_raw = self.cs_spread_m[symbol].iloc[date_idx] if symbol in self.cs_spread_m.columns else np.nan
+        adv = float(adv_raw) if pd.notna(adv_raw) and float(adv_raw) > 0 else 1e6
+        sigma = float(sigma_raw) if pd.notna(sigma_raw) and float(sigma_raw) > 0 else 0.02
+        cs = float(cs_raw) if pd.notna(cs_raw) and float(cs_raw) > 0 else float("nan")
+        half_spread = float(cs) / 2 if pd.notna(cs) and cs > 0 else 0.0015
+        notional = float(qty) * float(price)
+        participation = notional / max(adv, 1.0)
+        impact = 0.6 * sigma * np.sqrt(max(participation, 0.0))
+
+        if self.COST_MODEL == "flat":
+            cost_ratio = float(self.FLAT_COST_ONE_WAY)
+            return {
+                "adv": adv,
+                "adv_raw": float(adv_raw) if pd.notna(adv_raw) else float("nan"),
+                "sigma": sigma,
+                "cs_spread": cs,
+                "half_spread": 0.0,
+                "participation": float(participation),
+                "impact": 0.0,
+                "commission": float(self.FLAT_COST_ONE_WAY),
+                "slippage": 0.0,
+                "cost_ratio": cost_ratio,
+                "cost_model": "flat",
+            }
+
+        cost_ratio = float(half_spread + impact + self.COMMISSION_RATE + self.SLIPPAGE_RATE)
+        return {
+            "adv": adv,
+            "adv_raw": float(adv_raw) if pd.notna(adv_raw) else float("nan"),
+            "sigma": sigma,
+            "cs_spread": cs,
+            "half_spread": float(half_spread),
+            "participation": float(participation),
+            "impact": float(impact),
+            "commission": float(self.COMMISSION_RATE),
+            "slippage": float(self.SLIPPAGE_RATE),
+            "cost_ratio": cost_ratio,
+            "cost_model": "corwin_schultz",
+        }
+
+    def _record_cost(self, *, date, symbol, side, qty, price, cost_ratio, breakdown=None) -> float:
         """Observation-only: aggregate execution cost dollars (formula unchanged)."""
         notional = float(qty) * float(price)
         dollars = notional * float(cost_ratio)
         self.diag_total_cost_dollars += dollars
-        self.diag_cost_events.append(
-            {
-                "date": date,
-                "symbol": symbol,
-                "side": side,
-                "qty": int(qty),
-                "price": float(price),
-                "cost_ratio": float(cost_ratio),
-                "cost_dollars": float(dollars),
-                "notional": float(notional),
-            }
-        )
+        event = {
+            "date": date,
+            "symbol": symbol,
+            "side": side,
+            "qty": int(qty),
+            "price": float(price),
+            "cost_ratio": float(cost_ratio),
+            "cost_dollars": float(dollars),
+            "notional": float(notional),
+        }
+        if breakdown:
+            event.update(
+                {
+                    "adv": breakdown.get("adv"),
+                    "adv_raw": breakdown.get("adv_raw"),
+                    "sigma": breakdown.get("sigma"),
+                    "cs_spread": breakdown.get("cs_spread"),
+                    "half_spread": breakdown.get("half_spread"),
+                    "participation": breakdown.get("participation"),
+                    "impact": breakdown.get("impact"),
+                    "commission": breakdown.get("commission"),
+                    "slippage": breakdown.get("slippage"),
+                    "cost_model": breakdown.get("cost_model"),
+                }
+            )
+        self.diag_cost_events.append(event)
         return dollars
 
     def _cost_ratio(self, symbol, date_idx, qty, price):
-        adv = self.adv20_m[symbol].iloc[date_idx] if symbol in self.adv20_m.columns else np.nan
-        sigma = self.vol20_m[symbol].iloc[date_idx] if symbol in self.vol20_m.columns else np.nan
-        cs = self.cs_spread_m[symbol].iloc[date_idx] if symbol in self.cs_spread_m.columns else np.nan
-        adv = adv if pd.notna(adv) and adv > 0 else 1e6
-        sigma = sigma if pd.notna(sigma) and sigma > 0 else 0.02
-        half_spread = float(cs) / 2 if pd.notna(cs) and cs > 0 else 0.0015
-        participation = (qty * price) / max(adv, 1.0)
-        impact = 0.6 * sigma * np.sqrt(max(participation, 0.0))
-        return float(half_spread + impact + self.COMMISSION_RATE + self.SLIPPAGE_RATE)
+        return float(self._cost_breakdown(symbol, date_idx, qty, price)["cost_ratio"])
 
     def _max_shares_participation(self, symbol, date_idx, price, cap_ratio):
         adv = self.adv20_m[symbol].iloc[date_idx] if symbol in self.adv20_m.columns else np.nan
@@ -213,9 +271,16 @@ class BaselineEngineV1:
         exec_qty = min(held, int(qty), max(int(cap), 0))
         if exec_qty <= 0:
             return 0
-        cost = self._cost_ratio(sym, date_idx, exec_qty, px)
+        bd = self._cost_breakdown(sym, date_idx, exec_qty, px)
+        cost = float(bd["cost_ratio"])
         self._record_cost(
-            date=current_date, symbol=sym, side="SELL", qty=exec_qty, price=px, cost_ratio=cost
+            date=current_date,
+            symbol=sym,
+            side="SELL",
+            qty=exec_qty,
+            price=px,
+            cost_ratio=cost,
+            breakdown=bd,
         )
         # Capture lot info before journal pop (for $ loss diagnostics)
         ot = self.trade_journal.open.get(sym)
@@ -279,13 +344,15 @@ class BaselineEngineV1:
                 exec_qty = min(qty, max(int(cap), 0))
                 if exec_qty <= 0:
                     continue
-                cost = self._cost_ratio(sym, date_idx, exec_qty, float(o_price))
+                bd = self._cost_breakdown(sym, date_idx, exec_qty, float(o_price))
+                cost = float(bd["cost_ratio"])
                 spend = exec_qty * float(o_price) * (1.0 + cost)
                 if spend > self.cash:
                     exec_qty = int(self.cash / (float(o_price) * (1.0 + cost)))
                     if exec_qty <= 0:
                         continue
-                    cost = self._cost_ratio(sym, date_idx, exec_qty, float(o_price))
+                    bd = self._cost_breakdown(sym, date_idx, exec_qty, float(o_price))
+                    cost = float(bd["cost_ratio"])
                     spend = exec_qty * float(o_price) * (1.0 + cost)
                 self._record_cost(
                     date=current_date,
@@ -294,6 +361,7 @@ class BaselineEngineV1:
                     qty=exec_qty,
                     price=float(o_price),
                     cost_ratio=cost,
+                    breakdown=bd,
                 )
                 self.cash -= spend
                 self.portfolio[sym] = self.portfolio.get(sym, 0) + exec_qty
@@ -500,6 +568,9 @@ class BaselineEngineV1:
         print("=" * 50)
         for k, v in strategy_knobs().items():
             print(f"  {k}: {v}")
+        print(f"  cost_model: {self.COST_MODEL}")
+        if self.COST_MODEL == "flat":
+            print(f"  flat_cost_one_way: {self.FLAT_COST_ONE_WAY}")
         print("=" * 50)
 
         trading_days = self.close_m.index
