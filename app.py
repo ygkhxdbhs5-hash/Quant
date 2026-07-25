@@ -1,11 +1,15 @@
-"""Streamlit web UI: download Massive data + run Q_Alpha backtest.
+"""Streamlit web UI: download Massive data + run Baseline v1 backtest.
+
+Baseline v1 = 12-1 momentum entry + ATR trail exit only.
+Does NOT expose EMA / stop-loss / institutional / rank-buffer controls.
 
 Local:
     streamlit run app.py
 
 Streamlit Community Cloud:
-    Deploy this repo, set Main file path = app.py,
-    add secret MASSIVE_API_KEY in app settings.
+    Main file path = app.py
+    Branch = cursor/baseline-v1-cb1c
+    Secret MASSIVE_API_KEY
 """
 
 from __future__ import annotations
@@ -15,7 +19,6 @@ import os
 import pickle
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 import pandas as pd
@@ -27,23 +30,16 @@ CONFIG_PATH = ROOT / "config" / "config.yaml"
 UNI_PATH = ROOT / "data" / "metadata" / "universe.pkl"
 PX_PATH = ROOT / "data" / "prices" / "panels.pkl"
 FUND_PATH = ROOT / "data" / "fundamentals" / "pit_history.pkl"
-EQUITY_CSV = ROOT / "cache" / "equity_curve.csv"
-EQUITY_PNG = ROOT / "cache" / "equity_curve_v5.png"
-RESEARCH_REPORT = ROOT / "cache" / "research_report.txt"
-TRADE_JOURNAL = ROOT / "cache" / "trade_journal.csv"
-RANK_DIAG_JSON = ROOT / "cache" / "rank_diagnostics.json"
-RANK_DIAG_TXT = ROOT / "cache" / "rank_diagnostics_report.txt"
-EXP001_DIR = ROOT / "docs" / "experiments" / "EXP001_EXIT_RANK"
-EXP001_FULL_REPORT = EXP001_DIR / "EXP001_FULL_REPORT.txt"
-EXP001_RESULT = EXP001_DIR / "EXPERIMENT1_RESULT.md"
-EXP001_DELTA = EXP001_DIR / "DELTA_REPORT.txt"
-EXP001_FACTS = EXP001_DIR / "FACTS.txt"
-EXP001_RECO = EXP001_DIR / "RESEARCH_RECOMMENDATION.txt"
-EXP001_VALIDATION = EXP001_DIR / "RUNTIME_CONFIG_VALIDATION.json"
-EXP001_CHECKLIST = EXP001_DIR / "VALIDATION_CHECKLIST.json"
+BASELINE_DIR = ROOT / "cache" / "baseline_v1"
+EQUITY_CSV = BASELINE_DIR / "equity_curve.csv"
+EQUITY_PNG = BASELINE_DIR / "equity_curve.png"
+QQQ_CSV = BASELINE_DIR / "qqq_equity_curve.csv"
+COMPARISON_JSON = BASELINE_DIR / "benchmark_comparison.json"
+TRADE_JOURNAL = BASELINE_DIR / "trade_journal.csv"
+BASELINE_HISTORY = ROOT / "docs" / "experiments" / "BASELINE_V1" / "experiment_history.json"
+BASELINE_PERIODS = ROOT / "docs" / "experiments" / "BASELINE_V1" / "period_results.json"
 
-
-st.set_page_config(page_title="Quant Backtest", page_icon="📈", layout="wide")
+st.set_page_config(page_title="Quant Baseline v1", page_icon="📈", layout="wide")
 
 
 def load_yaml(path: Path) -> dict:
@@ -97,7 +93,6 @@ def data_status() -> dict:
 
 
 def stream_command(cmd: list[str], env: dict, log_box) -> int:
-    """Run a subprocess and stream stdout/stderr into the Streamlit log box."""
     proc = subprocess.Popen(
         cmd,
         cwd=str(ROOT),
@@ -111,67 +106,68 @@ def stream_command(cmd: list[str], env: dict, log_box) -> int:
     assert proc.stdout is not None
     for line in proc.stdout:
         lines.append(line.rstrip())
-        # keep last ~200 lines visible
         log_box.code("\n".join(lines[-200:]), language="text")
     return proc.wait()
 
 
 def apply_ui_config(
+    *,
     sample_size: int | None,
     request_interval: float,
-    max_portfolio: int,
+    download_workers: int,
     api_key: str,
-    download_workers: int = 8,
-    atr_multiplier: float = 2.0,
+    start_date: str,
+    end_date: str | None,
+    top_liquid_pool: int,
+    top_momentum_count: int,
+    atr_multiplier: float,
     download_fundamentals: bool = False,
-    research: dict | None = None,
-    exit_rank: int | None = None,
 ) -> None:
     cfg = load_yaml(CONFIG_PATH)
     cfg["universe_sample_size"] = sample_size
     cfg["request_interval_sec"] = float(request_interval)
     cfg["download_workers"] = int(download_workers)
     cfg["download_fundamentals"] = bool(download_fundamentals)
-    # CMVS v3 exit parameter (old trailing_stop_pct UI removed — unused by engine)
+    cfg["start_date"] = str(start_date)
+    cfg["end_date"] = end_date
+    cfg["benchmark"] = "QQQ"
     cfg["atr_multiplier"] = float(atr_multiplier)
-    # cfg["trailing_stop_pct"] = ...  # legacy % trail; replaced by CMVS exits
-    cfg["max_portfolio_size"] = int(max_portfolio)
-    buf = int(exit_rank) if exit_rank is not None else int(cfg.get("selection_buffer_size", 70))
-    cfg["selection_buffer_size"] = max(int(max_portfolio) + 20, buf) if exit_rank is None else buf
-    if research is not None:
-        # Research Configuration Panel → config research: block (engine reads before run)
-        block = dict(cfg.get("research") or {})
-        block.update(research)
-        # Event-driven: ENTRY_RANK = buy band; MAX_PORTFOLIO_SIZE = capacity (independent)
-        if "ENTRY_RANK" in research:
-            block["ENTRY_RANK"] = int(research["ENTRY_RANK"])
-        if "EXIT_RANK" in research:
-            block["EXIT_RANK"] = int(research["EXIT_RANK"])
-            cfg["selection_buffer_size"] = int(research["EXIT_RANK"])
-        if "MAX_PORTFOLIO_SIZE" in research:
-            block["MAX_PORTFOLIO_SIZE"] = int(research["MAX_PORTFOLIO_SIZE"])
-            cfg["max_portfolio_size"] = int(research["MAX_PORTFOLIO_SIZE"])
-        else:
-            block["MAX_PORTFOLIO_SIZE"] = int(max_portfolio)
-        block["ATR_MULTIPLIER"] = float(atr_multiplier)
-        cfg["research"] = block
-        if "MAX_INDUSTRY_WEIGHT" in block:
-            cfg["max_industry_weight"] = float(block["MAX_INDUSTRY_WEIGHT"])
+    cfg["max_portfolio_size"] = int(top_momentum_count)
+    # Baseline knobs (read by BaselineEngineV1)
+    baseline = dict(cfg.get("baseline_v1") or {})
+    baseline.update(
+        {
+            "TOP_LIQUID_POOL": int(top_liquid_pool),
+            "TOP_MOMENTUM_COUNT": int(top_momentum_count),
+            "ATR_MULTIPLIER": float(atr_multiplier),
+            "GROSS_EXPOSURE": 1.0,
+        }
+    )
+    cfg["baseline_v1"] = baseline
     if api_key and api_key != "unused":
         cfg["massive_api_key"] = api_key
     save_yaml(CONFIG_PATH, cfg)
 
 
-st.title("Quant — Download & Backtest")
-st.caption("Massive.com data download + Q_Alpha v5 standalone engine")
+def _fmt_pct(x) -> str:
+    if x is None:
+        return "n/a"
+    return f"{100.0 * float(x):.2f}%"
+
+
+def _fmt_num(x) -> str:
+    if x is None:
+        return "n/a"
+    return f"{float(x):.3f}"
+
+
+st.title("Quant — Baseline v1")
+st.caption(
+    "12-1 Momentum entry · ATR(14)×2.5 trail exit · Equal weight · 1.0x · QQQ B&H benchmark"
+)
 
 _cfg0 = load_yaml(CONFIG_PATH)
-_r0 = dict(_cfg0.get("research") or {})
-
-
-def _r_get(key: str, default):
-    return _r0[key] if key in _r0 else default
-
+_b0 = dict(_cfg0.get("baseline_v1") or {})
 
 with st.sidebar:
     st.header("Settings")
@@ -193,187 +189,66 @@ with st.sidebar:
     sample_size = sample_map[sample_mode]
     download_workers = st.slider("Download workers", 1, 16, 8, 1)
     request_interval = st.slider("API interval (sec)", 0.05, 0.50, 0.08, 0.01)
-    download_fundamentals = st.checkbox(
-        "Also download fundamentals (optional)",
-        value=False,
-        help="Not required for CMVS v3 (price/volume only). Enable only for legacy fundamental screens.",
-    )
     clear_cache = st.checkbox("Clear HTTP cache before download", value=False)
 
     st.divider()
-    st.header("Research Config")
+    st.header("Baseline v1 Config")
     st.caption(
-        "Experiment knobs only — written to config research: before each run. "
-        "Defaults match current CMVS trade identity."
+        "Only knobs used by Baseline v1. "
+        "No EMA exit, hard stop, institutional entry, rank buffer, or cooldown."
     )
 
-    st.markdown("**Entry Engine**")
-    use_institutional_entry = st.checkbox(
-        "USE_INSTITUTIONAL_ENTRY",
-        value=bool(_r_get("USE_INSTITUTIONAL_ENTRY", True)),
-        help=(
-            "Academic Institutional Entry Engine (Fama–French / Novy-Marx / "
-            "Jegadeesh–Titman / AQR-style factors with cross-sectional Z-scores). "
-            "Off = legacy CMVS+EQS entry (not recommended)."
-        ),
+    start_date = st.text_input(
+        "START_DATE",
+        value=str(_cfg0.get("start_date", "2018-01-01")),
+        help="Backtest window start (YYYY-MM-DD)",
     )
+    end_date_raw = st.text_input(
+        "END_DATE",
+        value=str(_cfg0.get("end_date") or ""),
+        help="Empty = today",
+    )
+    end_date = end_date_raw.strip() or None
 
-    st.markdown("**Event-Driven Rank Buffer**")
-    entry_rank = st.number_input(
-        "ENTRY_RANK (buy band)",
-        min_value=1,
-        max_value=100,
-        value=int(_r_get("ENTRY_RANK", 10)),
-        step=1,
-        help="New entries only if Composite Rank ≤ ENTRY_RANK (default Top 10).",
+    top_liquid_pool = st.number_input(
+        "TOP_LIQUID_POOL",
+        min_value=50,
+        max_value=1000,
+        value=int(_b0.get("TOP_LIQUID_POOL", 250)),
+        step=50,
+        help="Rank by dollar volume; keep this many most liquid names",
     )
-    exit_rank = st.number_input(
-        "EXIT_RANK (hold buffer)",
+    top_momentum_count = st.number_input(
+        "TOP_MOMENTUM_COUNT",
         min_value=5,
-        max_value=300,
-        value=int(_r_get("EXIT_RANK", _cfg0.get("selection_buffer_size", 30))),
-        step=5,
-        help="Keep holdings while Rank ≤ EXIT_RANK; sell only when Rank > EXIT_RANK (default 30).",
-    )
-    max_portfolio = st.number_input(
-        "MAX_PORTFOLIO_SIZE",
-        min_value=1,
         max_value=100,
-        value=int(_r_get("MAX_PORTFOLIO_SIZE", _cfg0.get("max_portfolio_size", 20))),
-        step=1,
-        help="Portfolio capacity. Vacant slots refill from Top ENTRY_RANK only.",
-    )
-
-    st.markdown("**EMA Exit**")
-    use_ema9_exit = st.checkbox(
-        "USE_EMA9_EXIT (confirmed trend exit)",
-        value=bool(_r_get("USE_EMA9_EXIT", True)),
-        help=(
-            "Enables confirmation-based trend exit. "
-            "A single close below EMA9 never sells — needs ≥2 confirmations "
-            "(2 closes below EMA, EMA20 break, RSI<45, vol on decline, neg 5d mom). "
-            "High ATR% names use EMA20 and need ≥3 confirms. ATR trail stays primary."
-        ),
-    )
-    ema_exit_length = st.selectbox(
-        "EMA_EXIT_LENGTH",
-        options=[9, 10, 15, 20, 30],
-        index=[9, 10, 15, 20, 30].index(int(_r_get("EMA_EXIT_LENGTH", 9)))
-        if int(_r_get("EMA_EXIT_LENGTH", 9)) in (9, 10, 15, 20, 30)
-        else 0,
-        help="EMA period for trend-breakdown exit (no code change needed)",
-    )
-
-    st.markdown("**ATR**")
-    use_atr_exit = st.checkbox(
-        "USE_ATR_EXIT",
-        value=bool(_r_get("USE_ATR_EXIT", True)),
-        help="Dynamic ATR trailing stop",
+        value=int(_b0.get("TOP_MOMENTUM_COUNT", 30)),
+        step=5,
+        help="Within liquid pool, buy top N by mom_12_1",
     )
     atr_multiplier = st.slider(
         "ATR_MULTIPLIER",
         1.0,
-        4.0,
-        float(_r_get("ATR_MULTIPLIER", _cfg0.get("atr_multiplier", 2.0))),
+        5.0,
+        float(_b0.get("ATR_MULTIPLIER", _cfg0.get("atr_multiplier", 2.5))),
         0.1,
-        help="Sell if close < peak_close − multiplier × ATR(14)",
+        help="stop = highest_close_since_entry − mult × ATR(14). Exit next Open if Low < stop.",
     )
 
-    st.markdown("**Exhaustion**")
-    use_exhaustion_exit = st.checkbox(
-        "USE_EXHAUSTION_EXIT",
-        value=bool(_r_get("USE_EXHAUSTION_EXIT", True)),
-        help="RSI > 80 and daily close position < 0.3",
+    st.markdown("**Fixed (not editable)**")
+    st.code(
+        "Entry: mom_12_1 = price[t-21] / price[t-252] - 1\n"
+        "Exit: ATR trail only (Low < stop → next Open)\n"
+        "Sizing: equal weight 1/N\n"
+        "Leverage: always 1.0x\n"
+        "Rebalance: monthly candidates; hold until ATR; refill empties",
+        language="text",
     )
-
-    st.markdown("**Time Stop**")
-    use_time_stop = st.checkbox(
-        "USE_TIME_STOP",
-        value=bool(_r_get("USE_TIME_STOP", False)),
-        help="Optional — off by default (no baseline impact)",
-    )
-    time_stop_days = st.number_input(
-        "TIME_STOP_DAYS",
-        min_value=1,
-        max_value=120,
-        value=int(_r_get("TIME_STOP_DAYS", 20)),
-        step=1,
-        disabled=not use_time_stop,
-    )
-
-    st.markdown("**Hard Stop Loss**")
-    use_stop_loss = st.checkbox(
-        "USE_STOP_LOSS",
-        value=bool(_r_get("USE_STOP_LOSS", True)),
-        help=(
-            "Intraday hard stop: triggers when day's Low ≤ entry × (1 − pct). "
-            "Fill = min(Open, stop). Gap-downs exit at Open. "
-            "Checked every trading day; highest priority after delisting. "
-            "ATR / EMA / trend exits run only if this stop did not trigger."
-        ),
-    )
-    stop_loss_pct_ui = st.slider(
-        "STOP_LOSS_PCT",
-        min_value=0.0,
-        max_value=50.0,
-        value=float(_r_get("STOP_LOSS_PCT", 0.15)) * 100.0
-        if float(_r_get("STOP_LOSS_PCT", 0.15)) <= 1.0
-        else float(_r_get("STOP_LOSS_PCT", 15.0)),
-        step=1.0,
-        format="%.0f%%",
-        disabled=not use_stop_loss,
-        help="Default 15%. Uses Low (not Close); fill at min(Open, stop).",
-    )
-
-    st.markdown("**Holding / Portfolio / Risk**")
-    min_hold_days = st.number_input(
-        "MIN_HOLD_DAYS",
-        min_value=0,
-        max_value=60,
-        value=int(_r_get("MIN_HOLD_DAYS", 0)),
-        step=1,
-        help=(
-            "Suppresses discretionary exits only (trend / exhaustion / time-stop) "
-            "for N days after entry. ATR trailing stop and hard stop loss stay active."
-        ),
-    )
-    monthly_rebalance = st.checkbox(
-        "MONTHLY_REBALANCE",
-        value=bool(_r_get("MONTHLY_REBALANCE", True)),
-        help="On = monthly ranking + event-driven buffer (baseline). Off = daily rebalance.",
-    )
-    max_industry_weight = st.slider(
-        "MAX_INDUSTRY_WEIGHT",
-        0.10,
-        1.00,
-        float(_r_get("MAX_INDUSTRY_WEIGHT", _cfg0.get("max_industry_weight", 0.40))),
-        0.05,
-    )
-
-    research_ui = {
-        "ENTRY_RANK": int(entry_rank),
-        "EXIT_RANK": int(exit_rank),
-        "USE_INSTITUTIONAL_ENTRY": bool(use_institutional_entry),
-        "USE_EMA9_EXIT": bool(use_ema9_exit),
-        "EMA_EXIT_LENGTH": int(ema_exit_length),
-        "USE_ATR_EXIT": bool(use_atr_exit),
-        "ATR_MULTIPLIER": float(atr_multiplier),
-        "USE_EXHAUSTION_EXIT": bool(use_exhaustion_exit),
-        "USE_TIME_STOP": bool(use_time_stop),
-        "TIME_STOP_DAYS": int(time_stop_days),
-        "USE_STOP_LOSS": bool(use_stop_loss),
-        "STOP_LOSS_PCT": float(stop_loss_pct_ui) / 100.0,
-        "MIN_HOLD_DAYS": int(min_hold_days),
-        "MAX_PORTFOLIO_SIZE": int(max_portfolio),
-        "MONTHLY_REBALANCE": bool(monthly_rebalance),
-        "MAX_INDUSTRY_WEIGHT": float(max_industry_weight),
-        "SHADOW_HORIZON_DAYS": int(_r_get("SHADOW_HORIZON_DAYS", 20)),
-    }
 
     st.divider()
     st.markdown(
-        "Deploy tip: on **Streamlit Cloud**, long downloads may time out. "
-        "Prefer a VPS / local run for full refreshes."
+        "Deploy tip: Streamlit Cloud may time out on long downloads. "
+        "Prefer **500 sample** or download elsewhere then upload `data/`."
     )
 
 api_key = resolve_api_key(api_key_in)
@@ -382,36 +257,34 @@ status = data_status()
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("Tickers (sample)", status["universe_tickers"] if status["universe_tickers"] is not None else "—")
 c2.metric("All tickers pulled", status["all_tickers"] if status["all_tickers"] is not None else "—")
-c3.metric(
-    "Fundamentals (optional)",
-    status["fundamentals"] if status["fundamentals"] is not None else "skip",
-)
-c4.metric("Price panel", str(status["prices_shape"]) if status["prices_shape"] else "—")
+c3.metric("Price panel", str(status["prices_shape"]) if status["prices_shape"] else "—")
+c4.metric("Benchmark", "QQQ B&H")
 if status["price_range"]:
     st.write(f"Price history: `{status['price_range']}`")
 
-tab_dl, tab_bt, tab_exp, tab_help = st.tabs(
-    ["1) Download data", "2) Run backtest", "3) Experiment 1", "Help"]
+tab_dl, tab_bt, tab_val, tab_help = st.tabs(
+    ["1) Download data", "2) Run backtest", "3) 3-period validation", "Help"]
 )
 
 with tab_dl:
     st.subheader("Download from Massive.com")
-    fund_note = "universe → prices" + (" → fundamentals" if download_fundamentals else " (fundamentals skipped)")
-    st.write(f"Runs {fund_note}. Mode: **{sample_mode}**.")
+    st.write(f"Runs universe → prices. Mode: **{sample_mode}**.")
+    st.caption("Fundamentals are not used by Baseline v1 and are not downloaded.")
     if not api_key:
         st.warning("Enter a Massive API key in the sidebar (or configure secrets).")
 
     if st.button("Start download", type="primary", disabled=not bool(api_key)):
         apply_ui_config(
-            sample_size,
-            request_interval,
-            max_portfolio,
-            api_key,
-            download_workers,
-            atr_multiplier,
-            download_fundamentals,
-            research=research_ui,
-            exit_rank=int(exit_rank),
+            sample_size=sample_size,
+            request_interval=request_interval,
+            download_workers=download_workers,
+            api_key=api_key,
+            start_date=start_date,
+            end_date=end_date,
+            top_liquid_pool=int(top_liquid_pool),
+            top_momentum_count=int(top_momentum_count),
+            atr_multiplier=float(atr_multiplier),
+            download_fundamentals=False,
         )
         env = dict(os.environ)
         env["MASSIVE_API_KEY"] = api_key
@@ -426,14 +299,11 @@ with tab_dl:
             st.info("Cache cleared.")
 
         log = st.empty()
-        steps = [
+        failed = False
+        for title, module in (
             ("Universe", "downloader.download_universe"),
             ("Prices", "downloader.download_prices"),
-        ]
-        if download_fundamentals:
-            steps.append(("Fundamentals", "downloader.download_fundamentals"))
-        failed = False
-        for title, module in steps:
+        ):
             st.write(f"### {title}")
             code = stream_command(
                 [sys.executable, "-u", "-m", module, "--config", str(CONFIG_PATH)],
@@ -446,91 +316,94 @@ with tab_dl:
                 break
             st.success(f"{title} done")
         if not failed:
-            st.success("All downloads finished. Open the Backtest tab.")
+            st.success("Download finished. Open the Backtest tab.")
             st.rerun()
 
 with tab_bt:
-    st.subheader("Run backtest")
-    # CMVS needs universe + prices only
+    st.subheader("Run Baseline v1 backtest")
     ready = UNI_PATH.exists() and PX_PATH.exists()
     if not ready:
         st.warning("Missing universe/prices data. Run Download first.")
     else:
         st.write("Uses `data/` artifacts already on disk — no re-download needed.")
-        if not FUND_PATH.exists():
-            st.caption("Fundamentals not present (optional for CMVS v3).")
 
-    from engine.research.config_toggles import ResearchToggles
+    from engine.strategy_baseline_v1 import strategy_knobs
 
-    st.markdown("#### Research Configuration (will be applied)")
-    st.caption("Edit values in the sidebar Research Config section.")
+    knobs = strategy_knobs()
+    knobs["TOP_LIQUID_POOL"] = int(top_liquid_pool)
+    knobs["TOP_MOMENTUM_COUNT"] = int(top_momentum_count)
+    knobs["ATR_MULTIPLIER"] = float(atr_multiplier)
+    knobs["START_DATE"] = start_date
+    knobs["END_DATE"] = end_date or "today"
+
+    st.markdown("#### Active Baseline Configuration")
     st.code(
-        ResearchToggles(
-            ENTRY_RANK=int(research_ui["ENTRY_RANK"]),
-            EXIT_RANK=int(research_ui["EXIT_RANK"]),
-            USE_INSTITUTIONAL_ENTRY=bool(research_ui["USE_INSTITUTIONAL_ENTRY"]),
-            USE_EMA9_EXIT=bool(research_ui["USE_EMA9_EXIT"]),
-            EMA_EXIT_LENGTH=int(research_ui["EMA_EXIT_LENGTH"]),
-            USE_ATR_EXIT=bool(research_ui["USE_ATR_EXIT"]),
-            ATR_MULTIPLIER=float(research_ui["ATR_MULTIPLIER"]),
-            USE_EXHAUSTION_EXIT=bool(research_ui["USE_EXHAUSTION_EXIT"]),
-            USE_TIME_STOP=bool(research_ui["USE_TIME_STOP"]),
-            TIME_STOP_DAYS=int(research_ui["TIME_STOP_DAYS"]),
-            USE_STOP_LOSS=bool(research_ui["USE_STOP_LOSS"]),
-            STOP_LOSS_PCT=float(research_ui["STOP_LOSS_PCT"]),
-            MIN_HOLD_DAYS=int(research_ui["MIN_HOLD_DAYS"]),
-            MAX_PORTFOLIO_SIZE=int(research_ui["MAX_PORTFOLIO_SIZE"]),
-            MAX_INDUSTRY_WEIGHT=float(research_ui["MAX_INDUSTRY_WEIGHT"]),
-            MONTHLY_REBALANCE=bool(research_ui["MONTHLY_REBALANCE"]),
-            SHADOW_HORIZON_DAYS=int(research_ui["SHADOW_HORIZON_DAYS"]),
-        ).format_panel(),
+        "\n".join(f"{k}: {v}" for k, v in knobs.items()),
         language="text",
     )
 
     if st.button("Run backtest", type="primary", disabled=not ready):
         apply_ui_config(
-            sample_size,
-            request_interval,
-            max_portfolio,
-            api_key or "unused",
-            download_workers,
-            atr_multiplier,
-            download_fundamentals,
-            research=research_ui,
-            exit_rank=int(exit_rank),
+            sample_size=sample_size,
+            request_interval=request_interval,
+            download_workers=download_workers,
+            api_key=api_key or "unused",
+            start_date=start_date,
+            end_date=end_date,
+            top_liquid_pool=int(top_liquid_pool),
+            top_momentum_count=int(top_momentum_count),
+            atr_multiplier=float(atr_multiplier),
         )
         env = dict(os.environ)
         if api_key:
             env["MASSIVE_API_KEY"] = api_key
         env["PYTHONUNBUFFERED"] = "1"
         log = st.empty()
-        code = stream_command(
-            [
-                sys.executable,
-                "-u",
-                str(ROOT / "run_backtest.py"),
-                "--config",
-                str(CONFIG_PATH),
-            ],
-            env,
-            log,
-        )
+        cmd = [
+            sys.executable,
+            "-u",
+            str(ROOT / "run_backtest.py"),
+            "--config",
+            str(CONFIG_PATH),
+            "--start",
+            start_date,
+        ]
+        if end_date:
+            cmd.extend(["--end", end_date])
+        code = stream_command(cmd, env, log)
         if code != 0:
             st.error(f"Backtest failed (exit {code})")
         else:
             st.success("Backtest finished")
+            st.rerun()
+
+    if COMPARISON_JSON.exists():
+        try:
+            comparison = json.loads(COMPARISON_JSON.read_text(encoding="utf-8"))
+            s = comparison.get("strategy") or {}
+            q = comparison.get("QQQ") or {}
+            st.subheader("Strategy vs QQQ Buy & Hold")
+            m1, m2, m3 = st.columns(3)
+            m1.metric("Strategy CAGR", _fmt_pct(s.get("CAGR")))
+            m2.metric("Strategy Sharpe", _fmt_num(s.get("Sharpe")))
+            m3.metric("Strategy MDD", _fmt_pct(s.get("Maximum_Drawdown")))
+            n1, n2, n3 = st.columns(3)
+            n1.metric("QQQ CAGR", _fmt_pct(q.get("CAGR")))
+            n2.metric("QQQ Sharpe", _fmt_num(q.get("Sharpe")))
+            n3.metric("QQQ MDD", _fmt_pct(q.get("Maximum_Drawdown")))
+            st.metric("Alpha (CAGR − QQQ)", _fmt_pct(comparison.get("Alpha_CAGR")))
+        except Exception as exc:
+            st.warning(f"Could not read benchmark comparison: {exc}")
 
     if EQUITY_CSV.exists():
         eq = pd.read_csv(EQUITY_CSV, parse_dates=["Date"]).set_index("Date")
         if "Total_Equity" in eq.columns and len(eq) > 1:
-            ret = (eq["Total_Equity"].iloc[-1] / eq["Total_Equity"].iloc[0] - 1) * 100
-            peak = eq["Total_Equity"].cummax()
-            dd = ((eq["Total_Equity"] - peak) / peak).min() * 100
-            m1, m2, m3 = st.columns(3)
-            m1.metric("Cumulative return", f"{ret:.2f}%")
-            m2.metric("Max drawdown", f"{dd:.2f}%")
-            m3.metric("Final equity", f"{eq['Total_Equity'].iloc[-1]:,.0f}")
-            st.line_chart(eq["Total_Equity"], height=360)
+            chart = eq[["Total_Equity"]].rename(columns={"Total_Equity": "Strategy"})
+            if QQQ_CSV.exists():
+                qqq = pd.read_csv(QQQ_CSV, parse_dates=["Date"]).set_index("Date")
+                if "Total_Equity" in qqq.columns:
+                    chart["QQQ B&H"] = qqq["Total_Equity"]
+            st.line_chart(chart, height=360)
             st.download_button(
                 "Download equity_curve.csv",
                 data=EQUITY_CSV.read_bytes(),
@@ -540,58 +413,6 @@ with tab_bt:
         if EQUITY_PNG.exists():
             st.image(str(EQUITY_PNG))
 
-    # Rank diagnostics (observation-only; written at end of StandaloneEngine.run)
-    rank_diag = None
-    if RANK_DIAG_JSON.exists():
-        try:
-            rank_diag = json.loads(RANK_DIAG_JSON.read_text(encoding="utf-8"))
-        except Exception:
-            rank_diag = None
-    if rank_diag is not None or RANK_DIAG_TXT.exists():
-        st.subheader("Rank diagnostics")
-        st.caption("Observation only — does not change trading behavior.")
-        if rank_diag is not None:
-            c1, c2 = st.columns(2)
-            c1.metric(
-                "rank_exit_candidates",
-                f"{int(rank_diag.get('rank_exit_candidates', 0))}",
-            )
-            c2.metric(
-                "ema_preempted_rank_exit",
-                f"{int(rank_diag.get('ema_preempted_rank_exit', 0))}",
-            )
-            dist = rank_diag.get("holding_rank_distribution") or {}
-            st.markdown("**holding_rank_distribution**")
-            if not dist or dist.get("n", 0) == 0:
-                st.info("No holding-rank observations recorded.")
-            else:
-                d1, d2, d3, d4, d5, d6 = st.columns(6)
-                d1.metric("min", f"{float(dist['min']):.2f}")
-                d2.metric("median", f"{float(dist['median']):.2f}")
-                d3.metric("p75", f"{float(dist['p75']):.2f}")
-                d4.metric("p90", f"{float(dist['p90']):.2f}")
-                d5.metric("p95", f"{float(dist['p95']):.2f}")
-                d6.metric("max", f"{float(dist['max']):.2f}")
-                st.caption(f"n holding-day rank observations: {int(dist.get('n', 0))}")
-        if RANK_DIAG_TXT.exists():
-            st.code(RANK_DIAG_TXT.read_text(encoding="utf-8"), language="text")
-            st.download_button(
-                "Download rank_diagnostics_report.txt",
-                data=RANK_DIAG_TXT.read_bytes(),
-                file_name="rank_diagnostics_report.txt",
-                mime="text/plain",
-            )
-
-    if RESEARCH_REPORT.exists():
-        st.subheader("Research report")
-        # Full report (rank diagnostics also appear at the end when present)
-        st.code(RESEARCH_REPORT.read_text(encoding="utf-8"), language="text")
-        st.download_button(
-            "Download research_report.txt",
-            data=RESEARCH_REPORT.read_bytes(),
-            file_name="research_report.txt",
-            mime="text/plain",
-        )
     if TRADE_JOURNAL.exists() and TRADE_JOURNAL.stat().st_size > 0:
         st.download_button(
             "Download trade_journal.csv",
@@ -600,136 +421,86 @@ with tab_bt:
             mime="text/csv",
         )
 
-with tab_exp:
-    st.subheader("Experiment 1 — EXIT_RANK only")
-    st.caption(
-        "Research Rule #1: only EXIT_RANK changes (discovered baseline → 80). "
-        "Baseline runs first, experiment second. No trading-logic edits."
-    )
-    ready_exp = UNI_PATH.exists() and PX_PATH.exists()
-    if not ready_exp:
+with tab_val:
+    st.subheader("3-period validation")
+    st.caption("Runs 2018–2020, 2021–2022, 2023–2025 and appends experiment_history.json")
+    ready = UNI_PATH.exists() and PX_PATH.exists()
+    if not ready:
         st.warning("Missing universe/prices data. Run Download first.")
-    else:
-        st.write(
-            "Runs `scripts/run_exp1_exit_rank.py`: "
-            "baseline EXIT_RANK → experiment EXIT_RANK=80, then prints the "
-            "8-section report (Architecture Audit → Decision)."
-        )
 
-    if st.button("Run Experiment 1", type="primary", disabled=not ready_exp):
+    if st.button("Run 3-period validation", type="primary", disabled=not ready):
+        apply_ui_config(
+            sample_size=sample_size,
+            request_interval=request_interval,
+            download_workers=download_workers,
+            api_key=api_key or "unused",
+            start_date=start_date,
+            end_date=end_date,
+            top_liquid_pool=int(top_liquid_pool),
+            top_momentum_count=int(top_momentum_count),
+            atr_multiplier=float(atr_multiplier),
+        )
         env = dict(os.environ)
         if api_key:
             env["MASSIVE_API_KEY"] = api_key
         env["PYTHONUNBUFFERED"] = "1"
         log = st.empty()
         code = stream_command(
-            [sys.executable, "-u", str(ROOT / "scripts" / "run_exp1_exit_rank.py")],
+            [sys.executable, "-u", str(ROOT / "run_baseline_v1.py"), "--config", str(CONFIG_PATH)],
             env,
             log,
         )
         if code != 0:
-            st.error(f"Experiment 1 failed (exit {code})")
-            abort = EXP001_DIR / "ABORT.txt"
-            if abort.exists():
-                st.code(abort.read_text(encoding="utf-8"), language="text")
+            st.error(f"Validation failed (exit {code})")
         else:
-            st.success("Experiment 1 finished")
+            st.success("Validation finished")
             st.rerun()
 
-    # --- Show preserved Exp1 artifacts ---
-    if EXP001_VALIDATION.exists():
+    if BASELINE_PERIODS.exists():
         try:
-            val = json.loads(EXP001_VALIDATION.read_text(encoding="utf-8"))
-            v = val.get("validation") or {}
-            passed = bool(v.get("passed"))
-            st.markdown("### Validation")
-            if passed:
-                st.success("PASS — EXIT_RANK is the only behavioral change")
-            else:
-                st.error("FAIL — unexpected behavioral differences")
-                unexpected = v.get("unexpected_diffs") or {}
-                if unexpected:
-                    st.json(unexpected)
-            b_id = val.get("baseline_identity") or {}
-            e_id = val.get("experiment_identity") or {}
-            c1, c2 = st.columns(2)
-            c1.metric("Baseline EXIT_RANK", f"{b_id.get('EXIT_RANK', 'n/a')}")
-            c2.metric("Experiment EXIT_RANK", f"{e_id.get('EXIT_RANK', 'n/a')}")
-            c1.metric("Baseline ENTRY_RANK", f"{b_id.get('ENTRY_RANK', 'n/a')}")
-            c2.metric("Experiment ENTRY_RANK", f"{e_id.get('ENTRY_RANK', 'n/a')}")
+            periods = json.loads(BASELINE_PERIODS.read_text(encoding="utf-8"))
+            for row in periods:
+                comp = row.get("comparison") or {}
+                s = comp.get("strategy") or {}
+                q = comp.get("QQQ") or {}
+                st.markdown(f"### {row.get('label')}")
+                a, b, c, d = st.columns(4)
+                a.metric("Strategy CAGR", _fmt_pct(s.get("CAGR")))
+                b.metric("QQQ CAGR", _fmt_pct(q.get("CAGR")))
+                c.metric("Alpha", _fmt_pct(comp.get("Alpha_CAGR")))
+                d.metric("Strategy MDD", _fmt_pct(s.get("Maximum_Drawdown")))
         except Exception as exc:
-            st.warning(f"Could not parse validation JSON: {exc}")
+            st.warning(f"Could not parse period results: {exc}")
 
-    if EXP001_CHECKLIST.exists():
-        try:
-            checklist = json.loads(EXP001_CHECKLIST.read_text(encoding="utf-8"))
-            decision = checklist.get("decision")
-            if decision:
-                st.markdown("### Decision")
-                st.info(str(decision))
-            reco = None
-            if EXP001_RECO.exists():
-                reco = EXP001_RECO.read_text(encoding="utf-8").strip()
-            if reco:
-                st.markdown("### Research Recommendation")
-                st.code(reco, language="text")
-        except Exception:
-            pass
-
-    if EXP001_DELTA.exists():
-        st.markdown("### Delta Report")
-        st.code(EXP001_DELTA.read_text(encoding="utf-8"), language="text")
+    if BASELINE_HISTORY.exists():
         st.download_button(
-            "Download DELTA_REPORT.txt",
-            data=EXP001_DELTA.read_bytes(),
-            file_name="DELTA_REPORT.txt",
-            mime="text/plain",
-            key="dl_exp1_delta",
+            "Download experiment_history.json",
+            data=BASELINE_HISTORY.read_bytes(),
+            file_name="experiment_history.json",
+            mime="application/json",
         )
-
-    if EXP001_FACTS.exists():
-        st.markdown("### Fact Generation")
-        st.code(EXP001_FACTS.read_text(encoding="utf-8"), language="text")
-
-    report_path = EXP001_RESULT if EXP001_RESULT.exists() else EXP001_FULL_REPORT
-    if report_path.exists():
-        st.markdown("### Full Experiment 1 Report (8 sections)")
-        st.code(report_path.read_text(encoding="utf-8"), language="text")
-        st.download_button(
-            "Download Experiment 1 report",
-            data=report_path.read_bytes(),
-            file_name=report_path.name,
-            mime="text/plain",
-            key="dl_exp1_full",
-        )
-    elif ready_exp:
-        st.info("No Experiment 1 artifacts yet. Click **Run Experiment 1**.")
 
 with tab_help:
     st.markdown(
         """
-### Local run
-```bash
-pip install -r requirements.txt
-export MASSIVE_API_KEY=your_key
-streamlit run app.py
-```
+### What this app runs
+**Baseline v1 only**
+- Entry: `mom_12_1 = price[t-21] / price[t-252] - 1` (Top liquid 250 → Top 30)
+- Exit: ATR(14) Wilder trail × multiplier (default 2.5); Low < stop → next Open
+- Sizing: equal weight `1/N`
+- Leverage: always `1.0x`
+- Benchmark: QQQ buy & hold
 
-### Streamlit Community Cloud
-1. Push this repo to GitHub  
-2. [share.streamlit.io](https://share.streamlit.io) → New app  
-3. Main file: `app.py`  
-4. Branch: `cursor/webapp-cb1c`  
-5. Secrets:
+### Not in this UI / strategy
+EMA exits · hard stop-loss · institutional multi-factor · rank hysteresis ·
+exhaustion · cooldown · industry caps · correlation filters
+
+### Streamlit Cloud
+1. Branch: `cursor/baseline-v1-cb1c`
+2. Main file: `app.py`
+3. Secret:
 ```toml
 MASSIVE_API_KEY = "your_key"
 ```
-
-### Notes
-- Free Streamlit Cloud often **times out** on long Massive downloads. Use **500 sample** locally, or download on a VPS/Colab then upload `data/` into the app environment.
-- CMVS v3 needs **universe + prices** only. Fundamentals download is optional / off by default.
-- Backtest-only is fast once `data/` exists.
-- After a backtest, **Rank diagnostics** shows `rank_exit_candidates`, `ema_preempted_rank_exit`, and `holding_rank_distribution` from `cache/rank_diagnostics.json` (observation only).
-- **Experiment 1** tab runs baseline vs `EXIT_RANK=80` (single variable) and shows Validation, Delta Report, Facts, Recommendation, and Decision.
 """
     )

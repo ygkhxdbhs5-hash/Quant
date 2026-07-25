@@ -54,11 +54,12 @@ class BaselineEngineV1:
         self.COMMISSION_RATE = float(cfg.get("commission_rate", 0.0005))
         self.SLIPPAGE_RATE = float(cfg.get("slippage_rate", 0.0002))
 
-        # Strategy knobs (from strategy module — not research panel)
-        self.TOP_LIQUID_POOL = int(TOP_LIQUID_POOL)
-        self.TOP_MOMENTUM_COUNT = int(TOP_MOMENTUM_COUNT)
-        self.ATR_MULTIPLIER = float(ATR_MULTIPLIER)
-        self.GROSS_EXPOSURE = float(GROSS_EXPOSURE)
+        # Strategy knobs — defaults from strategy_baseline_v1; optional config.baseline_v1 overrides
+        bcfg = dict(cfg.get("baseline_v1") or {})
+        self.TOP_LIQUID_POOL = int(bcfg.get("TOP_LIQUID_POOL", TOP_LIQUID_POOL))
+        self.TOP_MOMENTUM_COUNT = int(bcfg.get("TOP_MOMENTUM_COUNT", TOP_MOMENTUM_COUNT))
+        self.ATR_MULTIPLIER = float(bcfg.get("ATR_MULTIPLIER", ATR_MULTIPLIER))
+        self.GROSS_EXPOSURE = float(bcfg.get("GROSS_EXPOSURE", GROSS_EXPOSURE))
 
         print(">> Baseline v1: loading local panels (infrastructure artifacts)...")
         universe_path = Path(paths.get("metadata", "data/metadata")) / "universe.pkl"
