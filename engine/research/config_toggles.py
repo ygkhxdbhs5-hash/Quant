@@ -40,9 +40,9 @@ class ResearchToggles:
     USE_TIME_STOP: bool = False
     TIME_STOP_DAYS: int = 20  # only used when USE_TIME_STOP=True
 
-    # --- Hard % stop loss from entry (additive with ATR / EMA exits) ---
+    # --- Intraday hard stop from entry (Low triggers; fill=min(Open,stop)) ---
     USE_STOP_LOSS: bool = True
-    STOP_LOSS_PCT: float = 0.15  # 0.0–0.50; sell if close <= entry * (1 - pct)
+    STOP_LOSS_PCT: float = 0.15  # 0.0–0.50; ATR/EMA only if hard stop not hit
 
     # --- Holding ---
     # Suppresses discretionary exits only (trend / exhaustion / time-stop).
