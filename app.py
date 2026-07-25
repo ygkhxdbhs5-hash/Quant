@@ -297,25 +297,26 @@ with st.sidebar:
         0.05,
     )
 
-    st.markdown("**Fundamental Quality Bonus**")
+    st.markdown("**Fundamental Bonus Score**")
     use_quality_bonus = st.checkbox(
         "USE_QUALITY_BONUS",
         value=bool(_r_get("USE_QUALITY_BONUS", True)),
         help=(
             "Soft ranking bonus from recovered fundamental screens "
-            "(ROIC, FCF/Sales, D/E, revenue growth, op margin, gross profitability). "
-            "Never drops names; missing data → 0. "
-            "final = CMVS(+technical EQS) + EQS_WEIGHT × quality_score."
+            "(ROIC, FCF/Sales, D/E, revenue growth + quality ranks). "
+            "Never drops names; missing data → 0 points. "
+            "Excellent ≈ +15–20 pts, weak ≈ −5–10 pts. "
+            "Final = CMVS(+technical EQS) + points × EQS_WEIGHT."
         ),
     )
     eqs_weight = st.slider(
-        "EQS_WEIGHT (fundamental bonus)",
+        "EQS_WEIGHT (point→score scale)",
         0.0,
-        0.10,
-        float(_r_get("EQS_WEIGHT", 0.05)),
-        0.01,
+        0.02,
+        float(_r_get("EQS_WEIGHT", 0.01)),
+        0.001,
         disabled=not use_quality_bonus,
-        help="Keep small (0.03–0.08). 0 → identical rankings to baseline.",
+        help="Default 0.01 → +20 pts = +0.20 on CMVS scale (~15–20% influence). 0 → baseline.",
     )
 
     research_ui = {

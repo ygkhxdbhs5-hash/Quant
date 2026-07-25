@@ -1,4 +1,4 @@
-"""Tests for recovered fundamental Quality Bonus Score (soft EQS_WEIGHT tilt)."""
+"""Tests for recovered fundamental Bonus Score (signed points, soft tilt)."""
 
 from __future__ import annotations
 
@@ -7,7 +7,8 @@ import pandas as pd
 
 from engine.entry_quality import EQSWeights, blend_cmvs_eqs
 from engine.fundamental_quality import (
-    compute_quality_score,
+    DEFAULT_FUND_POINT_SCALE,
+    compute_fundamental_bonus_points,
     format_quality_diagnostics,
     quality_bonus,
 )
@@ -62,7 +63,7 @@ def _base_row(**overrides):
     return row
 
 
-def _engine(*, use_quality_bonus: bool = True, eqs_weight: float = 0.05):
+def _engine(*, use_quality_bonus: bool = True, eqs_weight: float = DEFAULT_FUND_POINT_SCALE):
     eng = StandaloneEngine.__new__(StandaloneEngine)
     eng.w1, eng.w2, eng.w3, eng.w4, eng.w5 = 0.10, 0.10, 0.15, 0.10, 0.25
     eng.eqs_weights = EQSWeights()
@@ -70,54 +71,54 @@ def _engine(*, use_quality_bonus: bool = True, eqs_weight: float = 0.05):
     eng.USE_QUALITY_BONUS = use_quality_bonus
     eng.EQS_WEIGHT = eqs_weight
     eng.MIN_INDUSTRY_SIZE = 2
+    eng.MIN_ROIC = 0.03
+    eng.MIN_FCF_SALES_YIELD = -0.05
+    eng.MAX_DEBT_TO_EQUITY = 3.0
+    eng.MIN_REVENUE_GROWTH_YOY = -0.15
     return eng
 
 
-def test_quality_score_in_unit_interval_and_missing_is_zero():
-    df = pd.DataFrame(
-        [
-            _base_row(symbol="A", roic_raw=0.20, gross_prof_raw=0.40, op_margin_raw=0.25),
-            _base_row(symbol="B"),  # all fundamentals missing
-        ]
-    )
-    q, parts = compute_quality_score(df, min_industry_size=2)
-    assert q.between(0.0, 1.0).all()
-    assert float(q.iloc[1]) == 0.0
-    assert float(q.iloc[0]) > 0.0
-    assert "rank_quality_core" in parts
+def test_missing_fundamentals_contribute_zero_points():
+    df = pd.DataFrame([_base_row(symbol="B")])
+    pts, _ = compute_fundamental_bonus_points(df, min_industry_size=2)
+    assert float(pts.iloc[0]) == 0.0
 
 
-def test_higher_fundamentals_rank_higher_quality():
+def test_excellent_vs_weak_point_bands():
     df = pd.DataFrame(
         [
             _base_row(
-                symbol="STRONG",
+                symbol="EXCELLENT",
                 industry="Tech",
-                roic_raw=0.25,
-                gross_prof_raw=0.50,
+                roic_raw=0.22,
+                gross_prof_raw=0.55,
                 op_margin_raw=0.30,
                 rev_growth_raw=0.40,
                 fcf_sales_yield=0.15,
-                debt_to_equity=0.2,
+                debt_to_equity=0.3,
             ),
             _base_row(
                 symbol="WEAK",
                 industry="Tech",
-                roic_raw=0.01,
-                gross_prof_raw=0.05,
-                op_margin_raw=0.01,
-                rev_growth_raw=-0.10,
-                fcf_sales_yield=-0.05,
-                debt_to_equity=3.0,
+                roic_raw=0.0,
+                gross_prof_raw=0.02,
+                op_margin_raw=0.0,
+                rev_growth_raw=-0.25,
+                fcf_sales_yield=-0.10,
+                debt_to_equity=4.5,
             ),
+            _base_row(symbol="MISSING", industry="Tech"),
         ]
     )
-    q, _ = compute_quality_score(df, min_industry_size=2)
-    assert float(q.iloc[0]) > float(q.iloc[1])
+    pts, parts = compute_fundamental_bonus_points(df, min_industry_size=2)
+    assert 8.0 <= float(pts.iloc[0]) <= 20.0
+    assert -10.0 <= float(pts.iloc[1]) <= -2.0
+    assert float(pts.iloc[2]) == 0.0
+    assert float(pts.iloc[0]) > float(pts.iloc[1])
+    assert "roic_points" in parts
 
 
-def test_eqs_weight_zero_matches_baseline_final_exactly():
-    """Backward compatibility: EQS_WEIGHT=0 → identical final_score to CMVS+tech EQS."""
+def test_point_scale_zero_matches_baseline_exactly():
     rows = [
         _base_row(
             symbol="Q",
@@ -133,12 +134,12 @@ def test_eqs_weight_zero_matches_baseline_final_exactly():
             symbol="P",
             rss=0.58,
             bbs=0.55,
-            roic_raw=0.02,
+            roic_raw=0.0,
             gross_prof_raw=0.08,
             op_margin_raw=0.02,
-            rev_growth_raw=0.0,
-            fcf_sales_yield=0.0,
-            debt_to_equity=2.5,
+            rev_growth_raw=-0.20,
+            fcf_sales_yield=-0.08,
+            debt_to_equity=4.0,
         ),
     ]
     df = pd.DataFrame(rows)
@@ -156,9 +157,8 @@ def test_eqs_weight_zero_matches_baseline_final_exactly():
     assert (ranked0["quality_bonus"] == 0.0).all()
 
 
-def test_quality_bonus_can_break_ties_without_dominating():
-    """Small EQS_WEIGHT tilts ranking when technical scores are nearly equal."""
-    # Nearly identical technicals; large fundamental gap
+def test_bonus_breaks_ties_but_does_not_dominate_strong_technicals():
+    # Near-tie technicals → fundamentals decide
     a = _base_row(
         symbol="HIQ",
         bbs=0.50,
@@ -168,12 +168,12 @@ def test_quality_bonus_can_break_ties_without_dominating():
         rss=0.60,
         ret5=0.05,
         rsi14=55.0,
-        roic_raw=0.35,
+        roic_raw=0.25,
         gross_prof_raw=0.55,
         op_margin_raw=0.32,
-        rev_growth_raw=0.50,
-        fcf_sales_yield=0.18,
-        debt_to_equity=0.1,
+        rev_growth_raw=0.45,
+        fcf_sales_yield=0.16,
+        debt_to_equity=0.2,
     )
     b = _base_row(
         symbol="LOQ",
@@ -184,39 +184,73 @@ def test_quality_bonus_can_break_ties_without_dominating():
         rss=0.60,
         ret5=0.05,
         rsi14=55.0,
-        roic_raw=0.01,
+        roic_raw=0.0,
         gross_prof_raw=0.04,
         op_margin_raw=0.01,
-        rev_growth_raw=-0.05,
-        fcf_sales_yield=-0.02,
+        rev_growth_raw=-0.20,
+        fcf_sales_yield=-0.08,
         debt_to_equity=4.0,
     )
     df = pd.DataFrame([b, a])
+    eng = _engine(eqs_weight=0.01)
+    ranked = StandaloneEngine.rank_universe(eng, df.copy())
+    assert ranked.iloc[0]["symbol"] == "HIQ"
+    bonus_abs = float(ranked["quality_bonus"].abs().max())
+    assert 0.0 < bonus_abs <= 0.20 + 1e-9
 
-    eng_off = _engine(eqs_weight=0.0)
-    ranked_off = StandaloneEngine.rank_universe(eng_off, df.copy())
-    # With weight 0, order is stable but not required to prefer HIQ
-    scores_off = {
-        r["symbol"]: float(r["final_score"]) for _, r in ranked_off.iterrows()
-    }
-    assert abs(scores_off["HIQ"] - scores_off["LOQ"]) < 1e-12
+    # Strong technical gap must not be overturned by fundamentals
+    strong_tech = _base_row(
+        symbol="TECH",
+        bbs=0.9,
+        vzs=0.85,
+        cps=0.85,
+        rsis=0.7,
+        rss=0.90,
+        ret5=0.06,
+        rsi14=60.0,
+        trend_score=0.95,
+        up_frac20=0.70,
+        close_vs_high20=0.98,
+        # weak fundamentals
+        roic_raw=0.0,
+        gross_prof_raw=0.05,
+        op_margin_raw=0.01,
+        rev_growth_raw=-0.20,
+        fcf_sales_yield=-0.08,
+        debt_to_equity=4.0,
+    )
+    weak_tech = _base_row(
+        symbol="FUND",
+        bbs=0.35,
+        vzs=0.30,
+        cps=0.35,
+        rsis=0.35,
+        rss=0.35,
+        ret5=0.02,
+        rsi14=48.0,
+        trend_score=0.40,
+        up_frac20=0.40,
+        close_vs_high20=0.80,
+        # excellent fundamentals
+        roic_raw=0.25,
+        gross_prof_raw=0.55,
+        op_margin_raw=0.30,
+        rev_growth_raw=0.40,
+        fcf_sales_yield=0.15,
+        debt_to_equity=0.2,
+    )
+    ranked2 = StandaloneEngine.rank_universe(
+        eng, pd.DataFrame([weak_tech, strong_tech])
+    )
+    assert ranked2.iloc[0]["symbol"] == "TECH"
 
-    eng_on = _engine(eqs_weight=0.05)
-    ranked_on = StandaloneEngine.rank_universe(eng_on, df.copy())
-    assert ranked_on.iloc[0]["symbol"] == "HIQ"
-    bonus_max = float(ranked_on["quality_bonus"].max())
-    assert 0.0 < bonus_max <= 0.05 + 1e-9
-    # Bonus never dominates: delta from quality << typical CMVS scale (~0.5+)
-    assert bonus_max < 0.10
 
-
-def test_quality_bonus_helper_and_diagnostics():
-    q = pd.Series([0.0, 0.5, 1.0])
-    assert (quality_bonus(q, use_quality_bonus=True, eqs_weight=0.0) == 0.0).all()
-    b = quality_bonus(q, use_quality_bonus=True, eqs_weight=0.05)
-    np.testing.assert_allclose(b.to_numpy(), np.array([0.0, 0.025, 0.05]))
-    text = format_quality_diagnostics(q, eqs_weight=0.05, use_quality_bonus=True)
-    assert "[QUALITY]" in text
-    assert "average_quality=" in text
-    assert "eqs_weight=0.0500" in text
-    assert "quality_bonus_range=" in text
+def test_diagnostics_and_helper():
+    pts = pd.Series([-5.0, 0.0, 18.0])
+    assert (quality_bonus(pts, use_quality_bonus=True, eqs_weight=0.0) == 0.0).all()
+    b = quality_bonus(pts, use_quality_bonus=True, eqs_weight=0.01)
+    np.testing.assert_allclose(b.to_numpy(), np.array([-0.05, 0.0, 0.18]))
+    text = format_quality_diagnostics(pts, eqs_weight=0.01, use_quality_bonus=True)
+    assert "[FUNDAMENTAL BONUS]" in text
+    assert "average_points=" in text
+    assert "point_scale=0.0100" in text

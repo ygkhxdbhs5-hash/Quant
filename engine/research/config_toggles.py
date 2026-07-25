@@ -50,10 +50,11 @@ class ResearchToggles:
     # --- Rebalance ---
     MONTHLY_REBALANCE: bool = True  # False → daily rebalance (research mode)
 
-    # --- Fundamental quality bonus (recovered soft screens → small ranking bonus) ---
+    # --- Fundamental bonus (recovered screens → signed points, soft ranking tilt) ---
     # Never excludes names; missing fundamentals contribute 0.
+    # Points ≈ [-10, +20]; EQS_WEIGHT is the point→score scale (default 0.01).
     USE_QUALITY_BONUS: bool = True
-    EQS_WEIGHT: float = 0.05  # final += EQS_WEIGHT * quality_score (keep tiny vs CMVS)
+    EQS_WEIGHT: float = 0.01  # final += points * EQS_WEIGHT; 0 => identical to baseline
 
     # --- Observation / research tooling (does not affect trades) ---
     SHADOW_HORIZON_DAYS: int = 20
@@ -167,6 +168,6 @@ def load_research_toggles(cfg: Dict[str, Any]) -> ResearchToggles:
         MAX_INDUSTRY_WEIGHT=float(_get("MAX_INDUSTRY_WEIGHT", industry_w)),
         MONTHLY_REBALANCE=bool(_get("MONTHLY_REBALANCE", True)),
         USE_QUALITY_BONUS=bool(_get("USE_QUALITY_BONUS", True)),
-        EQS_WEIGHT=float(_get("EQS_WEIGHT", 0.05)),
+        EQS_WEIGHT=float(_get("EQS_WEIGHT", 0.01)),
         SHADOW_HORIZON_DAYS=int(_get("SHADOW_HORIZON_DAYS", 20)),
     )
