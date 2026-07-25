@@ -68,6 +68,8 @@ def _short_reason(exit_reason: str) -> str:
     r = (exit_reason or "").lower()
     if "atr_trail" in r:
         return "atr_trail"
+    if "stop_loss" in r:
+        return "stop_loss"
     if "ema" in r:
         return "ema_break"
     if "exhaustion" in r:
@@ -171,6 +173,10 @@ class StandaloneEngine:
         self.USE_EXHAUSTION_EXIT = bool(self.research_toggles.USE_EXHAUSTION_EXIT)
         self.USE_TIME_STOP = bool(self.research_toggles.USE_TIME_STOP)
         self.TIME_STOP_DAYS = int(self.research_toggles.TIME_STOP_DAYS)
+        self.USE_STOP_LOSS = bool(self.research_toggles.USE_STOP_LOSS)
+        self.STOP_LOSS_PCT = float(
+            max(0.0, min(0.50, float(self.research_toggles.STOP_LOSS_PCT)))
+        )
         self.MIN_HOLD_DAYS = int(self.research_toggles.MIN_HOLD_DAYS)
         self.MONTHLY_REBALANCE = bool(self.research_toggles.MONTHLY_REBALANCE)
         self.MAX_INDUSTRY_WEIGHT = float(self.research_toggles.MAX_INDUSTRY_WEIGHT)
@@ -1196,11 +1202,12 @@ class StandaloneEngine:
         self.pending_orders = []
 
     def check_cmvs_exits(self, date_idx):
-        """Daily exits: ATR trail (primary) + confirmed trend exit + exhaustion.
+        """Daily exits: ATR trail + optional hard % stop + trend + exhaustion.
 
         EMA9/short-EMA break alone never sells. Trend exits require multiple
         confirmations; high-ATR% names use EMA20 and a higher confirmation bar.
         Healthy long-term uptrends skip trend exits on shallow pullbacks.
+        Optional hard stop loss (from entry) bypasses MIN_HOLD_DAYS.
         """
         current_date = self.close_m.index[date_idx]
         current_closes = self.close_m.loc[current_date]
@@ -1224,8 +1231,23 @@ class StandaloneEngine:
             peak = float(self.highest_prices[sym])
             self.trade_journal.mark_peak(sym, close_px)
 
-            # Min-hold gate (default 0 → no change)
-            if self.MIN_HOLD_DAYS > 0:
+            reasons = []
+
+            # 0) Hard % stop loss from entry — catastrophic; bypasses min-hold
+            if getattr(self, "USE_STOP_LOSS", False):
+                pct = float(getattr(self, "STOP_LOSS_PCT", 0.0))
+                pct = max(0.0, min(0.50, pct))
+                ot = getattr(self.trade_journal, "open", {}).get(sym)
+                entry_px = float(ot.entry_price) if ot is not None else np.nan
+                if pd.notna(entry_px) and entry_px > 0:
+                    stop_level = entry_px * (1.0 - pct)
+                    if close_px <= stop_level:
+                        reasons.append(
+                            f"stop_loss(entry={entry_px:.2f},pct={pct:.0%},stop={stop_level:.2f})"
+                        )
+
+            # Min-hold gate (default 0 → no change). Hard stop loss already recorded.
+            if self.MIN_HOLD_DAYS > 0 and not reasons:
                 held = self.trade_journal.holding_days(sym, current_date)
                 if held < self.MIN_HOLD_DAYS:
                     continue
@@ -1246,33 +1268,38 @@ class StandaloneEngine:
                 else np.nan
             )
 
-            reasons = []
-            # 1) ATR trailing stop — primary catastrophic exit (standalone OK)
-            if self.USE_ATR_EXIT and pd.notna(atr14) and atr14 > 0:
-                stop_level = peak - (self.atr_multiplier * float(atr14))
-                if close_px < stop_level:
-                    reasons.append(f"atr_trail(stop={stop_level:.2f})")
+            # If hard stop already fired, skip softer exits (still sell once)
+            if not reasons:
+                # 1) ATR trailing stop — primary catastrophic exit (standalone OK)
+                if self.USE_ATR_EXIT and pd.notna(atr14) and atr14 > 0:
+                    stop_level = peak - (self.atr_multiplier * float(atr14))
+                    if close_px < stop_level:
+                        reasons.append(f"atr_trail(stop={stop_level:.2f})")
 
-            # 2) Confirmation-based trend exit (EMA9 alone never sells)
-            if self.USE_EMA9_EXIT:
-                conf = self._trend_exit_confirmations(sym, date_idx, close_px, peak, atr14)
-                if conf:
-                    reasons.append("trend_confirm(" + "+".join(conf) + ")")
+                # 2) Confirmation-based trend exit (EMA9 alone never sells)
+                if self.USE_EMA9_EXIT:
+                    conf = self._trend_exit_confirmations(
+                        sym, date_idx, close_px, peak, atr14
+                    )
+                    if conf:
+                        reasons.append("trend_confirm(" + "+".join(conf) + ")")
 
-            # 3) Exhaustion: rsi_14 > 80 AND daily_cp < 0.3
-            if (
-                self.USE_EXHAUSTION_EXIT
-                and pd.notna(rsi14)
-                and pd.notna(daily_cp)
-                and float(rsi14) > 80.0
-                and float(daily_cp) < 0.3
-            ):
-                reasons.append(f"exhaustion(rsi={float(rsi14):.1f},cp={float(daily_cp):.2f})")
-            # 4) Optional time stop (default OFF — no baseline impact)
-            if self.USE_TIME_STOP and self.TIME_STOP_DAYS > 0:
-                held = self.trade_journal.holding_days(sym, current_date)
-                if held >= self.TIME_STOP_DAYS:
-                    reasons.append(f"time_stop(days={held})")
+                # 3) Exhaustion: rsi_14 > 80 AND daily_cp < 0.3
+                if (
+                    self.USE_EXHAUSTION_EXIT
+                    and pd.notna(rsi14)
+                    and pd.notna(daily_cp)
+                    and float(rsi14) > 80.0
+                    and float(daily_cp) < 0.3
+                ):
+                    reasons.append(
+                        f"exhaustion(rsi={float(rsi14):.1f},cp={float(daily_cp):.2f})"
+                    )
+                # 4) Optional time stop (default OFF — no baseline impact)
+                if self.USE_TIME_STOP and self.TIME_STOP_DAYS > 0:
+                    held = self.trade_journal.holding_days(sym, current_date)
+                    if held >= self.TIME_STOP_DAYS:
+                        reasons.append(f"time_stop(days={held})")
 
             if not reasons:
                 continue

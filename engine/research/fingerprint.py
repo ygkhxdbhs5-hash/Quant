@@ -59,6 +59,8 @@ def discover_baseline_values(cfg: Dict[str, Any], engine) -> Dict[str, Any]:
             "MIN_HOLD_DAYS": int(getattr(engine, "MIN_HOLD_DAYS", -1)),
             "USE_TIME_STOP": bool(getattr(engine, "USE_TIME_STOP", None)),
             "TIME_STOP_DAYS": int(getattr(engine, "TIME_STOP_DAYS", -1)),
+            "USE_STOP_LOSS": bool(getattr(engine, "USE_STOP_LOSS", False)),
+            "STOP_LOSS_PCT": float(getattr(engine, "STOP_LOSS_PCT", 0.0)),
             "MONTHLY_REBALANCE": bool(getattr(engine, "MONTHLY_REBALANCE", True)),
             "MAX_PORTFOLIO_SIZE": int(getattr(engine, "MAX_PORTFOLIO_SIZE", -1)),
             "MAX_INDUSTRY_WEIGHT": float(getattr(engine, "MAX_INDUSTRY_WEIGHT", float("nan"))),

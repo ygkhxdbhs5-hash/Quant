@@ -118,6 +118,8 @@ def _exit_breakdown_delta(
             return "ema9_break"
         if "atr_trail" in r:
             return "atr_trail"
+        if "stop_loss" in r:
+            return "stop_loss"
         if "exhaustion" in r:
             return "exhaustion"
         if "rebalance" in r:

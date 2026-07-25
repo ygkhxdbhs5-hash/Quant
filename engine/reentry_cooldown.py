@@ -30,6 +30,8 @@ def _reason_family(exit_reason: str) -> str:
     r = (exit_reason or "").lower()
     if "atr_trail" in r:
         return "atr_trail"
+    if "stop_loss" in r:
+        return "stop_loss"
     if "trend_confirm" in r or "ema9_break" in r or "ema" in r:
         return "ema_break"
     if "exhaustion" in r:
@@ -46,6 +48,7 @@ def _reason_family(exit_reason: str) -> str:
 # Base trading-day holdouts by exit family (weak structure → longer).
 _BASE_DAYS = {
     "atr_trail": 18,
+    "stop_loss": 18,
     "ema_break": 14,
     "exhaustion": 8,
     "bear_flatten": 10,
