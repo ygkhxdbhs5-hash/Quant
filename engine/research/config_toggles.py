@@ -40,6 +40,10 @@ class ResearchToggles:
     USE_TIME_STOP: bool = False
     TIME_STOP_DAYS: int = 20  # only used when USE_TIME_STOP=True
 
+    # --- Hard % stop loss from entry (optional; off by default) ---
+    USE_STOP_LOSS: bool = False
+    STOP_LOSS_PCT: float = 0.20  # 0.0–0.50; sell if close <= entry * (1 - pct)
+
     # --- Holding ---
     MIN_HOLD_DAYS: int = 0
 
@@ -73,6 +77,9 @@ class ResearchToggles:
             "USE_TIME_STOP = " + str(self.USE_TIME_STOP),
             "TIME_STOP_DAYS = " + str(self.TIME_STOP_DAYS),
             "",
+            "USE_STOP_LOSS = " + str(self.USE_STOP_LOSS),
+            "STOP_LOSS_PCT = " + f"{float(self.STOP_LOSS_PCT):.2%}",
+            "",
             "MIN_HOLD_DAYS = " + str(self.MIN_HOLD_DAYS),
             "",
             "MAX_PORTFOLIO_SIZE = " + str(self.MAX_PORTFOLIO_SIZE),
@@ -105,6 +112,7 @@ class ResearchToggles:
             and int(self.EXIT_RANK) == int(selection_buffer_size)
             and int(self.MIN_HOLD_DAYS) == 0
             and self.USE_TIME_STOP is False
+            and self.USE_STOP_LOSS is False
             and self.MONTHLY_REBALANCE is True
         )
 
@@ -131,6 +139,8 @@ def load_research_toggles(cfg: Dict[str, Any]) -> ResearchToggles:
             "MIN_HOLD_DAYS": "min_hold_days",
             "USE_TIME_STOP": "use_time_stop",
             "TIME_STOP_DAYS": "time_stop_days",
+            "USE_STOP_LOSS": "use_stop_loss",
+            "STOP_LOSS_PCT": "stop_loss_pct",
             "MAX_PORTFOLIO_SIZE": "max_portfolio_size",
             "MAX_INDUSTRY_WEIGHT": "max_industry_weight",
             "MONTHLY_REBALANCE": "monthly_rebalance",
@@ -152,6 +162,8 @@ def load_research_toggles(cfg: Dict[str, Any]) -> ResearchToggles:
         USE_EXHAUSTION_EXIT=bool(_get("USE_EXHAUSTION_EXIT", True)),
         USE_TIME_STOP=bool(_get("USE_TIME_STOP", False)),
         TIME_STOP_DAYS=int(_get("TIME_STOP_DAYS", 20)),
+        USE_STOP_LOSS=bool(_get("USE_STOP_LOSS", False)),
+        STOP_LOSS_PCT=float(max(0.0, min(0.50, float(_get("STOP_LOSS_PCT", 0.20))))),
         MIN_HOLD_DAYS=int(_get("MIN_HOLD_DAYS", 0)),
         MAX_PORTFOLIO_SIZE=int(_get("MAX_PORTFOLIO_SIZE", entry_rank)),
         MAX_INDUSTRY_WEIGHT=float(_get("MAX_INDUSTRY_WEIGHT", industry_w)),

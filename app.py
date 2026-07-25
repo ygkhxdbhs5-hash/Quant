@@ -275,6 +275,29 @@ with st.sidebar:
         disabled=not use_time_stop,
     )
 
+    st.markdown("**Hard Stop Loss**")
+    use_stop_loss = st.checkbox(
+        "USE_STOP_LOSS",
+        value=bool(_r_get("USE_STOP_LOSS", False)),
+        help=(
+            "Hard filter: sell if close ≤ entry × (1 − STOP_LOSS_PCT). "
+            "Measured from entry price (not peak). Off by default — no baseline impact. "
+            "When on, bypasses MIN_HOLD_DAYS."
+        ),
+    )
+    stop_loss_pct_ui = st.slider(
+        "STOP_LOSS_PCT",
+        min_value=0.0,
+        max_value=50.0,
+        value=float(_r_get("STOP_LOSS_PCT", 0.20)) * 100.0
+        if float(_r_get("STOP_LOSS_PCT", 0.20)) <= 1.0
+        else float(_r_get("STOP_LOSS_PCT", 20.0)),
+        step=1.0,
+        format="%.0f%%",
+        disabled=not use_stop_loss,
+        help="0% = break-even stop (sell at/below entry). 50% = allow 50% drawdown from entry.",
+    )
+
     st.markdown("**Holding / Portfolio / Risk**")
     min_hold_days = st.number_input(
         "MIN_HOLD_DAYS",
@@ -307,6 +330,8 @@ with st.sidebar:
         "USE_EXHAUSTION_EXIT": bool(use_exhaustion_exit),
         "USE_TIME_STOP": bool(use_time_stop),
         "TIME_STOP_DAYS": int(time_stop_days),
+        "USE_STOP_LOSS": bool(use_stop_loss),
+        "STOP_LOSS_PCT": float(stop_loss_pct_ui) / 100.0,
         "MIN_HOLD_DAYS": int(min_hold_days),
         "MAX_PORTFOLIO_SIZE": int(max_portfolio),
         "MONTHLY_REBALANCE": bool(monthly_rebalance),
@@ -419,6 +444,8 @@ with tab_bt:
             USE_EXHAUSTION_EXIT=bool(research_ui["USE_EXHAUSTION_EXIT"]),
             USE_TIME_STOP=bool(research_ui["USE_TIME_STOP"]),
             TIME_STOP_DAYS=int(research_ui["TIME_STOP_DAYS"]),
+            USE_STOP_LOSS=bool(research_ui["USE_STOP_LOSS"]),
+            STOP_LOSS_PCT=float(research_ui["STOP_LOSS_PCT"]),
             MIN_HOLD_DAYS=int(research_ui["MIN_HOLD_DAYS"]),
             MAX_PORTFOLIO_SIZE=int(research_ui["MAX_PORTFOLIO_SIZE"]),
             MAX_INDUSTRY_WEIGHT=float(research_ui["MAX_INDUSTRY_WEIGHT"]),
