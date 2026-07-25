@@ -38,9 +38,16 @@ COMPARISON_JSON = BASELINE_DIR / "benchmark_comparison.json"
 TRADE_JOURNAL = BASELINE_DIR / "trade_journal.csv"
 BASELINE_HISTORY = ROOT / "docs" / "experiments" / "BASELINE_V1" / "experiment_history.json"
 BASELINE_PERIODS = ROOT / "docs" / "experiments" / "BASELINE_V1" / "period_results.json"
-CHASE_CHART = ROOT / "docs" / "experiments" / "BASELINE_V1_TOPUP_CHASE" / "topup_chase_charts.png"
-CHASE_JSON = ROOT / "docs" / "experiments" / "BASELINE_V1_TOPUP_CHASE" / "topup_chase_results.json"
-CHASE_REPORT = ROOT / "docs" / "experiments" / "BASELINE_V1_TOPUP_CHASE" / "topup_chase_report.txt"
+CHASE_DIR = ROOT / "docs" / "experiments" / "BASELINE_V1_TOPUP_CHASE"
+CHASE_CHART = CHASE_DIR / "topup_chase_charts.png"
+CHASE_JSON = CHASE_DIR / "topup_chase_results.json"
+CHASE_REPORT = CHASE_DIR / "topup_chase_report.txt"
+PERIOD_DIR = ROOT / "docs" / "experiments" / "BASELINE_V1_DIAGNOSTICS"
+PERIOD_REPORT = PERIOD_DIR / "diagnostic_report.txt"
+COST_FIX_DIR = ROOT / "docs" / "experiments" / "BASELINE_V1_COST_DATA_FIX"
+COST_FIX_REPORT = COST_FIX_DIR / "cost_data_fix_report.txt"
+COST_AUDIT_DIR = ROOT / "docs" / "experiments" / "BASELINE_V1_COST_AUDIT"
+COST_AUDIT_REPORT = COST_AUDIT_DIR / "cost_audit_report.txt"
 
 st.set_page_config(page_title="Quant Baseline v1", page_icon="📈", layout="wide")
 
@@ -265,12 +272,12 @@ c4.metric("Benchmark", "QQQ B&H")
 if status["price_range"]:
     st.write(f"Price history: `{status['price_range']}`")
 
-tab_dl, tab_bt, tab_val, tab_charts, tab_help = st.tabs(
+tab_dl, tab_bt, tab_val, tab_reports, tab_help = st.tabs(
     [
         "1) Download data",
         "2) Run backtest",
         "3) 3-period validation",
-        "4) Report charts",
+        "4) Reports",
         "Help",
     ]
 )
@@ -489,48 +496,151 @@ with tab_val:
             mime="application/json",
         )
 
-with tab_charts:
-    st.subheader("Report charts (single image)")
+with tab_reports:
+    st.subheader("Generate diagnostic reports")
     st.caption(
-        "All Task 1–3 diagnostic charts are combined into one PNG so you can "
-        "copy or download everything at once."
+        "Click a button below — no terminal needed. Reports write under "
+        "`docs/experiments/`. The top-up chase report also builds a single PNG "
+        "with all charts for one-click download."
     )
-    if CHASE_CHART.exists():
-        st.image(str(CHASE_CHART), use_container_width=True)
-        st.download_button(
-            "Download all charts (one PNG)",
-            data=CHASE_CHART.read_bytes(),
-            file_name="topup_chase_charts.png",
-            mime="image/png",
-            type="primary",
-        )
-        c1, c2 = st.columns(2)
-        if CHASE_REPORT.exists():
-            c1.download_button(
-                "Download text report",
-                data=CHASE_REPORT.read_bytes(),
-                file_name="topup_chase_report.txt",
-                mime="text/plain",
-            )
-        if CHASE_JSON.exists():
-            c2.download_button(
-                "Download results JSON",
-                data=CHASE_JSON.read_bytes(),
-                file_name="topup_chase_results.json",
-                mime="application/json",
-            )
-    else:
-        st.info(
-            "No chart file yet. Generate with: "
-            "`python run_topup_chase_report.py` "
-            "(writes `docs/experiments/BASELINE_V1_TOPUP_CHASE/topup_chase_charts.png`)."
-        )
-        if CHASE_JSON.exists() and st.button("Build chart from saved JSON"):
-            from engine.report_charts import render_from_json_file
+    ready = UNI_PATH.exists() and PX_PATH.exists()
+    if not ready:
+        st.warning("Missing universe/prices data. Run Download first.")
 
-            path = render_from_json_file(CHASE_JSON, CHASE_CHART)
-            st.success(f"Wrote {path}")
-            st.rerun()
+    REPORT_JOBS = [
+        {
+            "key": "topup",
+            "title": "Top-up chase + charts (recommended)",
+            "desc": (
+                "Fixed CS v2 chase vs no-chase vs flat 10/30bps (2022–2026). "
+                "Writes text report + one combined PNG."
+            ),
+            "script": "run_topup_chase_report.py",
+            "out_dir": str(CHASE_DIR),
+            "report": CHASE_REPORT,
+            "extra_args": ["--out-dir", str(CHASE_DIR)],
+            "primary": True,
+        },
+        {
+            "key": "period",
+            "title": "Multi-period breakdown (Hypothesis A vs B)",
+            "desc": "Independent runs: 2018–20, 2021–22, 2023–25, 2022-only, 2022–2026.",
+            "script": "run_period_breakdown.py",
+            "out_dir": str(PERIOD_DIR),
+            "report": PERIOD_REPORT,
+            "extra_args": ["--out-dir", str(PERIOD_DIR)],
+            "primary": False,
+        },
+        {
+            "key": "cost_fix",
+            "title": "Cost/data fix comparison (CS v2 vs flats)",
+            "desc": "Legacy CS vs Fixed CS v2 + ADV winsorize vs flat 10/30bps.",
+            "script": "run_cost_data_fix_report.py",
+            "out_dir": str(COST_FIX_DIR),
+            "report": COST_FIX_REPORT,
+            "extra_args": ["--out-dir", str(COST_FIX_DIR)],
+            "primary": False,
+        },
+        {
+            "key": "cost_audit",
+            "title": "Cost-model audit (worst fills + flat benchmarks)",
+            "desc": "Worst-cost fills, ADV windows, sizing vs ADV, flat 10/30bps.",
+            "script": "run_cost_model_audit.py",
+            "out_dir": str(COST_AUDIT_DIR),
+            "report": COST_AUDIT_REPORT,
+            "extra_args": ["--out-dir", str(COST_AUDIT_DIR)],
+            "primary": False,
+        },
+    ]
+
+    for job in REPORT_JOBS:
+        with st.expander(job["title"], expanded=bool(job.get("primary"))):
+            st.write(job["desc"])
+            st.code(f"Output → {job['out_dir']}", language="text")
+            btn_label = f"Generate: {job['title']}"
+            if st.button(
+                btn_label,
+                key=f"gen_{job['key']}",
+                type="primary" if job.get("primary") else "secondary",
+                disabled=not ready,
+            ):
+                apply_ui_config(
+                    sample_size=sample_size,
+                    request_interval=request_interval,
+                    download_workers=download_workers,
+                    api_key=api_key or "unused",
+                    start_date=start_date,
+                    end_date=end_date,
+                    top_liquid_pool=int(top_liquid_pool),
+                    top_momentum_count=int(top_momentum_count),
+                    atr_multiplier=float(atr_multiplier),
+                    download_fundamentals=False,
+                )
+                env = dict(os.environ)
+                if api_key:
+                    env["MASSIVE_API_KEY"] = api_key
+                env["PYTHONUNBUFFERED"] = "1"
+                Path(job["out_dir"]).mkdir(parents=True, exist_ok=True)
+                log = st.empty()
+                st.info("Running… this can take a few minutes (multiple backtests). Keep this tab open.")
+                code = stream_command(
+                    [
+                        sys.executable,
+                        "-u",
+                        str(ROOT / job["script"]),
+                        "--config",
+                        str(CONFIG_PATH),
+                        *job["extra_args"],
+                    ],
+                    env,
+                    log,
+                )
+                if code != 0:
+                    st.error(f"Report failed (exit {code})")
+                else:
+                    st.success(f"Report finished → {job['out_dir']}")
+                    st.rerun()
+
+            # Downloads / preview for this job if artifacts exist
+            rep: Path = job["report"]
+            if rep.exists():
+                st.download_button(
+                    f"Download {rep.name}",
+                    data=rep.read_bytes(),
+                    file_name=rep.name,
+                    mime="text/plain",
+                    key=f"dl_txt_{job['key']}",
+                )
+                with st.expander(f"Preview {rep.name}", expanded=False):
+                    text = rep.read_text(encoding="utf-8", errors="replace")
+                    st.code(text[-12000:] if len(text) > 12000 else text, language="text")
+
+            if job["key"] == "topup" and CHASE_CHART.exists():
+                st.markdown("#### Combined charts (copy / download once)")
+                st.image(str(CHASE_CHART), use_container_width=True)
+                st.download_button(
+                    "Download all charts (one PNG)",
+                    data=CHASE_CHART.read_bytes(),
+                    file_name="topup_chase_charts.png",
+                    mime="image/png",
+                    type="primary",
+                    key="dl_chase_png",
+                )
+                if CHASE_JSON.exists():
+                    st.download_button(
+                        "Download results JSON",
+                        data=CHASE_JSON.read_bytes(),
+                        file_name="topup_chase_results.json",
+                        mime="application/json",
+                        key="dl_chase_json",
+                    )
+            elif job["key"] == "topup" and CHASE_JSON.exists() and not CHASE_CHART.exists():
+                if st.button("Build chart PNG from saved JSON", key="build_chase_png"):
+                    from engine.report_charts import render_from_json_file
+
+                    path = render_from_json_file(CHASE_JSON, CHASE_CHART)
+                    st.success(f"Wrote {path}")
+                    st.rerun()
 
 with tab_help:
     st.markdown(
@@ -547,12 +657,12 @@ with tab_help:
 EMA exits · hard stop-loss · institutional multi-factor · rank hysteresis ·
 exhaustion · cooldown · industry caps · correlation filters
 
-### Report charts
-Tab **4) Report charts** shows Task 1–3 diagnostics as **one PNG**
-(`topup_chase_charts.png`) for a single copy/download.
+### Reports (no terminal needed)
+Open tab **4) Reports** and click **Generate**. Recommended first:
+**Top-up chase + charts** — produces the text report and one PNG with all charts.
 
 ### Streamlit Cloud
-1. Branch: `cursor/baseline-v1-cb1c` (or your deploy branch with this UI)
+1. Deploy branch that includes this Reports tab (e.g. `cursor/no-chase-topup-cb1c`)
 2. Main file: `app.py`
 3. Secret:
 ```toml
