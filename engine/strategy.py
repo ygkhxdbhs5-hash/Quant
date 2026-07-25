@@ -54,6 +54,10 @@ from engine.research.validation import (
     format_validation_checklist,
     run_research_validation_checklist,
 )
+from engine.institutional_entry import (
+    build_institutional_scores,
+    format_factor_log,
+)
 from engine.reentry_cooldown import AdaptiveReentryCooldown
 from engine.entry_quality import (
     EQSWeights,
@@ -180,10 +184,15 @@ class StandaloneEngine:
         self.MIN_HOLD_DAYS = int(self.research_toggles.MIN_HOLD_DAYS)
         self.MONTHLY_REBALANCE = bool(self.research_toggles.MONTHLY_REBALANCE)
         self.MAX_INDUSTRY_WEIGHT = float(self.research_toggles.MAX_INDUSTRY_WEIGHT)
+        self.USE_INSTITUTIONAL_ENTRY = bool(
+            getattr(self.research_toggles, "USE_INSTITUTIONAL_ENTRY", True)
+        )
         # Keep legacy names synchronized with research aliases (no behavior change at defaults).
         # Portfolio construction uses ENTRY_RANK; MAX_PORTFOLIO_SIZE mirrors it.
         self.MAX_PORTFOLIO_SIZE = self.ENTRY_RANK
         self.SELECTION_BUFFER_SIZE = self.EXIT_RANK
+        self._last_institutional_df = pd.DataFrame()
+        self._adx_cache = {}
 
         print(">> 로컬 데이터 로드...")
         universe_path = Path(paths.get("metadata", "data/metadata")) / "universe.pkl"
@@ -206,7 +215,12 @@ class StandaloneEngine:
             print(f"    fundamentals loaded: {len(self.fundamental_history)} symbols (optional)")
         else:
             self.fundamental_history = {}
-            print("    fundamentals skipped (no pit_history.pkl) — OK for CMVS v3")
+            print("    fundamentals skipped (no pit_history.pkl)")
+            if getattr(self, "USE_INSTITUTIONAL_ENTRY", False):
+                print(
+                    "    ⚠️ Institutional Entry quality factors need PIT fundamentals "
+                    "(download_fundamentals: true)"
+                )
 
         self.all_tickers = universe["all_tickers"]
         self.tickers = universe["tickers"]
@@ -337,6 +351,7 @@ class StandaloneEngine:
         self.ema9_m = self.ema_exit_m
         self.ema20_m = close_m.ewm(span=20, adjust=False).mean()
         self.ema50_m = close_m.ewm(span=50, adjust=False).mean()
+        self.ema200_m = close_m.ewm(span=200, adjust=False).mean()
         self.ema20_slope5_m = self.ema20_m / self.ema20_m.shift(5) - 1.0
         self.ema50_slope5_m = self.ema50_m / self.ema50_m.shift(5) - 1.0
         # Relative volume for decline confirmation (dvol vs 20d average)
@@ -579,7 +594,14 @@ class StandaloneEngine:
         return RegimeState(exposure=exposure, breadth=breadth, benchmark_above_ma200=above_ma)
 
     def build_factors(self, date_idx, active_symbols, quiet: bool = False) -> pd.DataFrame:
-        """CMVS v3 factors: BBS, VZS, CPS, RSIS, RSS (all clipped to [0, 1])."""
+        """Build entry factors.
+
+        Institutional mode: academically validated multi-factor panel (no CMVS).
+        Legacy mode: CMVS v3 BBS/VZS/CPS/RSIS/RSS (kept behind USE_INSTITUTIONAL_ENTRY=False).
+        """
+        if getattr(self, "USE_INSTITUTIONAL_ENTRY", True):
+            return self._build_institutional_factors(date_idx, active_symbols, quiet=quiet)
+
         current_date = self.close_m.index[date_idx]
         bm = self.BENCHMARK_TICKER
         qqq_ret_20 = (
@@ -786,20 +808,38 @@ class StandaloneEngine:
             )
         return df
 
+    def _build_institutional_factors(
+        self, date_idx, active_symbols, quiet: bool = False
+    ) -> pd.DataFrame:
+        """Academic Institutional Entry Engine — Z-scored multi-factor composite."""
+        current_date = self.close_m.index[date_idx]
+        df = build_institutional_scores(self, date_idx, list(active_symbols))
+        self._last_institutional_df = df
+        if not quiet:
+            print(
+                f"    [FACTORS] {current_date.date()} institutional_v1 n={len(df)} "
+                f"(Q/M/T/L/R Z-score composite; CMVS entry unused)"
+            )
+            print(format_factor_log(df, max_rows=None))
+        return df
+
     def rank_universe(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Live ranking: CMVS quality core + Entry Quality Score (EQS).
-
-        FinalScore = CMVS_raw + EQS_BLEND_WEIGHT * EQS
-
-        EQS measures setup health (trend, pullback, volume/VCP, RS accel,
-        sector, overextension) and actively changes purchase priority.
-        Hard rejects remain in ``build_factors``.
-        """
+        """Rank by Institutional Composite Score (default) or legacy CMVS+EQS."""
         if df.empty:
             return df
+        if getattr(self, "USE_INSTITUTIONAL_ENTRY", True) or (
+            "factor_mode" in df.columns
+            and len(df)
+            and str(df["factor_mode"].iloc[0]) == "institutional_v1"
+        ):
+            out = df.copy()
+            if "final_score" not in out.columns:
+                return out
+            return out.sort_values("final_score", ascending=False).reset_index(drop=True)
+
         df = df.copy()
 
-        # ----- CMVS quality core (unchanged philosophy) -----
+        # ----- Legacy CMVS quality core (USE_INSTITUTIONAL_ENTRY=False only) -----
         ret5 = df["ret5"] if "ret5" in df.columns else 0.0
         vzs_confirmed = df["vzs"] * np.where(ret5 > 0.0, 1.0, 0.30)
         rsi = df["rsi14"] if "rsi14" in df.columns else (df["rsis"] * 30.0 + 50.0)
@@ -828,7 +868,6 @@ class StandaloneEngine:
         cmvs = (cmvs_raw - cmvs_penalty).astype(float)
         df["cmvs_score"] = cmvs
 
-        # ----- Entry Quality Score (modular; live ranking) -----
         eqs_w = getattr(self, "eqs_weights", None) or EQSWeights()
         blend_w = float(getattr(self, "EQS_BLEND_WEIGHT", 0.55))
         comps = compute_eqs_components(df)

@@ -200,20 +200,31 @@ with st.sidebar:
         "Defaults match current CMVS trade identity."
     )
 
+    st.markdown("**Entry Engine**")
+    use_institutional_entry = st.checkbox(
+        "USE_INSTITUTIONAL_ENTRY",
+        value=bool(_r_get("USE_INSTITUTIONAL_ENTRY", True)),
+        help=(
+            "Academic Institutional Entry Engine (Fama–French / Novy-Marx / "
+            "Jegadeesh–Titman / AQR-style factors with cross-sectional Z-scores). "
+            "Off = legacy CMVS+EQS entry (not recommended)."
+        ),
+    )
+
     st.markdown("**Entry / Exit**")
     entry_rank = st.number_input(
         "ENTRY_RANK",
         min_value=5,
         max_value=200,
-        value=int(_r_get("ENTRY_RANK", _cfg0.get("max_portfolio_size", 50))),
+        value=int(_r_get("ENTRY_RANK", _cfg0.get("max_portfolio_size", 20))),
         step=5,
-        help="Top-N core / max portfolio size",
+        help="Top-N core / max portfolio size (Institutional default: 20)",
     )
     exit_rank = st.number_input(
         "EXIT_RANK",
         min_value=5,
         max_value=300,
-        value=int(_r_get("EXIT_RANK", _cfg0.get("selection_buffer_size", 70))),
+        value=int(_r_get("EXIT_RANK", _cfg0.get("selection_buffer_size", 30))),
         step=5,
         help="Hysteresis buffer — keep if still in top EXIT_RANK",
     )
@@ -328,6 +339,7 @@ with st.sidebar:
     research_ui = {
         "ENTRY_RANK": int(entry_rank),
         "EXIT_RANK": int(exit_rank),
+        "USE_INSTITUTIONAL_ENTRY": bool(use_institutional_entry),
         "USE_EMA9_EXIT": bool(use_ema9_exit),
         "EMA_EXIT_LENGTH": int(ema_exit_length),
         "USE_ATR_EXIT": bool(use_atr_exit),
@@ -442,6 +454,7 @@ with tab_bt:
         ResearchToggles(
             ENTRY_RANK=int(research_ui["ENTRY_RANK"]),
             EXIT_RANK=int(research_ui["EXIT_RANK"]),
+            USE_INSTITUTIONAL_ENTRY=bool(research_ui["USE_INSTITUTIONAL_ENTRY"]),
             USE_EMA9_EXIT=bool(research_ui["USE_EMA9_EXIT"]),
             EMA_EXIT_LENGTH=int(research_ui["EMA_EXIT_LENGTH"]),
             USE_ATR_EXIT=bool(research_ui["USE_ATR_EXIT"]),

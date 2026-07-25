@@ -38,6 +38,11 @@ class _TinyEngine(StandaloneEngine):
         self.w3 = 0.15
         self.w4 = 0.10
         self.w5 = 0.25
+        self.USE_INSTITUTIONAL_ENTRY = False
+        from engine.entry_quality import EQSWeights
+
+        self.eqs_weights = EQSWeights()
+        self.EQS_BLEND_WEIGHT = 0.55
         from engine.entry_quality import EQSWeights
 
         self.eqs_weights = EQSWeights()

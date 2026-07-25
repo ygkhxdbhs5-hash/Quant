@@ -25,8 +25,8 @@ download_fundamentals: false
 # Max quarterly statements to pull per ticker from Massive financials
 statement_limit: 100
 
-max_portfolio_size: 50
-selection_buffer_size: 70
+max_portfolio_size: 20
+selection_buffer_size: 30
 # Aggressive test: raised from 0.20 (revert if MDD too high)
 max_industry_weight: 0.40
 min_industry_size: 8
@@ -91,9 +91,12 @@ atr_multiplier: 2.0        # CMVS: sell if close < peak_close - atr_multiplier *
 # ENTRY_RANK/EXIT_RANK default to max_portfolio_size / selection_buffer_size.
 # Spec examples 30/80 are intentionally NOT defaults (would change baseline).
 research:
-  # Entry / Exit
-  ENTRY_RANK: 50
-  EXIT_RANK: 70
+  # Entry engine: academic Institutional multi-factor (not CMVS)
+  USE_INSTITUTIONAL_ENTRY: true
+
+  # Entry / Exit — top 20 names; buffer 30 for hysteresis
+  ENTRY_RANK: 20
+  EXIT_RANK: 30
 
   # EMA / confirmed trend exit (USE_EMA9_EXIT name kept for UI)
   # Single EMA9 pierce never sells — multi-signal confirmation required.
@@ -119,7 +122,7 @@ research:
   MIN_HOLD_DAYS: 0
 
   # Portfolio
-  MAX_PORTFOLIO_SIZE: 50
+  MAX_PORTFOLIO_SIZE: 20
 
   # Rebalance
   MONTHLY_REBALANCE: true

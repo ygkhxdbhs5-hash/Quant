@@ -14,31 +14,33 @@ from engine.research.validation import run_research_validation_checklist
 
 
 def test_toggles_baseline_defaults():
-    t = load_research_toggles({"max_portfolio_size": 50, "selection_buffer_size": 70})
+    t = load_research_toggles({"max_portfolio_size": 20, "selection_buffer_size": 30})
     assert t.USE_EMA9_EXIT is True
     assert t.EMA_EXIT_LENGTH == 9
     assert t.USE_ATR_EXIT is True
     assert t.ATR_MULTIPLIER == 2.0
     assert t.USE_EXHAUSTION_EXIT is True
-    assert t.ENTRY_RANK == 50
-    assert t.EXIT_RANK == 70
+    assert t.USE_INSTITUTIONAL_ENTRY is True
+    assert t.ENTRY_RANK == 20
+    assert t.EXIT_RANK == 30
     assert t.MIN_HOLD_DAYS == 0
     assert t.USE_TIME_STOP is False
     assert t.TIME_STOP_DAYS == 20
     assert t.USE_STOP_LOSS is True
     assert t.STOP_LOSS_PCT == 0.15
-    assert t.MAX_PORTFOLIO_SIZE == 50
+    assert t.MAX_PORTFOLIO_SIZE == 20
     assert t.MONTHLY_REBALANCE is True
     assert t.MAX_INDUSTRY_WEIGHT == 0.40
-    assert t.is_baseline_defaults(50, 70)
+    assert t.is_baseline_defaults(20, 30)
 
 
 def test_research_config_panel_printout():
     t = ResearchToggles()
     panel = t.format_panel()
     assert "RESEARCH CONFIGURATION" in panel
-    assert "ENTRY_RANK = 50" in panel
-    assert "EXIT_RANK = 70" in panel
+    assert "ENTRY_RANK = 20" in panel
+    assert "EXIT_RANK = 30" in panel
+    assert "USE_INSTITUTIONAL_ENTRY = True" in panel
     assert "USE_EMA9_EXIT = True" in panel
     assert "EMA_EXIT_LENGTH = 9" in panel
     assert "USE_ATR_EXIT = True" in panel
@@ -49,7 +51,7 @@ def test_research_config_panel_printout():
     assert "USE_STOP_LOSS = True" in panel
     assert "STOP_LOSS_PCT = 15.00%" in panel
     assert "MIN_HOLD_DAYS = 0" in panel
-    assert "MAX_PORTFOLIO_SIZE = 50" in panel
+    assert "MAX_PORTFOLIO_SIZE = 20" in panel
     assert "MAX_INDUSTRY_WEIGHT = 0.40" in panel
 
 
@@ -64,7 +66,7 @@ def test_ema_exit_length_override():
     assert t.EMA_EXIT_LENGTH == 20
     assert t.USE_ATR_EXIT is False
     assert t.USE_EMA9_EXIT is True  # unchanged
-    assert not t.is_baseline_defaults(50, 70)
+    assert not t.is_baseline_defaults(20, 30)
 
 
 def test_shadow_exit_counterfactuals():
@@ -136,8 +138,8 @@ def test_recommendation_and_kpi_smoke():
     val = run_research_validation_checklist(
         ResearchToggles(),
         trades,
-        max_portfolio_size=50,
-        selection_buffer_size=70,
+        max_portfolio_size=20,
+        selection_buffer_size=30,
     )
     assert val["all_pass"] is True, val
 

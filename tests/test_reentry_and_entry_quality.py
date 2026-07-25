@@ -117,6 +117,7 @@ def test_rank_universe_penalizes_spike_and_prefers_structure():
 
     eng.eqs_weights = EQSWeights()
     eng.EQS_BLEND_WEIGHT = 0.55
+    eng.USE_INSTITUTIONAL_ENTRY = False
 
     df = pd.DataFrame(
         [

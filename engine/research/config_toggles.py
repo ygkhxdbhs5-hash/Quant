@@ -7,7 +7,7 @@ Edit values here or under ``research:`` in ``config/config.yaml``.
 The engine reads these before each run — no code edits required for experiments.
 
 Spec examples ENTRY_RANK=30 / EXIT_RANK=80 are NOT silent defaults; they would
-change baseline vs max_portfolio_size=50 / selection_buffer_size=70.
+change baseline vs max_portfolio_size=20 / selection_buffer_size=30.
 """
 
 from __future__ import annotations
@@ -21,8 +21,13 @@ class ResearchToggles:
     """Research Configuration Panel — all experiment knobs in one object."""
 
     # --- Entry / Exit ranks ---
-    ENTRY_RANK: int = 50  # baseline: max_portfolio_size
-    EXIT_RANK: int = 70  # baseline: selection_buffer_size
+    # Institutional Entry Engine defaults: top-20 core / buffer 30
+    ENTRY_RANK: int = 20
+    EXIT_RANK: int = 30
+
+    # --- Entry engine ---
+    # True = academic Institutional Entry (Z-score multi-factor); False = legacy CMVS+EQS
+    USE_INSTITUTIONAL_ENTRY: bool = True
 
     # --- EMA / trend exit (USE_EMA9_EXIT enables confirmation-based trend exit) ---
     # EMA9 pierce alone never sells; needs multi-signal confirmation.
@@ -50,7 +55,7 @@ class ResearchToggles:
     MIN_HOLD_DAYS: int = 0
 
     # --- Portfolio ---
-    MAX_PORTFOLIO_SIZE: int = 50  # mirrored from ENTRY_RANK at load when unset
+    MAX_PORTFOLIO_SIZE: int = 20  # mirrored from ENTRY_RANK at load when unset
     MAX_INDUSTRY_WEIGHT: float = 0.40
 
     # --- Rebalance ---
@@ -67,6 +72,8 @@ class ResearchToggles:
         return [
             "ENTRY_RANK = " + str(self.ENTRY_RANK),
             "EXIT_RANK = " + str(self.EXIT_RANK),
+            "",
+            "USE_INSTITUTIONAL_ENTRY = " + str(self.USE_INSTITUTIONAL_ENTRY),
             "",
             "USE_EMA9_EXIT = " + str(self.USE_EMA9_EXIT),
             "EMA_EXIT_LENGTH = " + str(self.EMA_EXIT_LENGTH),
@@ -102,10 +109,11 @@ class ResearchToggles:
         return "\n".join(lines)
 
     def is_baseline_defaults(
-        self, max_portfolio_size: int = 50, selection_buffer_size: int = 70
+        self, max_portfolio_size: int = 20, selection_buffer_size: int = 30
     ) -> bool:
         return (
-            self.USE_EMA9_EXIT is True
+            self.USE_INSTITUTIONAL_ENTRY is True
+            and self.USE_EMA9_EXIT is True
             and int(self.EMA_EXIT_LENGTH) == 9
             and self.USE_ATR_EXIT is True
             and float(self.ATR_MULTIPLIER) == 2.0
@@ -122,8 +130,8 @@ class ResearchToggles:
 
 def load_research_toggles(cfg: Dict[str, Any]) -> ResearchToggles:
     """Load toggles from config; missing keys fall back to baseline-identical defaults."""
-    max_n = int(cfg.get("max_portfolio_size", 50))
-    buf_n = int(cfg.get("selection_buffer_size", 70))
+    max_n = int(cfg.get("max_portfolio_size", 20))
+    buf_n = int(cfg.get("selection_buffer_size", 30))
     industry_w = float(cfg.get("max_industry_weight", 0.40))
     research = cfg.get("research") or {}
 
@@ -139,6 +147,7 @@ def load_research_toggles(cfg: Dict[str, Any]) -> ResearchToggles:
             "USE_EXHAUSTION_EXIT": "use_exhaustion_exit",
             "ENTRY_RANK": "entry_rank",
             "EXIT_RANK": "exit_rank",
+            "USE_INSTITUTIONAL_ENTRY": "use_institutional_entry",
             "MIN_HOLD_DAYS": "min_hold_days",
             "USE_TIME_STOP": "use_time_stop",
             "TIME_STOP_DAYS": "time_stop_days",
@@ -158,6 +167,7 @@ def load_research_toggles(cfg: Dict[str, Any]) -> ResearchToggles:
     return ResearchToggles(
         ENTRY_RANK=entry_rank,
         EXIT_RANK=int(_get("EXIT_RANK", buf_n)),
+        USE_INSTITUTIONAL_ENTRY=bool(_get("USE_INSTITUTIONAL_ENTRY", True)),
         USE_EMA9_EXIT=bool(_get("USE_EMA9_EXIT", True)),
         EMA_EXIT_LENGTH=int(_get("EMA_EXIT_LENGTH", 9)),
         USE_ATR_EXIT=bool(_get("USE_ATR_EXIT", True)),

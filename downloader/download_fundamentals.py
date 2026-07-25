@@ -1,9 +1,9 @@
 """Download PIT fundamentals via Massive financials into data/fundamentals/.
 
 Output schema matches StandaloneEngine expectations:
-op_margin, roic, gross_profitability, revenue, operating_income, op_cf, capex,
-total_debt, total_equity, cash_eq, debt_to_equity, revenue_growth_yoy,
-diluted_shares_outstanding, basic_shares_outstanding —
+op_margin, roic, gross_profitability, revenue, operating_income, net_income,
+op_cf, capex, total_debt, total_equity, total_assets, cash_eq, debt_to_equity,
+revenue_growth_yoy, diluted_shares_outstanding, basic_shares_outstanding —
 indexed by filing_date (PIT accepted proxy).
 """
 
@@ -131,6 +131,11 @@ def fetch_pit_fundamentals(
                 "revenue": inc["revenue"] if "revenue" in inc.columns else np.nan,
                 "operating_income": inc["operating_income"] if "operating_income" in inc.columns else np.nan,
                 "gross_profit": inc["gross_profit"] if "gross_profit" in inc.columns else np.nan,
+                "net_income": (
+                    inc["net_income_loss"]
+                    if "net_income_loss" in inc.columns
+                    else (inc["net_income"] if "net_income" in inc.columns else np.nan)
+                ),
                 "diluted_shares_outstanding": (
                     inc["diluted_shares_outstanding"]
                     if "diluted_shares_outstanding" in inc.columns
@@ -229,24 +234,25 @@ def fetch_pit_fundamentals(
         rev = pd.to_numeric(out["revenue"], errors="coerce")
         prior_q = rev.shift(4)
         out["revenue_growth_yoy"] = (rev - prior_q) / prior_q.abs().replace(0, np.nan)
-        out = out[
-            [
-                "op_margin",
-                "roic",
-                "gross_profitability",
-                "revenue",
-                "operating_income",
-                "op_cf",
-                "capex",
-                "total_debt",
-                "total_equity",
-                "cash_eq",
-                "debt_to_equity",
-                "revenue_growth_yoy",
-                "diluted_shares_outstanding",
-                "basic_shares_outstanding",
-            ]
+        keep_cols = [
+            "op_margin",
+            "roic",
+            "gross_profitability",
+            "revenue",
+            "operating_income",
+            "net_income",
+            "op_cf",
+            "capex",
+            "total_debt",
+            "total_equity",
+            "total_assets",
+            "cash_eq",
+            "debt_to_equity",
+            "revenue_growth_yoy",
+            "diluted_shares_outstanding",
+            "basic_shares_outstanding",
         ]
+        out = out[[c for c in keep_cols if c in out.columns]]
         before_drop = len(out)
         out = out.dropna(subset=["op_margin", "roic", "gross_profitability"], how="all")
         out.index.name = "acceptedDate"

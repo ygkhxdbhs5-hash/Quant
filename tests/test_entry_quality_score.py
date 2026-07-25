@@ -117,6 +117,7 @@ def test_rank_universe_blends_eqs_into_final_score():
     eng.w1, eng.w2, eng.w3, eng.w4, eng.w5 = 0.10, 0.10, 0.15, 0.10, 0.25
     eng.eqs_weights = EQSWeights()
     eng.EQS_BLEND_WEIGHT = 0.55
+    eng.USE_INSTITUTIONAL_ENTRY = False
 
     # Similar CMVS momentum, but CLEAN has far better setup health
     clean = _base_row(symbol="CLEAN", bbs=0.5, vzs=0.45, rss=0.55, ret5=0.05, rsi14=57.0)
