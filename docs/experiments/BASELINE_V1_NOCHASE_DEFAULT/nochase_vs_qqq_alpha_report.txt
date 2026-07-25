@@ -1,0 +1,41 @@
+# No-chase baseline vs QQQ buy & hold (VALID — clean committed state)
+
+Window: 2022-01-01 → 2026-06-30
+repro_id=50978c877d89
+payload_sha256_16=b1bd972f27a0dd06
+git_head=933f7ec7fa92bc40bc041092b56bd5fa76bdacbd
+git_dirty=False
+panels=5ce58a430ac1beec
+
+## QQQ B&H methodology
+- Buy once at first eligible **Open** on/after 2022-01-01 (full INITIAL_CASH).
+- Mark daily at **Close** (same mark convention as strategy equity).
+- No rebalancing, no leverage, no trading costs.
+
+## TASK 2 — Side-by-side (full window)
+Metric                       Strategy        QQQ B&H
+----------------------------------------------------
+CAGR                           +1.89%        +14.46%
+Sharpe                          0.194          0.697
+Maximum Drawdown              -31.97%        -35.25%
+----------------------------------------------------
+Alpha (CAGR−QQQ)              -12.57%
+Strategy cost $            12,536,785
+n_trades                        1,589
+
+## TASK 3 — Per-calendar-year (Strategy vs QQQ vs Alpha)
+Year       Strat CAGR     QQQ CAGR        Alpha    Strat MDD      QQQ MDD       note
+----------------------------------------------------------------------------------
+2022          -14.68%      -34.03%      +19.35%      -19.79%      -35.25%           
+2023           -6.94%      +55.83%      -62.77%      -19.03%      -10.91%           
+2024           +6.23%      +27.09%      -20.86%      -13.95%      -13.56%           
+2025           +5.00%      +20.54%      -15.53%      -21.82%      -22.88%           
+2026          +42.73%      +45.33%       -2.60%      -14.79%      -11.83%    partial
+----------------------------------------------------------------------------------
+
+Notes:
+- Per-year CAGR is computed on that year's equity slice (same KPI helper).
+- 2026 is partial (ends 2026-06-30).
+- topup_chase_report_2.txt numbers are INVALID and are not used here.
+
+# END

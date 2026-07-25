@@ -1,0 +1,188 @@
+{
+  "repro": {
+    "git_head": "933f7ec7fa92bc40bc041092b56bd5fa76bdacbd",
+    "git_dirty": false,
+    "window": {
+      "start": "2022-01-01",
+      "end": "2026-06-30"
+    },
+    "config_slice": {
+      "start_date": "2022-01-01",
+      "end_date": "2026-06-30",
+      "initial_cash": 50000000,
+      "cost_model": "corwin_schultz_v2",
+      "winsorize_adv": true,
+      "enable_topup_chasing": false,
+      "disable_topup_chasing": null,
+      "flat_cost_one_way": null,
+      "participation_cap_buy": 0.08,
+      "participation_cap_sell": 0.15,
+      "commission_rate": 0.0005,
+      "slippage_rate": 0.0002,
+      "universe_sample_size": 500,
+      "universe_sample_seed": 42,
+      "baseline_v1": null
+    },
+    "code_file_sha256_16": {
+      "engine/baseline_engine.py": "ce8e18e0cf7f8017",
+      "engine/strategy_baseline_v1.py": "ecf9dfd091079c2c",
+      "engine/execution_costs.py": "2effc46d3bffc006",
+      "engine/topup_chase_diagnostics.py": "c76cc5f0965fe076",
+      "engine/report_charts.py": "5f694822f04c375f",
+      "engine/cost_model_audit.py": "19bd6e4e66187d72",
+      "run_topup_chase_report.py": "18f8be69fbfcfc5d",
+      "config/config.yaml": "32d546d9cfb81b90"
+    },
+    "data_cache": {
+      "panels.pkl": "5ce58a430ac1beec",
+      "universe.pkl": "3445a4589dd34c15",
+      "panels_bytes": 48091715,
+      "universe_bytes": 306708
+    },
+    "extra": {
+      "report": "nochase_vs_qqq_alpha",
+      "fill_policy": "no_chase_default",
+      "qqq_bh": "buy_first_open_mark_close_no_costs",
+      "invalidates": "topup_chase_report_2.txt"
+    },
+    "fingerprint_sha256": "50978c877d8970f1994a788f986cf79ee21837faaf50020e8657e92f5cb0dcb4",
+    "fingerprint_id": "50978c877d89"
+  },
+  "window": {
+    "start": "2022-01-01",
+    "end": "2026-06-30"
+  },
+  "qqq_methodology": {
+    "ticker": "QQQ",
+    "entry": "first eligible Open on/after START",
+    "mark": "daily Close",
+    "rebalance": false,
+    "leverage": 1.0,
+    "trading_costs": 0.0,
+    "note": "Matches BaselineEngineV1._maybe_buy_qqq / _mark_qqq; strategy equity also marked at Close."
+  },
+  "strategy_metrics": {
+    "label": "Fixed CS v2 + NO-CHASE (default)",
+    "CAGR": 0.01889137238373162,
+    "Sharpe": 0.19394175482086234,
+    "Maximum_Drawdown": -0.319700746758534,
+    "total_cost_dollars": 12536784.831154697,
+    "n_closed_trades": 1589,
+    "enable_topup_chasing": false
+  },
+  "qqq_metrics": {
+    "label": "QQQ buy & hold",
+    "CAGR": 0.1446196934924251,
+    "Sharpe": 0.696850630177712,
+    "Maximum_Drawdown": -0.35246800176279247
+  },
+  "Alpha_CAGR": -0.12572832110869347,
+  "by_calendar_year": [
+    {
+      "year": 2022,
+      "n_days_strategy": 251,
+      "n_days_qqq": 251,
+      "partial_year": false,
+      "strategy": {
+        "CAGR": -0.14681641172826243,
+        "Sharpe": -0.9788893530180957,
+        "Maximum_Drawdown": -0.19785358081074328
+      },
+      "QQQ": {
+        "CAGR": -0.3402833791991774,
+        "Sharpe": -1.1260786147346324,
+        "Maximum_Drawdown": -0.35246800176279247
+      },
+      "Alpha_CAGR": 0.19346696747091496,
+      "strategy_total_return": -0.1452386562668282,
+      "qqq_total_return": -0.33708269133127644,
+      "alpha_total_return": 0.19184403506444825
+    },
+    {
+      "year": 2023,
+      "n_days_strategy": 250,
+      "n_days_qqq": 250,
+      "partial_year": false,
+      "strategy": {
+        "CAGR": -0.06935676730882878,
+        "Sharpe": -0.46257518382212576,
+        "Maximum_Drawdown": -0.1902830788300153
+      },
+      "QQQ": {
+        "CAGR": 0.5582972478799555,
+        "Sharpe": 2.5657073101572774,
+        "Maximum_Drawdown": -0.10908849971761518
+      },
+      "Alpha_CAGR": -0.6276540151887843,
+      "strategy_total_return": -0.06839475547617302,
+      "qqq_total_return": 0.5483930124722434,
+      "alpha_total_return": -0.6167877679484164
+    },
+    {
+      "year": 2024,
+      "n_days_strategy": 252,
+      "n_days_qqq": 252,
+      "partial_year": false,
+      "strategy": {
+        "CAGR": 0.062274094230766464,
+        "Sharpe": 0.41241897343589745,
+        "Maximum_Drawdown": -0.1394896565112531
+      },
+      "QQQ": {
+        "CAGR": 0.270893673050034,
+        "Sharpe": 1.426398532027721,
+        "Maximum_Drawdown": -0.13557688246273436
+      },
+      "Alpha_CAGR": -0.20861957881926751,
+      "strategy_total_return": 0.06205449310147815,
+      "qqq_total_return": 0.26985146183416897,
+      "alpha_total_return": -0.20779696873269082
+    },
+    {
+      "year": 2025,
+      "n_days_strategy": 250,
+      "n_days_qqq": 250,
+      "partial_year": false,
+      "strategy": {
+        "CAGR": 0.05004834311120154,
+        "Sharpe": 0.3293055679161265,
+        "Maximum_Drawdown": -0.218183822467696
+      },
+      "QQQ": {
+        "CAGR": 0.20537185476329745,
+        "Sharpe": 0.9119176204385306,
+        "Maximum_Drawdown": -0.22883225092697176
+      },
+      "Alpha_CAGR": -0.1553235116520959,
+      "strategy_total_return": 0.0497324950877458,
+      "qqq_total_return": 0.2039856967558933,
+      "alpha_total_return": -0.1542532016681475
+    },
+    {
+      "year": 2026,
+      "n_days_strategy": 123,
+      "n_days_qqq": 123,
+      "partial_year": true,
+      "strategy": {
+        "CAGR": 0.4273452536713178,
+        "Sharpe": 1.4955447243608693,
+        "Maximum_Drawdown": -0.1478951351296428
+      },
+      "QQQ": {
+        "CAGR": 0.453312080197368,
+        "Sharpe": 1.8834776662053123,
+        "Maximum_Drawdown": -0.11834714747902969
+      },
+      "Alpha_CAGR": -0.025966826526050202,
+      "strategy_total_return": 0.1905040080869964,
+      "qqq_total_return": 0.2010693297546935,
+      "alpha_total_return": -0.01056532166769708
+    }
+  ],
+  "audit": {
+    "topup_chase_report_2": "INVALID_DO_NOT_CITE",
+    "baseline_tag": "baseline-v1-nochase",
+    "prior_clean_nochase_repro_id": "97c21a974bf8"
+  },
+  "payload_sha256_16": "b1bd972f27a0dd06"
+}

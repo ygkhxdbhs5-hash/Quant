@@ -48,8 +48,27 @@
 
 `topup_chase_report_2.txt` flat10=+13.02% / flat30=+10.34% are **INVALID** (dirty-tree). Flat legs above match the original clean `topup_chase_report.txt`.
 
+## No-chase vs QQQ buy & hold (clean)
+
+| Field | Value |
+|---|---|
+| repro_id | `50978c877d89` |
+| payload_sha256_16 | `b1bd972f27a0dd06` |
+| git_dirty | **False** |
+| artifact | `nochase_vs_qqq_alpha_report.txt` / `.json` |
+
+QQQ B&H: buy first eligible **Open** on/after 2022-01-01, mark daily **Close**, no costs.
+
+| | Strategy (no-chase) | QQQ B&H |
+|---|---:|---:|
+| CAGR | +1.89% | +14.46% |
+| Sharpe | 0.194 | 0.697 |
+| MDD | −31.97% | −35.25% |
+| Alpha (CAGR−QQQ) | **−12.57%** | |
+
 ## Artifacts
 
 - `nochase_clean_reference.txt` / `.json` — tagged no-chase checkpoint payload
 - `clean_fourway_cost_report.txt` / `.json` — four-way clean reference
+- `nochase_vs_qqq_alpha_report.txt` / `.json` — Strategy vs QQQ + per-year alpha
 - `ROOT_CAUSE.md` — dirty-tree recovery findings
