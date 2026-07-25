@@ -28,8 +28,8 @@ def run_research_validation_checklist(
             "pass": baseline_defaults,
             "detail": toggles.as_dict(),
             "note": (
-                "ENTRY_RANK/EXIT_RANK default to max_portfolio_size/selection_buffer_size "
-                "(not spec 30/80) to preserve trade identity."
+                "Event-driven defaults: ENTRY_RANK=10 (buy), EXIT_RANK=selection_buffer "
+                "(hold), MAX_PORTFOLIO_SIZE=max_portfolio_size (capacity)."
             ),
         }
     )

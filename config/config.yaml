@@ -86,17 +86,18 @@ min_revenue_growth_yoy: -0.15  # was 0.0 — allow up to -15% YoY revenue change
 # trailing_stop_pct: 0.20
 atr_multiplier: 2.0        # CMVS: sell if close < peak_close - atr_multiplier * ATR(14)
 
-# Research Configuration Panel (defaults reproduce current CMVS trade identity).
+# Research Configuration Panel — Institutional Event-Driven Rebalancing.
 # Edit these values for experiments — no code changes required.
-# ENTRY_RANK/EXIT_RANK default to max_portfolio_size / selection_buffer_size.
-# Spec examples 30/80 are intentionally NOT defaults (would change baseline).
+# Buy band (ENTRY_RANK) is independent of portfolio capacity (MAX_PORTFOLIO_SIZE).
 research:
   # Entry engine: academic Institutional multi-factor (not CMVS)
   USE_INSTITUTIONAL_ENTRY: true
 
-  # Entry / Exit — top 20 names; buffer 30 for hysteresis
-  ENTRY_RANK: 20
-  EXIT_RANK: 30
+  # Event-driven rank buffer (hysteresis):
+  #   Buy only Rank ≤ 10; Hold while Rank ≤ 30; Sell if Rank > 30.
+  # Do not replace a holding merely because another name ranks slightly higher.
+  ENTRY_RANK: 10              # new-entry band (Top 10)
+  EXIT_RANK: 30               # hold buffer; forced rank exit when rank > 30
 
   # EMA / confirmed trend exit (USE_EMA9_EXIT name kept for UI)
   # Single EMA9 pierce never sells — multi-signal confirmation required.
@@ -121,7 +122,7 @@ research:
   # Holding
   MIN_HOLD_DAYS: 0
 
-  # Portfolio
+  # Portfolio capacity (refill vacant slots from Top ENTRY_RANK only)
   MAX_PORTFOLIO_SIZE: 20
 
   # Rebalance

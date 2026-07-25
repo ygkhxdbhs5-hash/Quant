@@ -142,10 +142,17 @@ def apply_ui_config(
         # Research Configuration Panel → config research: block (engine reads before run)
         block = dict(cfg.get("research") or {})
         block.update(research)
-        # Keep portfolio/ATR top-level aliases in sync with panel
-        block["ENTRY_RANK"] = int(max_portfolio)
-        block["EXIT_RANK"] = int(cfg["selection_buffer_size"])
-        block["MAX_PORTFOLIO_SIZE"] = int(max_portfolio)
+        # Event-driven: ENTRY_RANK = buy band; MAX_PORTFOLIO_SIZE = capacity (independent)
+        if "ENTRY_RANK" in research:
+            block["ENTRY_RANK"] = int(research["ENTRY_RANK"])
+        if "EXIT_RANK" in research:
+            block["EXIT_RANK"] = int(research["EXIT_RANK"])
+            cfg["selection_buffer_size"] = int(research["EXIT_RANK"])
+        if "MAX_PORTFOLIO_SIZE" in research:
+            block["MAX_PORTFOLIO_SIZE"] = int(research["MAX_PORTFOLIO_SIZE"])
+            cfg["max_portfolio_size"] = int(research["MAX_PORTFOLIO_SIZE"])
+        else:
+            block["MAX_PORTFOLIO_SIZE"] = int(max_portfolio)
         block["ATR_MULTIPLIER"] = float(atr_multiplier)
         cfg["research"] = block
         if "MAX_INDUSTRY_WEIGHT" in block:
@@ -211,22 +218,30 @@ with st.sidebar:
         ),
     )
 
-    st.markdown("**Entry / Exit**")
+    st.markdown("**Event-Driven Rank Buffer**")
     entry_rank = st.number_input(
-        "ENTRY_RANK",
-        min_value=5,
-        max_value=200,
-        value=int(_r_get("ENTRY_RANK", _cfg0.get("max_portfolio_size", 20))),
-        step=5,
-        help="Top-N core / max portfolio size (Institutional default: 20)",
+        "ENTRY_RANK (buy band)",
+        min_value=1,
+        max_value=100,
+        value=int(_r_get("ENTRY_RANK", 10)),
+        step=1,
+        help="New entries only if Composite Rank ≤ ENTRY_RANK (default Top 10).",
     )
     exit_rank = st.number_input(
-        "EXIT_RANK",
+        "EXIT_RANK (hold buffer)",
         min_value=5,
         max_value=300,
         value=int(_r_get("EXIT_RANK", _cfg0.get("selection_buffer_size", 30))),
         step=5,
-        help="Hysteresis buffer — keep if still in top EXIT_RANK",
+        help="Keep holdings while Rank ≤ EXIT_RANK; sell only when Rank > EXIT_RANK (default 30).",
+    )
+    max_portfolio = st.number_input(
+        "MAX_PORTFOLIO_SIZE",
+        min_value=1,
+        max_value=100,
+        value=int(_r_get("MAX_PORTFOLIO_SIZE", _cfg0.get("max_portfolio_size", 20))),
+        step=1,
+        help="Portfolio capacity. Vacant slots refill from Top ENTRY_RANK only.",
     )
 
     st.markdown("**EMA Exit**")
@@ -322,11 +337,10 @@ with st.sidebar:
             "for N days after entry. ATR trailing stop and hard stop loss stay active."
         ),
     )
-    max_portfolio = int(entry_rank)  # MAX_PORTFOLIO_SIZE mirrors ENTRY_RANK
     monthly_rebalance = st.checkbox(
         "MONTHLY_REBALANCE",
         value=bool(_r_get("MONTHLY_REBALANCE", True)),
-        help="On = monthly first-day rebalance (baseline). Off = daily rebalance.",
+        help="On = monthly ranking + event-driven buffer (baseline). Off = daily rebalance.",
     )
     max_industry_weight = st.slider(
         "MAX_INDUSTRY_WEIGHT",

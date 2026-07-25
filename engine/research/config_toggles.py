@@ -1,13 +1,14 @@
 """Research Configuration Panel.
 
 Single place to edit research parameters for experiments. Defaults reproduce
-the current CMVS engine trade identity (Core Research Principle).
+the Institutional Event-Driven Rebalancing identity:
+
+* Buy only Rank ≤ ENTRY_RANK (Top 10)
+* Hold while Rank ≤ EXIT_RANK (Top 30)
+* Max portfolio size independent of the buy band (20)
 
 Edit values here or under ``research:`` in ``config/config.yaml``.
 The engine reads these before each run — no code edits required for experiments.
-
-Spec examples ENTRY_RANK=30 / EXIT_RANK=80 are NOT silent defaults; they would
-change baseline vs max_portfolio_size=20 / selection_buffer_size=30.
 """
 
 from __future__ import annotations
@@ -15,14 +16,17 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import Any, Dict, List
 
+# Event-driven buy band (Top-N eligible for new entries). Decoupled from portfolio size.
+DEFAULT_ENTRY_RANK = 10
+
 
 @dataclass(frozen=True)
 class ResearchToggles:
     """Research Configuration Panel — all experiment knobs in one object."""
 
-    # --- Entry / Exit ranks ---
-    # Institutional Entry Engine defaults: top-20 core / buffer 30
-    ENTRY_RANK: int = 20
+    # --- Event-driven rank buffer ---
+    # Buy only if Composite Rank ≤ ENTRY_RANK; hold while ≤ EXIT_RANK; sell if > EXIT_RANK.
+    ENTRY_RANK: int = DEFAULT_ENTRY_RANK
     EXIT_RANK: int = 30
 
     # --- Entry engine ---
@@ -54,8 +58,8 @@ class ResearchToggles:
     # ATR trailing stop + hard stop loss remain active during the hold.
     MIN_HOLD_DAYS: int = 0
 
-    # --- Portfolio ---
-    MAX_PORTFOLIO_SIZE: int = 20  # mirrored from ENTRY_RANK at load when unset
+    # --- Portfolio (capacity; independent of ENTRY_RANK buy band) ---
+    MAX_PORTFOLIO_SIZE: int = 20
     MAX_INDUSTRY_WEIGHT: float = 0.40
 
     # --- Rebalance ---
@@ -70,8 +74,8 @@ class ResearchToggles:
     def panel_lines(self) -> List[str]:
         """Lines for the start-of-backtest RESEARCH CONFIGURATION printout."""
         return [
-            "ENTRY_RANK = " + str(self.ENTRY_RANK),
-            "EXIT_RANK = " + str(self.EXIT_RANK),
+            "ENTRY_RANK = " + str(self.ENTRY_RANK) + "  # buy band (Top-N new entries)",
+            "EXIT_RANK = " + str(self.EXIT_RANK) + "  # hold buffer; sell if rank > EXIT_RANK",
             "",
             "USE_INSTITUTIONAL_ENTRY = " + str(self.USE_INSTITUTIONAL_ENTRY),
             "",
@@ -118,8 +122,9 @@ class ResearchToggles:
             and self.USE_ATR_EXIT is True
             and float(self.ATR_MULTIPLIER) == 2.0
             and self.USE_EXHAUSTION_EXIT is True
-            and int(self.ENTRY_RANK) == int(max_portfolio_size)
+            and int(self.ENTRY_RANK) == DEFAULT_ENTRY_RANK
             and int(self.EXIT_RANK) == int(selection_buffer_size)
+            and int(self.MAX_PORTFOLIO_SIZE) == int(max_portfolio_size)
             and int(self.MIN_HOLD_DAYS) == 0
             and self.USE_TIME_STOP is False
             and self.USE_STOP_LOSS is True
@@ -163,7 +168,8 @@ def load_research_toggles(cfg: Dict[str, Any]) -> ResearchToggles:
             return cfg[flat]
         return default
 
-    entry_rank = int(_get("ENTRY_RANK", max_n))
+    # ENTRY_RANK is the buy band (Top 10), not max portfolio size.
+    entry_rank = int(_get("ENTRY_RANK", DEFAULT_ENTRY_RANK))
     return ResearchToggles(
         ENTRY_RANK=entry_rank,
         EXIT_RANK=int(_get("EXIT_RANK", buf_n)),
@@ -178,7 +184,7 @@ def load_research_toggles(cfg: Dict[str, Any]) -> ResearchToggles:
         USE_STOP_LOSS=bool(_get("USE_STOP_LOSS", True)),
         STOP_LOSS_PCT=float(max(0.0, min(0.50, float(_get("STOP_LOSS_PCT", 0.15))))),
         MIN_HOLD_DAYS=int(_get("MIN_HOLD_DAYS", 0)),
-        MAX_PORTFOLIO_SIZE=int(_get("MAX_PORTFOLIO_SIZE", entry_rank)),
+        MAX_PORTFOLIO_SIZE=int(_get("MAX_PORTFOLIO_SIZE", max_n)),
         MAX_INDUSTRY_WEIGHT=float(_get("MAX_INDUSTRY_WEIGHT", industry_w)),
         MONTHLY_REBALANCE=bool(_get("MONTHLY_REBALANCE", True)),
         SHADOW_HORIZON_DAYS=int(_get("SHADOW_HORIZON_DAYS", 20)),

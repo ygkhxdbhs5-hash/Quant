@@ -69,14 +69,32 @@ class TradeJournal:
         self.closed: List[ClosedTrade] = []
         self.rebalance_events: List[Dict[str, Any]] = []
 
-    def record_rebalance_turnover(self, date, n_entries: int, n_exits: int, n_held: int) -> None:
+    def record_rebalance_turnover(
+        self,
+        date,
+        n_entries: int,
+        n_exits: int,
+        n_held: int,
+        *,
+        n_forced_rank_exits: int = 0,
+        n_new_entries: Optional[int] = None,
+        avg_holding_days: Optional[float] = None,
+        avg_rank_holdings: Optional[float] = None,
+        decisions: Optional[List[Dict[str, Any]]] = None,
+    ) -> None:
         denom = max(n_held, 1)
+        entries = int(n_new_entries) if n_new_entries is not None else int(n_entries)
         self.rebalance_events.append(
             {
                 "date": date,
-                "entries": n_entries,
+                "entries": entries,
                 "exits": n_exits,
-                "turnover": (n_entries + n_exits) / denom,
+                "turnover": (entries + n_exits) / denom,
+                "n_forced_rank_exits": int(n_forced_rank_exits),
+                "n_new_entries": entries,
+                "avg_holding_days": avg_holding_days,
+                "avg_rank_holdings": avg_rank_holdings,
+                "decisions": list(decisions or []),
             }
         )
 

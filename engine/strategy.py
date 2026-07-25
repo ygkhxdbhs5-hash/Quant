@@ -105,6 +105,10 @@ class RebalanceContext:
     correlation_rejections: list = field(default_factory=list)
     industry_cap_rejections: list = field(default_factory=list)
     actually_invested: dict = field(default_factory=dict)  # symbol -> target weight
+    # Event-driven rebalance decision log: {symbol, prev_rank, curr_rank, action, reason}
+    rebalance_decisions: list = field(default_factory=list)
+    n_forced_rank_exits: int = 0
+    n_new_entries: int = 0
 
 
 def load_config(path: str | Path = "config/config.yaml") -> dict:
@@ -164,8 +168,8 @@ class StandaloneEngine:
         self.MIN_REVENUE_GROWTH_YOY = float(cfg.get("min_revenue_growth_yoy", -0.15))  # allow mild contraction
 
         # --- Research Configuration Panel (must bind BEFORE _precompute_matrices) ---
-        # Spec examples ENTRY_RANK=30 / EXIT_RANK=80 are NOT silent defaults;
-        # they would change baseline vs max_portfolio_size / selection_buffer_size.
+        # Event-driven buffer: ENTRY_RANK = buy band, EXIT_RANK = hold band,
+        # MAX_PORTFOLIO_SIZE = capacity (independent of buy band).
         self.research_toggles = load_research_toggles(cfg)
         self.ENTRY_RANK = int(self.research_toggles.ENTRY_RANK)
         self.EXIT_RANK = int(self.research_toggles.EXIT_RANK)
@@ -187,12 +191,13 @@ class StandaloneEngine:
         self.USE_INSTITUTIONAL_ENTRY = bool(
             getattr(self.research_toggles, "USE_INSTITUTIONAL_ENTRY", True)
         )
-        # Keep legacy names synchronized with research aliases (no behavior change at defaults).
-        # Portfolio construction uses ENTRY_RANK; MAX_PORTFOLIO_SIZE mirrors it.
-        self.MAX_PORTFOLIO_SIZE = self.ENTRY_RANK
+        # Capacity ≠ buy band: refill vacant slots from Top ENTRY_RANK only.
+        self.MAX_PORTFOLIO_SIZE = int(self.research_toggles.MAX_PORTFOLIO_SIZE)
         self.SELECTION_BUFFER_SIZE = self.EXIT_RANK
         self._last_institutional_df = pd.DataFrame()
         self._adx_cache = {}
+        self._previous_rank_map: dict = {}
+        self._last_rebalance_date = None
 
         print(">> 로컬 데이터 로드...")
         universe_path = Path(paths.get("metadata", "data/metadata")) / "universe.pkl"
@@ -880,47 +885,89 @@ class StandaloneEngine:
         return df.sort_values("final_score", ascending=False).reset_index(drop=True)
 
     def construct_portfolio(self, ranked_df, date_idx, ctx: RebalanceContext) -> pd.DataFrame:
+        """Institutional event-driven buffered rebalance.
+
+        Monthly: always recompute ranks. Positions are NOT auto-replaced.
+        * Hold if Composite Rank ≤ EXIT_RANK (Top 30).
+        * Sell (rank exit) only if Rank > EXIT_RANK.
+        * Buy only Rank ≤ ENTRY_RANK (Top 10), not held, capacity available,
+          correlation + industry filters pass.
+        * Max size = MAX_PORTFOLIO_SIZE; refill vacancies from Top ENTRY_RANK only.
+        """
         if ranked_df.empty:
             return ranked_df
-        # ENTRY_RANK / EXIT_RANK are research aliases; at defaults == max_portfolio / buffer
-        top_core = set(ranked_df.head(self.ENTRY_RANK)["symbol"].tolist())
-        top_buffer = set(ranked_df.head(self.EXIT_RANK)["symbol"].tolist())
 
-        keep = self.previous_target_symbols & top_buffer
-        new_candidates = ranked_df[
-            ranked_df["symbol"].isin(top_core) & ~ranked_df["symbol"].isin(keep)
-        ]
+        rank_map = {
+            str(sym): int(i + 1)
+            for i, sym in enumerate(ranked_df["symbol"].tolist())
+        }
+        prev_ranks = dict(getattr(self, "_previous_rank_map", {}) or {})
 
-        # Adaptive re-entry cooldown: never re-buy losing stop-outs until strength returns
+        # Buy band (Top 10) vs hold buffer (Top 30) — hysteresis prevents churn
+        top_buy = set(ranked_df.head(self.ENTRY_RANK)["symbol"].tolist())
+        top_hold = set(ranked_df.head(self.EXIT_RANK)["symbol"].tolist())
+
+        prior = set(self.previous_target_symbols)
+        keep = prior & top_hold
+        forced_rank_exits = prior - top_hold  # Rank dropped below Top EXIT_RANK
+
+        max_n = max(int(self.MAX_PORTFOLIO_SIZE), 1)
+        # Defensive: if somehow over capacity, keep best-ranked holdings first
+        if len(keep) > max_n:
+            keep_sorted = sorted(keep, key=lambda s: rank_map.get(str(s), 10**9))
+            keep = set(keep_sorted[:max_n])
+
         blocked = self._cooldown_blocked_set(date_idx)
         if blocked:
-            before = len(new_candidates)
-            new_candidates = new_candidates[~new_candidates["symbol"].isin(blocked)]
-            n_blocked = before - len(new_candidates)
-            if n_blocked > 0:
+            n_in_buy = len([s for s in top_buy if s in blocked and s not in keep])
+            if n_in_buy > 0:
                 print(
-                    f"    [COOLDOWN] blocked {n_blocked} re-entries "
+                    f"    [COOLDOWN] blocked {n_in_buy} Top-{self.ENTRY_RANK} re-entries "
                     f"(active={len(self.reentry_cooldown._records)})"
                 )
 
+        # New entries: highest-ranked eligible within Top ENTRY_RANK only
+        new_candidates = ranked_df[
+            ranked_df["symbol"].isin(top_buy) & ~ranked_df["symbol"].isin(keep)
+        ]
+
         selected = list(keep)
+        cooldown_blocked_buys: list = []
+        tentative_buys: list = []
         for _, row in new_candidates.iterrows():
-            if len(selected) >= self.ENTRY_RANK:
+            if len(selected) >= max_n:
                 break
-            selected.append(row["symbol"])
+            sym = row["symbol"]
+            if sym in blocked:
+                cooldown_blocked_buys.append(sym)
+                continue
+            selected.append(sym)
+            tentative_buys.append(sym)
 
         targets = ranked_df[ranked_df["symbol"].isin(selected)].copy()
 
         candidate_syms = targets["symbol"].tolist()
-        window = self.close_m[candidate_syms].iloc[date_idx - self.CORR_WINDOW: date_idx].pct_change().dropna(how="all")
-        corr_matrix = window.corr(method="spearman") if not window.empty else pd.DataFrame()
+        if candidate_syms and date_idx > 0:
+            start = max(0, date_idx - self.CORR_WINDOW)
+            window = (
+                self.close_m[candidate_syms]
+                .iloc[start:date_idx]
+                .pct_change()
+                .dropna(how="all")
+            )
+            corr_matrix = window.corr(method="spearman") if not window.empty else pd.DataFrame()
+        else:
+            corr_matrix = pd.DataFrame()
 
         final_selected = []
+        corr_rejected = []
         for _, row in targets.sort_values("final_score", ascending=False).iterrows():
             sym = row["symbol"]
             if sym in keep:
                 final_selected.append(sym)
                 continue
+            if len(final_selected) >= max_n:
+                break
             correlated = False
             if not corr_matrix.empty and sym in corr_matrix.columns:
                 for held in final_selected:
@@ -929,9 +976,78 @@ class StandaloneEngine:
                             correlated = True
                             break
             if correlated:
+                corr_rejected.append(sym)
                 ctx.correlation_rejections.append(sym)
             else:
                 final_selected.append(sym)
+
+        # --- Decision log (prev/curr rank + Hold/Buy/Sell + reason) ---
+        decisions = []
+        for sym in sorted(prior):
+            prev_r = prev_ranks.get(str(sym))
+            curr_r = rank_map.get(str(sym))
+            if sym in forced_rank_exits:
+                decisions.append(
+                    {
+                        "symbol": sym,
+                        "prev_rank": prev_r,
+                        "curr_rank": curr_r,
+                        "action": "Sell",
+                        "reason": "Rank dropped below Top 30"
+                        if self.EXIT_RANK == 30
+                        else f"Rank dropped below Top {self.EXIT_RANK}",
+                    }
+                )
+            elif sym in final_selected:
+                decisions.append(
+                    {
+                        "symbol": sym,
+                        "prev_rank": prev_r,
+                        "curr_rank": curr_r,
+                        "action": "Hold",
+                        "reason": "Within hold buffer",
+                    }
+                )
+            # else: dropped mid-month (hard stop / ATR / etc.) — logged via risk exits
+
+        bought = [s for s in final_selected if s not in keep]
+        for sym in bought:
+            decisions.append(
+                {
+                    "symbol": sym,
+                    "prev_rank": prev_ranks.get(str(sym)),
+                    "curr_rank": rank_map.get(str(sym)),
+                    "action": "Buy",
+                    "reason": "Rank entered Top 10"
+                    if self.ENTRY_RANK == 10
+                    else f"Rank entered Top {self.ENTRY_RANK}",
+                }
+            )
+
+        for sym in cooldown_blocked_buys:
+            decisions.append(
+                {
+                    "symbol": sym,
+                    "prev_rank": prev_ranks.get(str(sym)),
+                    "curr_rank": rank_map.get(str(sym)),
+                    "action": "Skip",
+                    "reason": "Cooldown Block",
+                }
+            )
+        for sym in corr_rejected:
+            decisions.append(
+                {
+                    "symbol": sym,
+                    "prev_rank": prev_ranks.get(str(sym)),
+                    "curr_rank": rank_map.get(str(sym)),
+                    "action": "Skip",
+                    "reason": "Correlation Filter",
+                }
+            )
+
+        ctx.rebalance_decisions = decisions
+        ctx.n_forced_rank_exits = len(forced_rank_exits)
+        ctx.n_new_entries = len(bought)
 
         return ranked_df[ranked_df["symbol"].isin(final_selected)].copy()
 
@@ -1012,12 +1128,13 @@ class StandaloneEngine:
         issues = []
         if final_targets["symbol"].duplicated().any():
             issues.append("중복 심볼")
-        if len(final_targets) > self.ENTRY_RANK:
+        max_n = max(int(self.MAX_PORTFOLIO_SIZE), 1)
+        if len(final_targets) > max_n:
             issues.append(f"포트폴리오 크기 초과 {len(final_targets)}")
         total_w = final_targets["final_weight"].sum()
         if abs(total_w - exposure) > self.WEIGHT_SUM_TOLERANCE:
             issues.append(f"총비중 불일치 {total_w:.3f} vs {exposure:.3f}")
-        max_single = (1.0 / max(self.ENTRY_RANK, 1)) * 2.0
+        max_single = (1.0 / max_n) * 2.0
         if (final_targets["final_weight"] > max_single + 1e-6).any():
             issues.append("개별 상한 초과")
         ind_exp = final_targets.groupby("industry")["final_weight"].sum()
@@ -1741,23 +1858,125 @@ class StandaloneEngine:
                 self.highest_prices.pop(sym, None)
                 print(f"    ⚠️ [조용한 상장폐지] {sym} haircut({self.SILENT_DELIST_RECOVERY:.0%}) 청산")
 
+    def _risk_exit_reason_label(self, exit_reason: str) -> str:
+        r = (exit_reason or "").lower()
+        if "stop_loss" in r or "hard_stop" in r:
+            return "Hard Stop"
+        if "atr_trail" in r:
+            return "ATR Exit"
+        if "exhaustion" in r:
+            return "Exhaustion Exit"
+        if "ema" in r or "trend" in r:
+            return "Trend Exit"
+        if "time_stop" in r:
+            return "Time Stop"
+        if "bear_flatten" in r:
+            return "Bear Flatten"
+        if "delist" in r:
+            return "Delist"
+        return (exit_reason or "Other")[:40]
+
+    def _avg_open_holding_days(self, as_of_date) -> float | None:
+        open_book = getattr(self.trade_journal, "open", None) or {}
+        if not open_book:
+            return None
+        days = []
+        for ot in open_book.values():
+            try:
+                days.append(int(self.trade_journal.holding_days(ot.symbol, as_of_date)))
+            except Exception:
+                continue
+        if not days:
+            return None
+        return float(np.mean(days))
+
+    def _period_risk_exit_decisions(self, as_of_date) -> list:
+        """Closed-trade risk exits since last rebalance (Hard Stop / ATR / Exhaustion)."""
+        last = getattr(self, "_last_rebalance_date", None)
+        out = []
+        for ct in self.trade_journal.closed:
+            try:
+                xd = pd.Timestamp(ct.exit_date)
+            except Exception:
+                continue
+            if last is not None and xd <= pd.Timestamp(last):
+                continue
+            if as_of_date is not None and xd > pd.Timestamp(as_of_date):
+                continue
+            label = self._risk_exit_reason_label(str(ct.exit_reason))
+            if label in {"Hard Stop", "ATR Exit", "Exhaustion Exit", "Trend Exit", "Time Stop"}:
+                out.append(
+                    {
+                        "symbol": ct.symbol,
+                        "prev_rank": ct.entry_rank,
+                        "curr_rank": ct.exit_rank,
+                        "action": "Sell",
+                        "reason": label,
+                    }
+                )
+        return out
+
     def log_rebalance_summary(self, ctx: RebalanceContext):
         entries = set(ctx.actually_invested.keys()) - self._prior_invested_for_log
         exits = self._prior_invested_for_log - set(ctx.actually_invested.keys())
         prior_n = len(self._prior_invested_for_log)
         turnover = (len(entries) + len(exits)) / max(prior_n, 1)
+
+        # Merge mid-period risk exits into decision log for the monthly report
+        risk_decisions = self._period_risk_exit_decisions(ctx.as_of_date)
+        all_decisions = list(ctx.rebalance_decisions or []) + risk_decisions
+
+        n_new = int(getattr(ctx, "n_new_entries", None) or len(entries))
+        n_forced = int(getattr(ctx, "n_forced_rank_exits", 0) or 0)
+        # Count forced rank exits from decisions if construct_portfolio wasn't called
+        if n_forced == 0:
+            n_forced = sum(
+                1
+                for d in all_decisions
+                if d.get("action") == "Sell"
+                and "dropped below" in str(d.get("reason", "")).lower()
+            )
+
+        avg_hold = self._avg_open_holding_days(ctx.as_of_date)
+        ranks = []
+        rank_map = getattr(self, "_last_rank_map", {}) or {}
+        for sym in ctx.actually_invested.keys():
+            r = rank_map.get(str(sym))
+            if r is not None:
+                ranks.append(int(r))
+        avg_rank = float(np.mean(ranks)) if ranks else None
+
         self.trade_journal.record_rebalance_turnover(
-            ctx.as_of_date, len(entries), len(exits), prior_n
+            ctx.as_of_date,
+            len(entries),
+            len(exits),
+            prior_n,
+            n_forced_rank_exits=n_forced,
+            n_new_entries=n_new,
+            avg_holding_days=avg_hold,
+            avg_rank_holdings=avg_rank,
+            decisions=all_decisions,
         )
         self._prior_invested_for_log = set(ctx.actually_invested.keys())
+
         print(
             f"[REBALANCE] date={ctx.as_of_date.date()} exposure={ctx.regime.exposure:.2f} "
             f"breadth={ctx.regime.breadth:.2f} above_ma200={ctx.regime.benchmark_above_ma200} "
             f"n_selected={len(ctx.actually_invested)} turnover={turnover:.2%} "
-            f"entries={len(entries)} exits={len(exits)} "
+            f"entries={n_new} forced_rank_exits={n_forced} "
+            f"avg_hold_days={avg_hold if avg_hold is not None else 'n/a'} "
+            f"avg_rank={f'{avg_rank:.1f}' if avg_rank is not None else 'n/a'} "
             f"corr_rejections={len(ctx.correlation_rejections)} "
             f"industry_cap_rejections={len(ctx.industry_cap_rejections)}"
         )
+        if all_decisions:
+            print("    [EVENT-DRIVEN DECISIONS]")
+            for d in all_decisions:
+                print(
+                    f"      {d.get('symbol')}: prev={d.get('prev_rank')} "
+                    f"curr={d.get('curr_rank')} -> {d.get('action')} "
+                    f"({d.get('reason')})"
+                )
 
     # -------------------------------------------------------------
     def run(self):
@@ -1861,18 +2080,50 @@ class StandaloneEngine:
                             ctx.ranked_df["final_score"].tolist(),
                         )
                     }
-                # Top-N by CMVS final_score (construct_portfolio still applies buffer/corr caps)
+                # Top-N by composite final_score (event-driven buffer / corr / capacity)
                 ctx.targets_df = self.construct_portfolio(ctx.ranked_df, idx, ctx)
                 # Do not re-buy names that triggered a CMVS exit today OR are on cooldown
                 block = set(getattr(self, "_cmvs_forced_exits", None) or set())
                 block |= self._cooldown_blocked_set(idx)
                 if block and not ctx.targets_df.empty:
+                    before_syms = set(ctx.targets_df["symbol"].tolist())
                     ctx.targets_df = ctx.targets_df[
                         ~ctx.targets_df["symbol"].isin(block)
                     ].copy()
+                    dropped = before_syms - set(ctx.targets_df["symbol"].tolist())
+                    for sym in dropped:
+                        if any(
+                            d.get("symbol") == sym and d.get("action") == "Buy"
+                            for d in (ctx.rebalance_decisions or [])
+                        ):
+                            ctx.rebalance_decisions.append(
+                                {
+                                    "symbol": sym,
+                                    "prev_rank": self._previous_rank_map.get(str(sym)),
+                                    "curr_rank": self._last_rank_map.get(str(sym)),
+                                    "action": "Skip",
+                                    "reason": "Cooldown Block",
+                                }
+                            )
+                            ctx.n_new_entries = max(0, int(ctx.n_new_entries) - 1)
                 # Portfolio sizing infrastructure preserved (equal-weight / optional ATR)
                 ctx.targets_df = self.allocate_weights(ctx.targets_df, idx, ctx.regime.exposure)
                 final_targets = self.construct_final_targets_with_industry_cap(ctx.targets_df, ctx.regime.exposure, ctx)
+
+                # Log industry-cap blocks on would-be new entries
+                for sym in ctx.industry_cap_rejections:
+                    if sym not in (self.previous_target_symbols or set()):
+                        ctx.rebalance_decisions.append(
+                            {
+                                "symbol": sym,
+                                "prev_rank": self._previous_rank_map.get(str(sym)),
+                                "curr_rank": self._last_rank_map.get(str(sym)),
+                                "action": "Skip",
+                                "reason": "Industry Cap",
+                            }
+                        )
+                        if ctx.n_new_entries > 0:
+                            ctx.n_new_entries = max(0, int(ctx.n_new_entries) - 1)
 
                 if not final_targets.empty:
                     self.validate_portfolio(final_targets, ctx.regime.exposure)
@@ -1880,7 +2131,9 @@ class StandaloneEngine:
                 self.queue_rebalance_orders(final_targets, idx)
                 ctx.actually_invested = dict(zip(final_targets["symbol"], final_targets["final_weight"])) if not final_targets.empty else {}
                 self.previous_target_symbols = set(ctx.actually_invested.keys())
+                self._previous_rank_map = dict(self._last_rank_map)
                 self.log_rebalance_summary(ctx)
+                self._last_rebalance_date = ctx.as_of_date
 
         equity = pd.DataFrame(self.equity_curve).set_index("Date")
         self.research_artifacts = self.emit_research_reports(equity)

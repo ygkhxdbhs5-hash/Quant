@@ -21,7 +21,7 @@ def test_toggles_baseline_defaults():
     assert t.ATR_MULTIPLIER == 2.0
     assert t.USE_EXHAUSTION_EXIT is True
     assert t.USE_INSTITUTIONAL_ENTRY is True
-    assert t.ENTRY_RANK == 20
+    assert t.ENTRY_RANK == 10
     assert t.EXIT_RANK == 30
     assert t.MIN_HOLD_DAYS == 0
     assert t.USE_TIME_STOP is False
@@ -38,7 +38,7 @@ def test_research_config_panel_printout():
     t = ResearchToggles()
     panel = t.format_panel()
     assert "RESEARCH CONFIGURATION" in panel
-    assert "ENTRY_RANK = 20" in panel
+    assert "ENTRY_RANK = 10" in panel
     assert "EXIT_RANK = 30" in panel
     assert "USE_INSTITUTIONAL_ENTRY = True" in panel
     assert "USE_EMA9_EXIT = True" in panel
