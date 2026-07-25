@@ -17,6 +17,14 @@ from typing import Any, Dict, List, Optional, Set
 import numpy as np
 import pandas as pd
 
+from engine.execution_costs import (
+    analyze_raw_corwin_schultz,
+    apply_legacy_cs_clip,
+    apply_robust_cs,
+    corwin_schultz_raw,
+    diagnose_cs_breakdown,
+    winsorize_dollar_volume,
+)
 from engine.research.experiment_history import ExperimentHistory
 from engine.research.kpi_report import build_hierarchical_kpi_report
 from engine.research.trade_journal import TradeJournal
@@ -53,10 +61,18 @@ class BaselineEngineV1:
         self.PARTICIPATION_CAP_SELL = float(cfg.get("participation_cap_sell", 0.15))
         self.COMMISSION_RATE = float(cfg.get("commission_rate", 0.0005))
         self.SLIPPAGE_RATE = float(cfg.get("slippage_rate", 0.0002))
-        # Cost-model variant switch (default = existing Corwin–Schultz + sqrt impact).
-        # Audit / sensitivity only — does not change entry/exit/sizing logic.
-        self.COST_MODEL = str(cfg.get("cost_model", "corwin_schultz")).lower()
+        # Cost-model variant switch (does not change entry/exit/sizing formulas).
+        #   corwin_schultz      — legacy CS clip [2bps, 5%] + raw ADV20 (pre-fix)
+        #   corwin_schultz_v2   — robust CS (1% ceil + liquidity fallback) + winsorized ADV
+        #   flat                — constant one-way fee (sensitivity benchmark)
+        self.COST_MODEL = str(cfg.get("cost_model", "corwin_schultz_v2")).lower()
         self.FLAT_COST_ONE_WAY = float(cfg.get("flat_cost_one_way", 0.0005))
+        self.WINSORIZE_ADV = bool(
+            cfg.get(
+                "winsorize_adv",
+                self.COST_MODEL in ("corwin_schultz_v2", "robust"),
+            )
+        )
 
         # Strategy knobs — defaults from strategy_baseline_v1; optional config.baseline_v1 overrides
         bcfg = dict(cfg.get("baseline_v1") or {})
@@ -109,6 +125,10 @@ class BaselineEngineV1:
         self.diag_monthly_liquidity: List[dict] = []
         self.diag_closed_lots: List[dict] = []  # includes qty for $ PnL
         self.diag_equity_curve: List[dict] = []  # net + gross (gross = net + cum costs)
+        self.diag_cs_raw_stats: Dict[str, Any] = {}
+        self.diag_cs_breakdown: Dict[str, Any] = {}
+        self.diag_fill_vs_target: List[dict] = []  # Issue 3 — buy fill vs intended target
+        self.diag_dvol_spike_count = 0
 
         # QQQ buy & hold (buy once, never rebalance)
         self.qqq_shares = 0.0
@@ -131,12 +151,21 @@ class BaselineEngineV1:
         self._run_end = end
 
     def _precompute_infra_matrices(self) -> None:
-        """Matrices required by strategy + existing execution model."""
+        """Matrices required by strategy + execution / cost model."""
         close_m, high_m, low_m = self.close_m, self.high_m, self.low_m
-        volume_m = self.dvol_m
-        ret_m = close_m.pct_change()
+        # Strategy universe ranking continues to use raw dvol_m (unchanged).
+        # ADV for participation/impact may use winsorized dvol (cost/data layer).
+        dvol_for_adv = self.dvol_m
+        if self.WINSORIZE_ADV:
+            dvol_for_adv, spike_flag = winsorize_dollar_volume(self.dvol_m)
+            self.diag_dvol_spike_count = int(spike_flag.to_numpy().sum())
+            self.dvol_for_adv_m = dvol_for_adv
+        else:
+            self.dvol_for_adv_m = self.dvol_m
+            self.diag_dvol_spike_count = 0
 
-        self.adv20_m = volume_m.rolling(20, min_periods=5).mean()
+        ret_m = close_m.pct_change()
+        self.adv20_m = dvol_for_adv.rolling(20, min_periods=5).mean()
         self.vol20_m = ret_m.rolling(20, min_periods=10).std()
 
         # ATR(14) Wilder smoothing (same construction as existing engine)
@@ -149,17 +178,20 @@ class BaselineEngineV1:
         # 12-1 momentum panel (exact definition)
         self.mom_12_1_m = compute_mom_12_1_panel(close_m)
 
-        # Corwin–Schultz spread (execution model — unchanged formulas)
-        hl = np.log(high_m / low_m) ** 2
-        hl2_high = high_m.rolling(2, min_periods=2).max()
-        hl2_low = low_m.rolling(2, min_periods=2).min()
-        gamma = np.log(hl2_high / hl2_low) ** 2
-        beta = hl + hl.shift(1)
-        alpha = (np.sqrt(2 * beta) - np.sqrt(beta)) / (3 - 2 * np.sqrt(2)) - np.sqrt(
-            gamma / (3 - 2 * np.sqrt(2))
-        )
-        spread = 2 * (np.exp(alpha) - 1) / (1 + np.exp(alpha))
-        self.cs_spread_m = spread.clip(lower=0.0002, upper=0.05)
+        # Corwin–Schultz: always compute raw for diagnostics; then apply model variant
+        spread_raw = corwin_schultz_raw(high_m, low_m)
+        self.cs_spread_raw_m = spread_raw
+        self.diag_cs_raw_stats = analyze_raw_corwin_schultz(spread_raw)
+        self.diag_cs_breakdown = diagnose_cs_breakdown(high_m, low_m, close_m, spread_raw)
+
+        if self.COST_MODEL in ("corwin_schultz_v2", "robust"):
+            self.cs_spread_m, self.cs_spread_source_m = apply_robust_cs(
+                spread_raw, high_m, low_m, self.adv20_m
+            )
+        else:
+            # Legacy path (and flat model still keeps a CS panel for diagnostics)
+            self.cs_spread_m = apply_legacy_cs_clip(spread_raw)
+            self.cs_spread_source_m = None
 
         self._investable = [
             s
@@ -214,7 +246,7 @@ class BaselineEngineV1:
             "commission": float(self.COMMISSION_RATE),
             "slippage": float(self.SLIPPAGE_RATE),
             "cost_ratio": cost_ratio,
-            "cost_model": "corwin_schultz",
+            "cost_model": self.COST_MODEL,
         }
 
     def _record_cost(self, *, date, symbol, side, qty, price, cost_ratio, breakdown=None) -> float:
@@ -340,9 +372,26 @@ class BaselineEngineV1:
                 continue
             qty = int(order["qty"])
             if order["type"] == "BUY":
+                target_qty = int(order.get("target_qty", qty) or qty)
+                target_notional = float(
+                    order.get("target_notional", target_qty * float(o_price))
+                )
                 cap = self._max_shares_participation(sym, date_idx, o_price, self.PARTICIPATION_CAP_BUY)
                 exec_qty = min(qty, max(int(cap), 0))
                 if exec_qty <= 0:
+                    self.diag_fill_vs_target.append(
+                        {
+                            "date": current_date,
+                            "symbol": sym,
+                            "side": "BUY",
+                            "target_qty": target_qty,
+                            "target_notional": target_notional,
+                            "filled_qty": 0,
+                            "filled_notional": 0.0,
+                            "fill_pct_of_target": 0.0,
+                            "reason": "participation_cap_zero",
+                        }
+                    )
                     continue
                 bd = self._cost_breakdown(sym, date_idx, exec_qty, float(o_price))
                 cost = float(bd["cost_ratio"])
@@ -350,6 +399,19 @@ class BaselineEngineV1:
                 if spend > self.cash:
                     exec_qty = int(self.cash / (float(o_price) * (1.0 + cost)))
                     if exec_qty <= 0:
+                        self.diag_fill_vs_target.append(
+                            {
+                                "date": current_date,
+                                "symbol": sym,
+                                "side": "BUY",
+                                "target_qty": target_qty,
+                                "target_notional": target_notional,
+                                "filled_qty": 0,
+                                "filled_notional": 0.0,
+                                "fill_pct_of_target": 0.0,
+                                "reason": "insufficient_cash",
+                            }
+                        )
                         continue
                     bd = self._cost_breakdown(sym, date_idx, exec_qty, float(o_price))
                     cost = float(bd["cost_ratio"])
@@ -366,6 +428,25 @@ class BaselineEngineV1:
                 self.cash -= spend
                 self.portfolio[sym] = self.portfolio.get(sym, 0) + exec_qty
                 px = float(o_price)
+                filled_notional = float(exec_qty) * px
+                fill_pct = (
+                    filled_notional / target_notional
+                    if target_notional > 0
+                    else float("nan")
+                )
+                self.diag_fill_vs_target.append(
+                    {
+                        "date": current_date,
+                        "symbol": sym,
+                        "side": "BUY",
+                        "target_qty": target_qty,
+                        "target_notional": target_notional,
+                        "filled_qty": int(exec_qty),
+                        "filled_notional": filled_notional,
+                        "fill_pct_of_target": float(fill_pct),
+                        "reason": "ok" if exec_qty >= target_qty else "partial_participation_or_cash",
+                    }
+                )
                 self.highest_closes[sym] = max(self.highest_closes.get(sym, px), px)
                 self.trade_journal.on_entry(
                     symbol=sym,
@@ -523,12 +604,16 @@ class BaselineEngineV1:
             qty = int(abs(delta) / float(price))
             if qty <= 0:
                 continue
+            side = "BUY" if delta > 0 else "SELL"
             self.pending_orders.append(
                 {
                     "symbol": sym,
                     "qty": qty,
-                    "type": "BUY" if delta > 0 else "SELL",
+                    "type": side,
                     "reason": "rebalance_entry" if delta > 0 else "rebalance_trim",
+                    # Issue 3 diagnostics: intended equal-weight target vs fill
+                    "target_qty": qty,
+                    "target_notional": float(qty) * float(price),
                 }
             )
 
@@ -569,8 +654,13 @@ class BaselineEngineV1:
         for k, v in strategy_knobs().items():
             print(f"  {k}: {v}")
         print(f"  cost_model: {self.COST_MODEL}")
+        print(f"  winsorize_adv: {self.WINSORIZE_ADV}")
         if self.COST_MODEL == "flat":
             print(f"  flat_cost_one_way: {self.FLAT_COST_ONE_WAY}")
+        if self.diag_cs_raw_stats:
+            hit = self.diag_cs_raw_stats.get("pct_finite_ge_legacy_ceiling_5pct")
+            if hit is not None:
+                print(f"  cs_raw_%_ge_5pct_clip: {100 * float(hit):.2f}%")
         print("=" * 50)
 
         trading_days = self.close_m.index
