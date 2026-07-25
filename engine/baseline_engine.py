@@ -76,6 +76,12 @@ class BaselineEngineV1:
                 self.COST_MODEL in ("corwin_schultz_v2", "robust"),
             )
         )
+        # Fill/order variant (NOT entry/exit signal): when True, skip BUY top-ups
+        # (and size-trimming SELLs) for symbols already held — leave position at
+        # whatever the initial fill(s) achieved until ATR exit or drop from selection.
+        self.DISABLE_TOPUP_CHASING = bool(
+            cfg.get("disable_topup_chasing", cfg.get("DISABLE_TOPUP_CHASING", False))
+        )
 
         # Strategy knobs — defaults from strategy_baseline_v1; optional config.baseline_v1 overrides
         bcfg = dict(cfg.get("baseline_v1") or {})
@@ -260,10 +266,25 @@ class BaselineEngineV1:
             "cost_model": self.COST_MODEL,
         }
 
-    def _record_cost(self, *, date, symbol, side, qty, price, cost_ratio, breakdown=None) -> float:
+    def _record_cost(
+        self,
+        *,
+        date,
+        symbol,
+        side,
+        qty,
+        price,
+        cost_ratio,
+        breakdown=None,
+        order_role=None,
+    ) -> float:
         """Observation-only: aggregate execution cost dollars (formula unchanged)."""
         notional = float(qty) * float(price)
         dollars = notional * float(cost_ratio)
+        half = float((breakdown or {}).get("half_spread") or 0.0)
+        imp = float((breakdown or {}).get("impact") or 0.0)
+        comm = float((breakdown or {}).get("commission") or 0.0)
+        slip = float((breakdown or {}).get("slippage") or 0.0)
         self.diag_total_cost_dollars += dollars
         event = {
             "date": date,
@@ -274,6 +295,11 @@ class BaselineEngineV1:
             "cost_ratio": float(cost_ratio),
             "cost_dollars": float(dollars),
             "notional": float(notional),
+            "order_role": order_role,  # "new_entry" | "top_up" | None (sells)
+            "spread_cost_dollars": notional * half,
+            "impact_cost_dollars": notional * imp,
+            "commission_cost_dollars": notional * comm,
+            "slippage_cost_dollars": notional * slip,
         }
         if breakdown:
             event.update(
@@ -383,6 +409,9 @@ class BaselineEngineV1:
                 continue
             qty = int(order["qty"])
             if order["type"] == "BUY":
+                order_role = order.get("order_role") or (
+                    "top_up" if sym in self.portfolio else "new_entry"
+                )
                 target_qty = int(order.get("target_qty", qty) or qty)
                 target_notional = float(
                     order.get("target_notional", target_qty * float(o_price))
@@ -395,6 +424,7 @@ class BaselineEngineV1:
                             "date": current_date,
                             "symbol": sym,
                             "side": "BUY",
+                            "order_role": order_role,
                             "target_qty": target_qty,
                             "target_notional": target_notional,
                             "filled_qty": 0,
@@ -415,6 +445,7 @@ class BaselineEngineV1:
                                 "date": current_date,
                                 "symbol": sym,
                                 "side": "BUY",
+                                "order_role": order_role,
                                 "target_qty": target_qty,
                                 "target_notional": target_notional,
                                 "filled_qty": 0,
@@ -435,6 +466,7 @@ class BaselineEngineV1:
                     price=float(o_price),
                     cost_ratio=cost,
                     breakdown=bd,
+                    order_role=order_role,
                 )
                 self.cash -= spend
                 self.portfolio[sym] = self.portfolio.get(sym, 0) + exec_qty
@@ -450,6 +482,7 @@ class BaselineEngineV1:
                         "date": current_date,
                         "symbol": sym,
                         "side": "BUY",
+                        "order_role": order_role,
                         "target_qty": target_qty,
                         "target_notional": target_notional,
                         "filled_qty": int(exec_qty),
@@ -607,7 +640,9 @@ class BaselineEngineV1:
             price = closes.get(sym, np.nan)
             if pd.isna(price) or price <= 0:
                 continue
+            in_targets = sym in targets and float(targets.get(sym, 0.0)) > 0
             target_value = float(targets.get(sym, 0.0)) * total_equity
+            currently_held = sym in self.portfolio and int(self.portfolio.get(sym, 0)) > 0
             current_value = self.portfolio.get(sym, 0) * float(price)
             delta = target_value - current_value
             if abs(delta) < total_equity * 0.001:
@@ -616,12 +651,35 @@ class BaselineEngineV1:
             if qty <= 0:
                 continue
             side = "BUY" if delta > 0 else "SELL"
+
+            # --- DISABLE_TOPUP_CHASING (fill/order variant only) ---
+            # Keep already-opened positions at their filled size until ATR exit
+            # or the name drops out of this month's selection (full sell).
+            if self.DISABLE_TOPUP_CHASING and currently_held:
+                if side == "BUY":
+                    continue  # no catch-up top-up
+                if side == "SELL" and in_targets:
+                    continue  # no size-trim while still selected
+                # else: SELL and not in_targets → full drop-out exit, allowed
+
+            order_role = None
+            if side == "BUY":
+                order_role = "top_up" if currently_held else "new_entry"
             self.pending_orders.append(
                 {
                     "symbol": sym,
                     "qty": qty,
                     "type": side,
-                    "reason": "rebalance_entry" if delta > 0 else "rebalance_trim",
+                    "reason": (
+                        "rebalance_entry"
+                        if side == "BUY" and order_role == "new_entry"
+                        else "rebalance_topup"
+                        if side == "BUY"
+                        else "rebalance_dropout"
+                        if side == "SELL" and not in_targets
+                        else "rebalance_trim"
+                    ),
+                    "order_role": order_role,
                     # Issue 3 diagnostics: intended equal-weight target vs fill
                     "target_qty": qty,
                     "target_notional": float(qty) * float(price),
@@ -666,6 +724,7 @@ class BaselineEngineV1:
             print(f"  {k}: {v}")
         print(f"  cost_model: {self.COST_MODEL}")
         print(f"  winsorize_adv: {self.WINSORIZE_ADV}")
+        print(f"  disable_topup_chasing: {self.DISABLE_TOPUP_CHASING}")
         if self.COST_MODEL == "flat":
             print(f"  flat_cost_one_way: {self.FLAT_COST_ONE_WAY}")
         if self.diag_cs_raw_stats:
