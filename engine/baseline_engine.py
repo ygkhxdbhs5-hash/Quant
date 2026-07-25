@@ -108,13 +108,17 @@ class BaselineEngineV1:
         self.TOP_MOMENTUM_COUNT = int(bcfg.get("TOP_MOMENTUM_COUNT", TOP_MOMENTUM_COUNT))
         self.ATR_MULTIPLIER = float(bcfg.get("ATR_MULTIPLIER", ATR_MULTIPLIER))
         self.GROSS_EXPOSURE = float(bcfg.get("GROSS_EXPOSURE", GROSS_EXPOSURE))
-        # Isolated quality overlay (entry ranking only). Default OFF = momentum-only baseline.
-        self.ENABLE_QUALITY_FACTOR = bool(
-            cfg.get(
-                "enable_quality_factor",
-                cfg.get("ENABLE_QUALITY_FACTOR", bcfg.get("ENABLE_QUALITY_FACTOR", False)),
+        # Quality overlay (entry ranking only). Adopted as default after mom+quality A/B
+        # (repro_id=42799a276531): Sharpe 0.194→0.268, MDD −31.97%→−25.60%.
+        # Set enable_quality_factor: false to restore momentum-only baseline.
+        if "enable_quality_factor" in cfg or "ENABLE_QUALITY_FACTOR" in cfg:
+            self.ENABLE_QUALITY_FACTOR = bool(
+                cfg.get("enable_quality_factor", cfg.get("ENABLE_QUALITY_FACTOR"))
             )
-        )
+        elif "ENABLE_QUALITY_FACTOR" in bcfg:
+            self.ENABLE_QUALITY_FACTOR = bool(bcfg.get("ENABLE_QUALITY_FACTOR"))
+        else:
+            self.ENABLE_QUALITY_FACTOR = True  # new default after quality A/B
 
         print(">> Baseline v1: loading local panels (infrastructure artifacts)...")
         universe_path = Path(paths.get("metadata", "data/metadata")) / "universe.pkl"

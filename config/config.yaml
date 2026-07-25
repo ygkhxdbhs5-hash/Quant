@@ -82,6 +82,9 @@ slippage_rate: 0.0002    # 0.02%
 cost_model: corwin_schultz_v2
 winsorize_adv: true
 enable_topup_chasing: false
+# Entry ranking: momentum+quality is the default after A/B adoption.
+# Set enable_quality_factor: false for momentum-only baseline-v1-nochase.
+enable_quality_factor: true
 
 # Universe filters in get_universe (loosened; missing metrics do not reject)
 min_roic: 0.03               # was 0.10 — ROIC must exceed 3% when available
