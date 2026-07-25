@@ -20,6 +20,8 @@ ROOT = Path(__file__).resolve().parents[1]
 FINGERPRINT_PATHS = [
     "engine/baseline_engine.py",
     "engine/strategy_baseline_v1.py",
+    "engine/strategy_baseline_v1_quality.py",
+    "engine/pit_fundamentals.py",
     "engine/execution_costs.py",
     "engine/topup_chase_diagnostics.py",
     "engine/report_charts.py",

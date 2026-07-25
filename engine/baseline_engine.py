@@ -5,7 +5,9 @@ shared execution model (Corwin–Schultz half-spread + square-root impact +
 participation cap + commission/slippage), and delegates ALL entry/exit/sizing
 decisions to ``engine.strategy_baseline_v1``.
 
-Does not call PIT fundamentals. Does not modify downloader or research modules.
+Optional quality overlay (``enable_quality_factor``) loads existing PIT
+``pit_history.pkl`` and ranks via ``strategy_baseline_v1_quality``; momentum-only
+path remains the default. Does not modify downloader internals.
 """
 
 from __future__ import annotations
@@ -28,6 +30,7 @@ from engine.execution_costs import (
     diagnose_cs_breakdown,
     winsorize_dollar_volume,
 )
+from engine.pit_fundamentals import build_fund_ts_index, load_pit_history
 from engine.research.experiment_history import ExperimentHistory
 from engine.research.kpi_report import build_hierarchical_kpi_report
 from engine.research.trade_journal import TradeJournal
@@ -42,8 +45,13 @@ from engine.strategy_baseline_v1 import (
     equal_weight_targets,
     refill_from_candidates,
     select_monthly_candidates,
-    strategy_id,
-    strategy_knobs,
+    strategy_id as strategy_id_mom,
+    strategy_knobs as strategy_knobs_mom,
+)
+from engine.strategy_baseline_v1_quality import (
+    select_monthly_candidates_mom_quality,
+    strategy_id as strategy_id_quality,
+    strategy_knobs as strategy_knobs_quality,
 )
 
 
@@ -100,10 +108,18 @@ class BaselineEngineV1:
         self.TOP_MOMENTUM_COUNT = int(bcfg.get("TOP_MOMENTUM_COUNT", TOP_MOMENTUM_COUNT))
         self.ATR_MULTIPLIER = float(bcfg.get("ATR_MULTIPLIER", ATR_MULTIPLIER))
         self.GROSS_EXPOSURE = float(bcfg.get("GROSS_EXPOSURE", GROSS_EXPOSURE))
+        # Isolated quality overlay (entry ranking only). Default OFF = momentum-only baseline.
+        self.ENABLE_QUALITY_FACTOR = bool(
+            cfg.get(
+                "enable_quality_factor",
+                cfg.get("ENABLE_QUALITY_FACTOR", bcfg.get("ENABLE_QUALITY_FACTOR", False)),
+            )
+        )
 
         print(">> Baseline v1: loading local panels (infrastructure artifacts)...")
         universe_path = Path(paths.get("metadata", "data/metadata")) / "universe.pkl"
         panels_path = Path(paths.get("prices", "data/prices")) / "panels.pkl"
+        funds_dir = Path(paths.get("fundamentals", "data/fundamentals"))
         for required in (universe_path, panels_path):
             if not required.exists():
                 raise FileNotFoundError(
@@ -125,6 +141,21 @@ class BaselineEngineV1:
         self.low_m = panels["low_m"]
         self.dvol_m = panels["dvol_m"]
         self.silent_delist_flags = panels["silent_delist_flags"]
+
+        self.fundamental_history: Dict[str, pd.DataFrame] = {}
+        self._fund_ts: Dict[str, Any] = {}
+        if self.ENABLE_QUALITY_FACTOR:
+            self.fundamental_history = load_pit_history(funds_dir)
+            self._fund_ts = build_fund_ts_index(self.fundamental_history)
+            print(
+                f"    quality overlay ON: loaded PIT fundamentals for "
+                f"{len(self.fundamental_history)} symbols from {funds_dir / 'pit_history.pkl'}"
+            )
+            if not self.fundamental_history:
+                raise FileNotFoundError(
+                    f"enable_quality_factor=True but no PIT data at {funds_dir / 'pit_history.pkl'}. "
+                    "Run: python3 -m downloader.download_fundamentals --config config/config.yaml"
+                )
 
         # --- Diagnostic fields (must exist before _precompute fills CS/ADV stats) ---
         self.diag_total_cost_dollars = 0.0
@@ -156,7 +187,7 @@ class BaselineEngineV1:
         self.qqq_equity_curve: List[dict] = []
         self._qqq_bought = False
 
-        print(strategy_knobs())
+        print(self._active_strategy_knobs())
 
     def _slice_to_window(self) -> None:
         start = pd.Timestamp(self.START_DATE)
@@ -727,16 +758,46 @@ class BaselineEngineV1:
             eq = self.qqq_cash
         self.qqq_equity_curve.append({"Date": current_date, "Total_Equity": eq})
 
+    def _active_strategy_id(self) -> str:
+        return strategy_id_quality() if self.ENABLE_QUALITY_FACTOR else strategy_id_mom()
+
+    def _active_strategy_knobs(self) -> Dict[str, object]:
+        return strategy_knobs_quality() if self.ENABLE_QUALITY_FACTOR else strategy_knobs_mom()
+
+    def _select_candidates(self, idx: int, live: List[str]) -> List[str]:
+        if self.ENABLE_QUALITY_FACTOR:
+            return select_monthly_candidates_mom_quality(
+                date_idx=idx,
+                close_m=self.close_m,
+                dvol_m=self.dvol_m,
+                mom_12_1_m=self.mom_12_1_m,
+                eligible_symbols=live,
+                fundamental_history=self.fundamental_history,
+                fund_ts=self._fund_ts,
+                top_liquid_pool=self.TOP_LIQUID_POOL,
+                top_momentum_count=self.TOP_MOMENTUM_COUNT,
+            )
+        return select_monthly_candidates(
+            date_idx=idx,
+            close_m=self.close_m,
+            dvol_m=self.dvol_m,
+            mom_12_1_m=self.mom_12_1_m,
+            eligible_symbols=live,
+            top_liquid_pool=self.TOP_LIQUID_POOL,
+            top_momentum_count=self.TOP_MOMENTUM_COUNT,
+        )
+
     def run(self) -> pd.DataFrame:
         print("=" * 50)
-        print(f"BASELINE STRATEGY: {strategy_id()}")
+        print(f"BASELINE STRATEGY: {self._active_strategy_id()}")
         print("=" * 50)
-        for k, v in strategy_knobs().items():
+        for k, v in self._active_strategy_knobs().items():
             print(f"  {k}: {v}")
         print(f"  cost_model: {self.COST_MODEL}")
         print(f"  winsorize_adv: {self.WINSORIZE_ADV}")
         print(f"  enable_topup_chasing: {self.ENABLE_TOPUP_CHASING}")
         print(f"  disable_topup_chasing: {self.DISABLE_TOPUP_CHASING}")
+        print(f"  enable_quality_factor: {self.ENABLE_QUALITY_FACTOR}")
         if self.COST_MODEL == "flat":
             print(f"  flat_cost_one_way: {self.FLAT_COST_ONE_WAY}")
         if self.diag_cs_raw_stats:
@@ -795,15 +856,7 @@ class BaselineEngineV1:
                         "flag_thin": bool(n_liquid < 100),
                     }
                 )
-                self.current_candidates = select_monthly_candidates(
-                    date_idx=idx,
-                    close_m=self.close_m,
-                    dvol_m=self.dvol_m,
-                    mom_12_1_m=self.mom_12_1_m,
-                    eligible_symbols=live,
-                    top_liquid_pool=self.TOP_LIQUID_POOL,
-                    top_momentum_count=self.TOP_MOMENTUM_COUNT,
-                )
+                self.current_candidates = self._select_candidates(idx, live)
                 held = set(self.portfolio.keys())
                 pending_sell = {o["symbol"] for o in self.pending_orders if o.get("type") == "SELL"}
                 effective_held = held - pending_sell
@@ -909,8 +962,9 @@ class BaselineEngineV1:
                 "Maximum_Drawdown": qqq_mdd,
             },
             "Alpha_CAGR": alpha,
-            "knobs": strategy_knobs(),
+            "knobs": self._active_strategy_knobs(),
             "window": {"start": str(self.START_DATE), "end": str(self.END_DATE)},
+            "enable_quality_factor": bool(self.ENABLE_QUALITY_FACTOR),
         }
 
         self._print_comparison(comparison)

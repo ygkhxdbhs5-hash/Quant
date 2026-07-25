@@ -29,7 +29,7 @@ TOP_MOMENTUM_COUNT = 30
 ATR_MULTIPLIER = 2.5
 GROSS_EXPOSURE = 1.0  # always fully invested at 1.0x
 
-# Future experiment candidate: Quality factor overlay on top of mom_12_1
+# Quality overlay lives in strategy_baseline_v1_quality.py (flag enable_quality_factor).
 # Future experiment candidate: Rank hysteresis / buffer bands
 # Future experiment candidate: Correlation filter / industry caps
 
