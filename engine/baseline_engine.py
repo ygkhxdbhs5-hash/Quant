@@ -31,6 +31,11 @@ from engine.execution_costs import (
     winsorize_dollar_volume,
 )
 from engine.pit_fundamentals import build_fund_ts_index, load_pit_history
+from engine.regime_exposure import (
+    compute_sma_panels,
+    determine_regime_exposure,
+    exposure_tier_label,
+)
 from engine.research.experiment_history import ExperimentHistory
 from engine.research.kpi_report import build_hierarchical_kpi_report
 from engine.research.trade_journal import TradeJournal
@@ -120,6 +125,15 @@ class BaselineEngineV1:
         else:
             self.ENABLE_QUALITY_FACTOR = True  # new default after quality A/B
 
+        # Regime exposure (isolated variant; default OFF until A/B adoption).
+        # Scales equal-weight targets by 1.0 / 0.5 / 0.0; never >1.0x.
+        self.ENABLE_REGIME_EXPOSURE = bool(
+            cfg.get(
+                "enable_regime_exposure",
+                cfg.get("ENABLE_REGIME_EXPOSURE", bcfg.get("ENABLE_REGIME_EXPOSURE", False)),
+            )
+        )
+
         print(">> Baseline v1: loading local panels (infrastructure artifacts)...")
         universe_path = Path(paths.get("metadata", "data/metadata")) / "universe.pkl"
         panels_path = Path(paths.get("prices", "data/prices")) / "panels.pkl"
@@ -171,6 +185,7 @@ class BaselineEngineV1:
         self.diag_cs_breakdown: Dict[str, Any] = {}
         self.diag_fill_vs_target: List[dict] = []  # Issue 3 — buy fill vs intended target
         self.diag_dvol_spike_count = 0
+        self.diag_regime_months: List[dict] = []
 
         # Slice to configured window (START_DATE / END_DATE only)
         self._slice_to_window()
@@ -184,6 +199,8 @@ class BaselineEngineV1:
         self.current_candidates: List[str] = []
         self.trade_journal = TradeJournal(shadow_horizon_days=20)
         self.research_artifacts: Dict[str, Any] = {}
+        self.current_regime_exposure = float(self.GROSS_EXPOSURE)
+        self._prev_regime_exposure = float(self.GROSS_EXPOSURE)
 
         # QQQ buy & hold (buy once, never rebalance)
         self.qqq_shares = 0.0
@@ -232,6 +249,13 @@ class BaselineEngineV1:
 
         # 12-1 momentum panel (exact definition)
         self.mom_12_1_m = compute_mom_12_1_panel(close_m)
+
+        # Regime SMAs (only used when enable_regime_exposure)
+        if self.ENABLE_REGIME_EXPOSURE:
+            self.sma50_m, self.sma200_m = compute_sma_panels(close_m)
+        else:
+            self.sma50_m = None
+            self.sma200_m = None
 
         # Corwin–Schultz: always compute raw for diagnostics; then apply model variant
         spread_raw = corwin_schultz_raw(high_m, low_m)
@@ -673,7 +697,13 @@ class BaselineEngineV1:
                     }
                 )
 
-    def _queue_rebalance_to_targets(self, targets: Dict[str, float], date_idx: int):
+    def _queue_rebalance_to_targets(
+        self,
+        targets: Dict[str, float],
+        date_idx: int,
+        *,
+        allow_exposure_resize: bool = False,
+    ):
         current_date = self.close_m.index[date_idx]
         closes = self.close_m.loc[current_date]
         total_equity = self.cash + sum(
@@ -701,7 +731,10 @@ class BaselineEngineV1:
             # --- DISABLE_TOPUP_CHASING (fill/order variant only) ---
             # Keep already-opened positions at their filled size until ATR exit
             # or the name drops out of this month's selection (full sell).
-            if self.DISABLE_TOPUP_CHASING and currently_held:
+            # Exception: allow_exposure_resize=True on regime exposure *changes*
+            # so 1.0→0.5/0.0 (or recovery) can resize once; no-chase still
+            # applies when exposure is unchanged.
+            if self.DISABLE_TOPUP_CHASING and currently_held and not allow_exposure_resize:
                 if side == "BUY":
                     continue  # no catch-up top-up
                 if side == "SELL" and in_targets:
@@ -763,10 +796,19 @@ class BaselineEngineV1:
         self.qqq_equity_curve.append({"Date": current_date, "Total_Equity": eq})
 
     def _active_strategy_id(self) -> str:
-        return strategy_id_quality() if self.ENABLE_QUALITY_FACTOR else strategy_id_mom()
+        base = strategy_id_quality() if self.ENABLE_QUALITY_FACTOR else strategy_id_mom()
+        if self.ENABLE_REGIME_EXPOSURE:
+            return base + "_regime"
+        return base
 
     def _active_strategy_knobs(self) -> Dict[str, object]:
-        return strategy_knobs_quality() if self.ENABLE_QUALITY_FACTOR else strategy_knobs_mom()
+        knobs = dict(
+            strategy_knobs_quality() if self.ENABLE_QUALITY_FACTOR else strategy_knobs_mom()
+        )
+        knobs["strategy_id"] = self._active_strategy_id()
+        knobs["enable_regime_exposure"] = bool(self.ENABLE_REGIME_EXPOSURE)
+        knobs["regime_max_exposure"] = 1.0  # no >1.0x in this pass
+        return knobs
 
     def _select_candidates(self, idx: int, live: List[str]) -> List[str]:
         if self.ENABLE_QUALITY_FACTOR:
@@ -791,6 +833,49 @@ class BaselineEngineV1:
             top_momentum_count=self.TOP_MOMENTUM_COUNT,
         )
 
+    def _liquid_universe_for_breadth(self, live: List[str], current_date) -> List[str]:
+        """Same liquidity filter as entry ranking (top dvol pool)."""
+        syms = [s for s in live if s in self.dvol_m.columns]
+        if not syms:
+            return []
+        dvol_row = pd.to_numeric(self.dvol_m.loc[current_date, syms], errors="coerce").dropna()
+        if dvol_row.empty:
+            return []
+        return dvol_row.nlargest(min(int(self.TOP_LIQUID_POOL), len(dvol_row))).index.tolist()
+
+    def _resolve_regime_exposure(self, idx: int, live: List[str], current_date) -> float:
+        """Return target gross exposure for this rebalance (1.0 if regime off)."""
+        if not self.ENABLE_REGIME_EXPOSURE:
+            return float(self.GROSS_EXPOSURE)
+        liquid = self._liquid_universe_for_breadth(live, current_date)
+        state = determine_regime_exposure(
+            close_m=self.close_m,
+            sma50_m=self.sma50_m,
+            sma200_m=self.sma200_m,
+            date_idx=idx,
+            benchmark=self.BENCHMARK_TICKER,
+            liquid_symbols=liquid,
+        )
+        if state is None:
+            exposure = float(self.GROSS_EXPOSURE)
+            breadth = None
+            above = None
+        else:
+            exposure = float(min(state.exposure, 1.0))  # never >1.0x
+            breadth = float(state.breadth)
+            above = bool(state.benchmark_above_ma200)
+        self.diag_regime_months.append(
+            {
+                "date": current_date,
+                "exposure": exposure,
+                "tier": exposure_tier_label(exposure),
+                "breadth": breadth,
+                "benchmark_above_ma200": above,
+                "n_liquid_for_breadth": len(liquid),
+            }
+        )
+        return exposure
+
     def run(self) -> pd.DataFrame:
         print("=" * 50)
         print(f"BASELINE STRATEGY: {self._active_strategy_id()}")
@@ -802,6 +887,7 @@ class BaselineEngineV1:
         print(f"  enable_topup_chasing: {self.ENABLE_TOPUP_CHASING}")
         print(f"  disable_topup_chasing: {self.DISABLE_TOPUP_CHASING}")
         print(f"  enable_quality_factor: {self.ENABLE_QUALITY_FACTOR}")
+        print(f"  enable_regime_exposure: {self.ENABLE_REGIME_EXPOSURE}")
         if self.COST_MODEL == "flat":
             print(f"  flat_cost_one_way: {self.FLAT_COST_ONE_WAY}")
         if self.diag_cs_raw_stats:
@@ -861,19 +947,35 @@ class BaselineEngineV1:
                     }
                 )
                 self.current_candidates = self._select_candidates(idx, live)
+                exposure = self._resolve_regime_exposure(idx, live, current_date)
+                exposure_changed = abs(float(exposure) - float(self._prev_regime_exposure)) > 1e-9
+                self.current_regime_exposure = float(exposure)
                 held = set(self.portfolio.keys())
                 pending_sell = {o["symbol"] for o in self.pending_orders if o.get("type") == "SELL"}
                 effective_held = held - pending_sell
-                selected = refill_from_candidates(
-                    effective_held,
-                    self.current_candidates,
-                    max_positions=self.TOP_MOMENTUM_COUNT,
+                if float(exposure) <= 0.0:
+                    # Confirmed downtrend: liquidate everything.
+                    selected = []
+                    targets = {}
+                    allow_resize = True
+                else:
+                    selected = refill_from_candidates(
+                        effective_held,
+                        self.current_candidates,
+                        max_positions=self.TOP_MOMENTUM_COUNT,
+                    )
+                    targets = equal_weight_targets(selected, exposure=float(exposure))
+                    # Allow one-shot resize only when exposure tier changed.
+                    allow_resize = bool(self.ENABLE_REGIME_EXPOSURE and exposure_changed)
+                self._queue_rebalance_to_targets(
+                    targets, idx, allow_exposure_resize=allow_resize
                 )
-                targets = equal_weight_targets(selected, exposure=self.GROSS_EXPOSURE)
-                self._queue_rebalance_to_targets(targets, idx)
+                self._prev_regime_exposure = float(exposure)
                 print(
                     f"[REBALANCE] {current_date.date()} candidates={len(self.current_candidates)} "
-                    f"held={len(effective_held)} target_n={len(selected)}"
+                    f"held={len(effective_held)} target_n={len(selected)} "
+                    f"exposure={exposure:.2f}x tier={exposure_tier_label(exposure)}"
+                    f"{' RESIZE' if allow_resize else ''}"
                 )
 
             # After ATR (or delist) frees a slot: refill from current month candidates
@@ -882,6 +984,7 @@ class BaselineEngineV1:
                 and current_date >= self._run_start
                 and self.current_candidates
                 and len(self.portfolio) < self.TOP_MOMENTUM_COUNT
+                and float(self.current_regime_exposure) > 0.0
             ):
                 held = set(self.portfolio.keys())
                 pending_sell = {o["symbol"] for o in self.pending_orders if o.get("type") == "SELL"}
@@ -891,8 +994,11 @@ class BaselineEngineV1:
                     self.current_candidates,
                     max_positions=self.TOP_MOMENTUM_COUNT,
                 )
-                targets = equal_weight_targets(selected, exposure=self.GROSS_EXPOSURE)
-                self._queue_rebalance_to_targets(targets, idx)
+                targets = equal_weight_targets(
+                    selected, exposure=float(self.current_regime_exposure)
+                )
+                # Mid-month refill: no-chase still applies (exposure unchanged).
+                self._queue_rebalance_to_targets(targets, idx, allow_exposure_resize=False)
 
             # Mark-to-market (evaluation window only for reported curve)
             closes = self.close_m.loc[current_date]

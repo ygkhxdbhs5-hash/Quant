@@ -85,6 +85,8 @@ enable_topup_chasing: false
 # Entry ranking: momentum+quality is the default after A/B adoption.
 # Set enable_quality_factor: false for momentum-only baseline-v1-nochase.
 enable_quality_factor: true
+# Regime exposure (QQQ SMA200 + breadth tiers 1.0/0.5/0.0). Default OFF until A/B.
+# enable_regime_exposure: false
 
 # Universe filters in get_universe (loosened; missing metrics do not reject)
 min_roic: 0.03               # was 0.10 — ROIC must exceed 3% when available
