@@ -1,0 +1,43 @@
+# Momentum-only vs Momentum+Quality A/B (VALID — clean committed state)
+
+Window: 2022-01-01 → 2026-06-30
+repro_id=42799a276531
+payload_sha256_16=2e80f15acc894c9f
+git_head=6af4c423790f51e16c2f2f1272c163253f72e865
+git_dirty=False
+panels=5ce58a430ac1beec
+
+Quality: equal-weight avg pctile(GP, ROIC, op_margin) within liquid pool;
+combined = 0.5*mom_pctile + 0.5*quality_pctile; exclude missing PIT.
+Unchanged: ATR 2.5 exit, equal-weight, 1.0x, monthly, no-chase, Fixed CS v2.
+
+## TASK 3 — Side-by-side
+Metric                             Mom-only    Mom+Quality
+----------------------------------------------------------
+CAGR                                 +1.89%         +3.02%
+Sharpe                                0.194          0.268
+MDD                                 -31.97%        -25.60%
+Cost $                           12,536,785     13,404,546
+n_trades                              1,589          1,580
+Avg hold days                          28.7           28.9
+Turnover (repl/yr)                    11.80          11.74
+Alpha vs QQQ                        -12.57%        -11.44%
+----------------------------------------------------------
+
+## TASK 4 — Mom+Quality per-year vs QQQ
+Year       Strat CAGR     QQQ CAGR        Alpha    Strat MDD       note
+----------------------------------------------------------------------
+2022          -18.27%      -34.03%      +15.76%      -21.90%           
+2023           +4.83%      +55.83%      -51.00%      -11.35%           
+2024           +9.33%      +27.09%      -17.76%       -9.55%           
+2025           -3.30%      +20.54%      -23.83%      -17.13%           
+2026          +61.99%      +45.33%      +16.66%       -6.51%    partial
+----------------------------------------------------------------------
+CALLOUT: 2023 Alpha: mom-only -62.77% → mom+quality -51.00% (Δ=+11.77%; IMPROVED (less negative / higher))
+
+## Decision rule
+  sharpe_improved             : True
+  mdd_worsened (>3pp deeper)  : False
+  KEEP as new default         : True
+
+# END
