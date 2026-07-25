@@ -45,6 +45,8 @@ class ResearchToggles:
     STOP_LOSS_PCT: float = 0.20  # 0.0–0.50; sell if close <= entry * (1 - pct)
 
     # --- Holding ---
+    # Suppresses discretionary exits only (trend / exhaustion / time-stop).
+    # ATR trailing stop + hard stop loss remain active during the hold.
     MIN_HOLD_DAYS: int = 0
 
     # --- Portfolio ---

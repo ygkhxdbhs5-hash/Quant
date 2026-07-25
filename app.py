@@ -282,7 +282,7 @@ with st.sidebar:
         help=(
             "Hard filter: sell if close ≤ entry × (1 − STOP_LOSS_PCT). "
             "Measured from entry price (not peak). Off by default — no baseline impact. "
-            "When on, bypasses MIN_HOLD_DAYS."
+            "Risk exit: active even during MIN_HOLD_DAYS."
         ),
     )
     stop_loss_pct_ui = st.slider(
@@ -305,6 +305,10 @@ with st.sidebar:
         max_value=60,
         value=int(_r_get("MIN_HOLD_DAYS", 0)),
         step=1,
+        help=(
+            "Suppresses discretionary exits only (trend / exhaustion / time-stop) "
+            "for N days after entry. ATR trailing stop and hard stop loss stay active."
+        ),
     )
     max_portfolio = int(entry_rank)  # MAX_PORTFOLIO_SIZE mirrors ENTRY_RANK
     monthly_rebalance = st.checkbox(
