@@ -1207,7 +1207,10 @@ class StandaloneEngine:
         EMA9/short-EMA break alone never sells. Trend exits require multiple
         confirmations; high-ATR% names use EMA20 and a higher confirmation bar.
         Healthy long-term uptrends skip trend exits on shallow pullbacks.
-        Optional hard stop loss (from entry) bypasses MIN_HOLD_DAYS.
+
+        MIN_HOLD_DAYS suppresses only discretionary exits (trend / exhaustion /
+        time-stop). Risk emergency exits — ATR trailing stop and optional hard
+        % stop loss — remain active immediately after entry.
         """
         current_date = self.close_m.index[date_idx]
         current_closes = self.close_m.loc[current_date]
@@ -1231,27 +1234,6 @@ class StandaloneEngine:
             peak = float(self.highest_prices[sym])
             self.trade_journal.mark_peak(sym, close_px)
 
-            reasons = []
-
-            # 0) Hard % stop loss from entry — catastrophic; bypasses min-hold
-            if getattr(self, "USE_STOP_LOSS", False):
-                pct = float(getattr(self, "STOP_LOSS_PCT", 0.0))
-                pct = max(0.0, min(0.50, pct))
-                ot = getattr(self.trade_journal, "open", {}).get(sym)
-                entry_px = float(ot.entry_price) if ot is not None else np.nan
-                if pd.notna(entry_px) and entry_px > 0:
-                    stop_level = entry_px * (1.0 - pct)
-                    if close_px <= stop_level:
-                        reasons.append(
-                            f"stop_loss(entry={entry_px:.2f},pct={pct:.0%},stop={stop_level:.2f})"
-                        )
-
-            # Min-hold gate (default 0 → no change). Hard stop loss already recorded.
-            if self.MIN_HOLD_DAYS > 0 and not reasons:
-                held = self.trade_journal.holding_days(sym, current_date)
-                if held < self.MIN_HOLD_DAYS:
-                    continue
-
             atr14 = (
                 self.atr14_m[sym].iloc[date_idx]
                 if sym in self.atr14_m.columns
@@ -1268,14 +1250,33 @@ class StandaloneEngine:
                 else np.nan
             )
 
-            # If hard stop already fired, skip softer exits (still sell once)
-            if not reasons:
-                # 1) ATR trailing stop — primary catastrophic exit (standalone OK)
-                if self.USE_ATR_EXIT and pd.notna(atr14) and atr14 > 0:
-                    stop_level = peak - (self.atr_multiplier * float(atr14))
-                    if close_px < stop_level:
-                        reasons.append(f"atr_trail(stop={stop_level:.2f})")
+            held = self.trade_journal.holding_days(sym, current_date)
+            in_min_hold = bool(self.MIN_HOLD_DAYS > 0 and held < self.MIN_HOLD_DAYS)
 
+            reasons = []
+
+            # --- Risk / emergency exits (always active, including during min-hold) ---
+            # 0) Hard % stop loss from entry
+            if getattr(self, "USE_STOP_LOSS", False):
+                pct = float(getattr(self, "STOP_LOSS_PCT", 0.0))
+                pct = max(0.0, min(0.50, pct))
+                ot = getattr(self.trade_journal, "open", {}).get(sym)
+                entry_px = float(ot.entry_price) if ot is not None else np.nan
+                if pd.notna(entry_px) and entry_px > 0:
+                    stop_level = entry_px * (1.0 - pct)
+                    if close_px <= stop_level:
+                        reasons.append(
+                            f"stop_loss(entry={entry_px:.2f},pct={pct:.0%},stop={stop_level:.2f})"
+                        )
+
+            # 1) ATR trailing stop — primary catastrophic exit (never gated by min-hold)
+            if self.USE_ATR_EXIT and pd.notna(atr14) and atr14 > 0:
+                atr_stop = peak - (self.atr_multiplier * float(atr14))
+                if close_px < atr_stop:
+                    reasons.append(f"atr_trail(stop={atr_stop:.2f})")
+
+            # --- Discretionary exits (suppressed until MIN_HOLD_DAYS elapses) ---
+            if not in_min_hold:
                 # 2) Confirmation-based trend exit (EMA9 alone never sells)
                 if self.USE_EMA9_EXIT:
                     conf = self._trend_exit_confirmations(
@@ -1297,7 +1298,6 @@ class StandaloneEngine:
                     )
                 # 4) Optional time stop (default OFF — no baseline impact)
                 if self.USE_TIME_STOP and self.TIME_STOP_DAYS > 0:
-                    held = self.trade_journal.holding_days(sym, current_date)
                     if held >= self.TIME_STOP_DAYS:
                         reasons.append(f"time_stop(days={held})")
 
