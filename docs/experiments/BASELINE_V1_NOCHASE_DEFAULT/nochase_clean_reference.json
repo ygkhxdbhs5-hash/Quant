@@ -1,0 +1,110 @@
+{
+  "repro": {
+    "git_head": "0c7dbced0f3349dfa3386d249e145ca423241471",
+    "git_dirty": false,
+    "window": {
+      "start": "2022-01-01",
+      "end": "2026-06-30"
+    },
+    "config_slice": {
+      "start_date": "2022-01-01",
+      "end_date": "2026-06-30",
+      "initial_cash": 50000000,
+      "cost_model": "corwin_schultz_v2",
+      "winsorize_adv": true,
+      "enable_topup_chasing": false,
+      "disable_topup_chasing": null,
+      "flat_cost_one_way": null,
+      "participation_cap_buy": 0.08,
+      "participation_cap_sell": 0.15,
+      "commission_rate": 0.0005,
+      "slippage_rate": 0.0002,
+      "universe_sample_size": 500,
+      "universe_sample_seed": 42,
+      "baseline_v1": null
+    },
+    "code_file_sha256_16": {
+      "engine/baseline_engine.py": "ce8e18e0cf7f8017",
+      "engine/strategy_baseline_v1.py": "ecf9dfd091079c2c",
+      "engine/execution_costs.py": "2effc46d3bffc006",
+      "engine/topup_chase_diagnostics.py": "c76cc5f0965fe076",
+      "engine/report_charts.py": "5f694822f04c375f",
+      "engine/cost_model_audit.py": "19bd6e4e66187d72",
+      "run_topup_chase_report.py": "18f8be69fbfcfc5d",
+      "config/config.yaml": "32d546d9cfb81b90"
+    },
+    "data_cache": {
+      "panels.pkl": "5ce58a430ac1beec",
+      "universe.pkl": "3445a4589dd34c15",
+      "panels_bytes": 48091715,
+      "universe_bytes": 306708
+    },
+    "extra": {
+      "report": "nochase_clean_reference",
+      "variants": [
+        "chase_on_legacy",
+        "nochase_default"
+      ]
+    },
+    "fingerprint_sha256": "97c21a974bf821e9847ff53c9a32cf4c2648fadeb928d23f5b01ef6be865ed1b",
+    "fingerprint_id": "97c21a974bf8"
+  },
+  "comparison": [
+    {
+      "CAGR": -0.07996162597028267,
+      "Sharpe": -0.2234778388096145,
+      "Maximum_Drawdown": -0.5547227690531077,
+      "Alpha_CAGR": -0.22458131946270776,
+      "total_cost_dollars": 17743691.39352143,
+      "n_cost_events": 12051,
+      "cost_model": "corwin_schultz_v2",
+      "flat_cost_one_way": 0.0005,
+      "n_closed_trades": 1420,
+      "enable_topup_chasing": true,
+      "disable_topup_chasing": false,
+      "label": "Fixed CS v2 + chase ON (legacy)"
+    },
+    {
+      "CAGR": 0.018891372383731397,
+      "Sharpe": 0.19394175482085846,
+      "Maximum_Drawdown": -0.31970074675853416,
+      "Alpha_CAGR": -0.1257283211086937,
+      "total_cost_dollars": 12536784.831154697,
+      "n_cost_events": 3297,
+      "cost_model": "corwin_schultz_v2",
+      "flat_cost_one_way": 0.0005,
+      "n_closed_trades": 1589,
+      "enable_topup_chasing": false,
+      "disable_topup_chasing": true,
+      "label": "Fixed CS v2 + NO-CHASE (NEW DEFAULT)"
+    }
+  ],
+  "old_dirty_claims": {
+    "nochase": {
+      "label": "old dirty-tree claim (UNREPRODUCIBLE)",
+      "CAGR": 0.1055,
+      "Sharpe": 0.602,
+      "Maximum_Drawdown": -0.212,
+      "total_cost_dollars": 10248678.0,
+      "n_closed_trades": 1052,
+      "repro_id": "5146837eafd9"
+    },
+    "chase": {
+      "label": "old dirty-tree chase claim (UNREPRODUCIBLE)",
+      "CAGR": -0.0024,
+      "Sharpe": 0.115,
+      "Maximum_Drawdown": -0.3402,
+      "total_cost_dollars": 15420000.0,
+      "n_closed_trades": 929
+    }
+  },
+  "spec_notes": {
+    "skip_buy_topups_when_held": true,
+    "skip_size_trim_sell_when_still_selected": true,
+    "allow_sell_on_momentum_dropout": true,
+    "atr_exits_unaffected": true,
+    "cost_model": "corwin_schultz_v2",
+    "winsorize_adv": true
+  },
+  "payload_sha256_16": "caf0cb3f75ae98bb"
+}

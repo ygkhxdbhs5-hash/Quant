@@ -1,0 +1,28 @@
+# Baseline v1 NO-CHASE clean reference
+
+Window: 2022-01-01 → 2026-06-30
+repro_id=97c21a974bf8
+payload_sha256_16=caf0cb3f75ae98bb
+git_head=0c7dbced0f3349dfa3386d249e145ca423241471
+git_dirty=False
+panels=5ce58a430ac1beec
+
+## Spec (fill/order only)
+- Skip BUY top-ups for already-held symbols (no catch-up to equal-weight).
+- Skip size-trim SELLs while still in month selection.
+- Allow SELL on momentum drop-out; ATR trail exits unchanged.
+- Cost model Fixed CS v2 + ADV winsorize unchanged.
+
+## Three-way comparison
+Variant                                         CAGR   Sharpe       MDD         Cost $   n_trades
+----------------------------------------------------------------------------------------------------
+OLD dirty no-chase claim (UNREPRO)           +10.55%    0.602   -21.20%     10,248,678      1,052
+OLD dirty chase claim (UNREPRO)               -0.24%    0.115   -34.02%     15,420,000        929
+Fixed CS v2 + chase ON (legacy)               -8.00%   -0.223   -55.47%     17,743,691      1,420
+Fixed CS v2 + NO-CHASE (NEW DEFAULT)          +1.89%    0.194   -31.97%     12,536,785      1,589
+----------------------------------------------------------------------------------------------------
+
+no-chase better than chase-on (this env): True
+tag_ok (clean tree + no-chase >0 and > chase+1pp): True
+
+# END
