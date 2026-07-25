@@ -3,6 +3,58 @@
     "start": "2022-01-01",
     "end": "2026-06-30"
   },
+  "repro": {
+    "git_head": "f1191274f92a72e592937519a2a7e520340fdc6c",
+    "git_dirty": true,
+    "window": {
+      "start": "2022-01-01",
+      "end": "2026-06-30"
+    },
+    "config_slice": {
+      "start_date": "2022-01-01",
+      "end_date": "2026-06-30",
+      "initial_cash": 50000000,
+      "cost_model": null,
+      "winsorize_adv": null,
+      "disable_topup_chasing": null,
+      "flat_cost_one_way": null,
+      "participation_cap_buy": 0.08,
+      "participation_cap_sell": 0.15,
+      "commission_rate": 0.0005,
+      "slippage_rate": 0.0002,
+      "universe_sample_size": 500,
+      "universe_sample_seed": 42,
+      "baseline_v1": null
+    },
+    "code_file_sha256_16": {
+      "engine/baseline_engine.py": "280fd5117d843fa7",
+      "engine/strategy_baseline_v1.py": "c43bdf0ee717c897",
+      "engine/execution_costs.py": "2effc46d3bffc006",
+      "engine/topup_chase_diagnostics.py": "a719aae4435c476c",
+      "engine/report_charts.py": "5f694822f04c375f",
+      "engine/cost_model_audit.py": "19bd6e4e66187d72",
+      "run_topup_chase_report.py": "bb6b565e92098b16",
+      "config/config.yaml": "48c402b38dbc1391"
+    },
+    "data_cache": {
+      "panels.pkl": "5ce58a430ac1beec",
+      "universe.pkl": "3445a4589dd34c15",
+      "panels_bytes": 48091715,
+      "universe_bytes": 306708
+    },
+    "extra": {
+      "report": "topup_chase",
+      "variants": [
+        "Fixed CS v2 (chase ON)",
+        "Fixed CS v2 + NO-CHASE",
+        "Flat 10bps RT (5bps/side)",
+        "Flat 30bps RT (15bps/side)"
+      ]
+    },
+    "fingerprint_sha256": "34d18034f13ca0a7c607ec909b60556aee8bf678003ba8fc38c063f8ded234e9",
+    "fingerprint_id": "34d18034f13c"
+  },
+  "fingerprint_id": "34d18034f13c",
   "task1_new_entry_vs_topup": {
     "n_buy_orders": 6830,
     "n_new_entry": 1188,
@@ -18,7 +70,7 @@
     "buy_cost_new_entry": 4087394.960903802,
     "buy_notional_new_entry": 818853076.425,
     "buy_cost_top_up": 4860750.1342638,
-    "buy_notional_top_up": 735233706.9004999,
+    "buy_notional_top_up": 735233706.9005,
     "buy_cost_unknown": 0.0,
     "buy_notional_unknown": 0.0,
     "sell_cost_total": 8795546.298353773,
@@ -1871,35 +1923,35 @@
     },
     "buy_all": {
       "total_cost": 8948145.095167603,
-      "spread_cost": 2643564.5865981285,
+      "spread_cost": 2643564.586598128,
       "impact_cost": 5216719.760241624,
-      "commission_cost": 777043.39166275,
+      "commission_cost": 777043.3916627499,
       "slippage_cost": 310817.35666510003,
-      "pct_spread": 0.2954315736370626,
+      "pct_spread": 0.29543157363706257,
       "pct_impact": 0.5829945429761622,
-      "pct_commission": 0.0868384881334108,
+      "pct_commission": 0.08683848813341079,
       "pct_slippage": 0.034735395253364325,
       "n_fills": 6777
     },
     "buy_new_entry": {
       "total_cost": 4087394.960903802,
       "spread_cost": 1058484.9663957225,
-      "impact_cost": 2455712.84101058,
-      "commission_cost": 409426.53821249993,
+      "impact_cost": 2455712.8410105794,
+      "commission_cost": 409426.53821250005,
       "slippage_cost": 163770.615285,
       "pct_spread": 0.2589632214454928,
-      "pct_impact": 0.6008014553278146,
-      "pct_commission": 0.10016808801906626,
+      "pct_impact": 0.6008014553278145,
+      "pct_commission": 0.10016808801906629,
       "pct_slippage": 0.04006723520762651,
       "n_fills": 1137
     },
     "buy_top_up": {
       "total_cost": 4860750.1342638,
-      "spread_cost": 1585079.620202406,
+      "spread_cost": 1585079.6202024058,
       "impact_cost": 2761006.919231044,
       "commission_cost": 367616.85345025,
       "slippage_cost": 147046.74138010002,
-      "pct_spread": 0.3260977372667355,
+      "pct_spread": 0.32609773726673547,
       "pct_impact": 0.568020746379966,
       "pct_commission": 0.07562965453807029,
       "pct_slippage": 0.03025186181522812,
@@ -1920,11 +1972,11 @@
   },
   "comparison": [
     {
-      "CAGR": -0.07996162597028278,
-      "Sharpe": -0.2234778388096133,
+      "CAGR": -0.07996162597028256,
+      "Sharpe": -0.22347783880961486,
       "Maximum_Drawdown": -0.5547227690531075,
-      "Alpha_CAGR": -0.22458131946270787,
-      "total_cost_dollars": 17743691.393521436,
+      "Alpha_CAGR": -0.22458131946270765,
+      "total_cost_dollars": 17743691.39352144,
       "n_cost_events": 12051,
       "cost_model": "corwin_schultz_v2",
       "flat_cost_one_way": 0.0005,
@@ -1934,7 +1986,7 @@
     },
     {
       "CAGR": 0.01889137238373162,
-      "Sharpe": 0.1939417548208647,
+      "Sharpe": 0.19394175482085932,
       "Maximum_Drawdown": -0.31970074675853327,
       "Alpha_CAGR": -0.12572832110869347,
       "total_cost_dollars": 12536784.831154697,
@@ -1946,11 +1998,11 @@
       "label": "Fixed CS v2 + NO-CHASE"
     },
     {
-      "CAGR": 0.011219395011933031,
-      "Sharpe": 0.16626265054874506,
-      "Maximum_Drawdown": -0.39845393246012434,
-      "Alpha_CAGR": -0.13340029848049206,
-      "total_cost_dollars": 1805089.4237674973,
+      "CAGR": 0.011219395011933475,
+      "Sharpe": 0.16626265054874348,
+      "Maximum_Drawdown": -0.3984539324601239,
+      "Alpha_CAGR": -0.13340029848049162,
+      "total_cost_dollars": 1805089.4237674975,
       "n_cost_events": 12059,
       "cost_model": "flat",
       "flat_cost_one_way": 0.0005,
@@ -1959,10 +2011,10 @@
       "label": "Flat 10bps RT (5bps/side)"
     },
     {
-      "CAGR": -0.0030259426152021707,
-      "Sharpe": 0.10789331707464618,
-      "Maximum_Drawdown": -0.41630917317119287,
-      "Alpha_CAGR": -0.14764563610762726,
+      "CAGR": -0.0030259426152019486,
+      "Sharpe": 0.10789331707464551,
+      "Maximum_Drawdown": -0.41630917317119226,
+      "Alpha_CAGR": -0.14764563610762704,
       "total_cost_dollars": 5280676.216633435,
       "n_cost_events": 12036,
       "cost_model": "flat",
@@ -1971,5 +2023,6 @@
       "disable_topup_chasing": false,
       "label": "Flat 30bps RT (15bps/side)"
     }
-  ]
+  ],
+  "payload_sha256_16": "289c9f35070fd690"
 }

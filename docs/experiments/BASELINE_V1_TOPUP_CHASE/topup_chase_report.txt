@@ -3,6 +3,11 @@
 # Fixed CS v2 cost model; entry/exit signals unchanged.
 ########################################################################
 
+### REPRO FINGERPRINT (must match chart footer)
+  repro_id=34d18034f13c  git=f1191274f9*  window=2022-01-01→2026-06-30  panels=5ce58a430ac1beec
+  fingerprint_sha256 : 34d18034f13ca0a7c607ec909b60556aee8bf678003ba8fc38c063f8ded234e9
+  git_head           : f1191274f92a72e592937519a2a7e520340fdc6c (dirty tree)
+
 ### TASK 1 — New entry vs top-up chasing (BUY orders, Fixed CS v2 + chase ON)
   n_buy_orders           : 6,830
   new_entry   count / %  : 1,188 / 17.39%
@@ -53,3 +58,7 @@ No-chase = Fixed CS v2 + DISABLE_TOPUP_CHASING (skip BUY top-ups / size-trims fo
 Entry momentum factor, ATR trail exit, and leverage unchanged.
 
 # END REPORT
+### ARTIFACT CONSISTENCY
+  payload_sha256_16     : 289c9f35070fd690
+  chart+text+json share : same in-memory payload (this run)
+  claimed_correct_nums  : n_buy=6830, no_chase_CAGR=0.01889137238373162, no_chase_cost$=12536784.831154697
