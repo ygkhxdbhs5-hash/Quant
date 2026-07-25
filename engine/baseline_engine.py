@@ -18,6 +18,9 @@ import numpy as np
 import pandas as pd
 
 from engine.execution_costs import (
+    ROBUST_IMPACT_COEFF,
+    ROBUST_IMPACT_RATIO_CAP,
+    ROBUST_IMPACT_SIGMA_CAP,
     analyze_raw_corwin_schultz,
     apply_legacy_cs_clip,
     apply_robust_cs,
@@ -106,6 +109,17 @@ class BaselineEngineV1:
         self.dvol_m = panels["dvol_m"]
         self.silent_delist_flags = panels["silent_delist_flags"]
 
+        # --- Diagnostic fields (must exist before _precompute fills CS/ADV stats) ---
+        self.diag_total_cost_dollars = 0.0
+        self.diag_cost_events: List[dict] = []
+        self.diag_monthly_liquidity: List[dict] = []
+        self.diag_closed_lots: List[dict] = []  # includes qty for $ PnL
+        self.diag_equity_curve: List[dict] = []  # net + gross (gross = net + cum costs)
+        self.diag_cs_raw_stats: Dict[str, Any] = {}
+        self.diag_cs_breakdown: Dict[str, Any] = {}
+        self.diag_fill_vs_target: List[dict] = []  # Issue 3 — buy fill vs intended target
+        self.diag_dvol_spike_count = 0
+
         # Slice to configured window (START_DATE / END_DATE only)
         self._slice_to_window()
         self._precompute_infra_matrices()
@@ -118,17 +132,6 @@ class BaselineEngineV1:
         self.current_candidates: List[str] = []
         self.trade_journal = TradeJournal(shadow_horizon_days=20)
         self.research_artifacts: Dict[str, Any] = {}
-
-        # --- Diagnostic instrumentation only (does not affect trading decisions) ---
-        self.diag_total_cost_dollars = 0.0
-        self.diag_cost_events: List[dict] = []
-        self.diag_monthly_liquidity: List[dict] = []
-        self.diag_closed_lots: List[dict] = []  # includes qty for $ PnL
-        self.diag_equity_curve: List[dict] = []  # net + gross (gross = net + cum costs)
-        self.diag_cs_raw_stats: Dict[str, Any] = {}
-        self.diag_cs_breakdown: Dict[str, Any] = {}
-        self.diag_fill_vs_target: List[dict] = []  # Issue 3 — buy fill vs intended target
-        self.diag_dvol_spike_count = 0
 
         # QQQ buy & hold (buy once, never rebalance)
         self.qqq_shares = 0.0
@@ -216,7 +219,6 @@ class BaselineEngineV1:
         half_spread = float(cs) / 2 if pd.notna(cs) and cs > 0 else 0.0015
         notional = float(qty) * float(price)
         participation = notional / max(adv, 1.0)
-        impact = 0.6 * sigma * np.sqrt(max(participation, 0.0))
 
         if self.COST_MODEL == "flat":
             cost_ratio = float(self.FLAT_COST_ONE_WAY)
@@ -233,6 +235,15 @@ class BaselineEngineV1:
                 "cost_ratio": cost_ratio,
                 "cost_model": "flat",
             }
+
+        if self.COST_MODEL in ("corwin_schultz_v2", "robust"):
+            # Same sqrt-impact shape as legacy, with σ / impact caps so microcap
+            # daily vol cannot alone charge multi-percent one-way costs.
+            sigma_for_impact = min(sigma, ROBUST_IMPACT_SIGMA_CAP)
+            impact = ROBUST_IMPACT_COEFF * sigma_for_impact * np.sqrt(max(participation, 0.0))
+            impact = float(min(impact, ROBUST_IMPACT_RATIO_CAP))
+        else:
+            impact = 0.6 * sigma * np.sqrt(max(participation, 0.0))
 
         cost_ratio = float(half_spread + impact + self.COMMISSION_RATE + self.SLIPPAGE_RATE)
         return {

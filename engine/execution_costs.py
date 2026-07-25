@@ -31,6 +31,13 @@ LEGACY_CS_CEILING = 0.05
 ROBUST_CS_FLOOR = 0.0002
 ROBUST_CS_CEILING = 0.01
 
+# Sqrt-impact uses daily return vol. Microcap σ often 10–50%+/day; left uncapped
+# this alone produced 5–8% one-way impact in the cost audit (HUDI etc.). Cap σ
+# and the impact ratio for the robust cost model only.
+ROBUST_IMPACT_SIGMA_CAP = 0.05  # 5% daily vol ceiling for impact calc
+ROBUST_IMPACT_RATIO_CAP = 0.005  # 50 bps one-way impact ceiling
+ROBUST_IMPACT_COEFF = 0.6  # same structural form as legacy
+
 # Winsorize daily dollar volume vs trailing median before ADV / participation.
 DVOL_WINSOR_WINDOW = 20
 DVOL_WINSOR_MAX_MULT = 5.0
@@ -277,6 +284,8 @@ def format_cs_distribution_report(stats: Dict[str, Any], breakdown: Dict[str, An
         f"  negatives / NaN / near-zero-range → liquidity-tiered flat spread fallback",
         f"  CS ceiling {ROBUST_CS_CEILING:.2%} (was {LEGACY_CS_CEILING:.2%}); floor {ROBUST_CS_FLOOR:.2%}",
         f"  fallback tiers by ADV20: >=$20M→15bps, >=$5M→30bps, >=$1M→50bps, else→100bps (full spread)",
+        f"  impact (v2 only): σ capped at {ROBUST_IMPACT_SIGMA_CAP:.0%} daily; "
+        f"impact ratio capped at {ROBUST_IMPACT_RATIO_CAP:.2%} (legacy left 5–8% one-way impacts)",
         f"  Justification: legacy 5% ceiling hit {pct(stats.get('pct_finite_ge_legacy_ceiling_5pct'))} "
         f"of finite cells (>>1–2% rare-tail budget); daily CS on gap-heavy microcaps is upward-biased.",
     ]

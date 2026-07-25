@@ -1,0 +1,223 @@
+{
+  "window": {
+    "start": "2022-01-01",
+    "end": "2026-06-30"
+  },
+  "cs_raw_stats": {
+    "n_obs": 701000,
+    "n_finite": 464163,
+    "pct_nan": 0.3378559201141227,
+    "pct_inf": 0.0,
+    "pct_negative_of_finite": 0.3947104788619515,
+    "pct_positive_of_finite": 0.5968334399769046,
+    "min": -1.9999772054674856,
+    "p50": 0.005625672708265005,
+    "p90": 0.04148595634185791,
+    "p99": 0.11301938975471909,
+    "p99_9": 0.30057103978102817,
+    "max": 1.1162472529122778,
+    "pct_finite_ge_legacy_ceiling_5pct": 0.0702296391569341,
+    "pct_finite_ge_2pct": 0.26214282482662343,
+    "pct_finite_ge_1pct": 0.41826470442495417,
+    "n_finite_ge_legacy_ceiling_5pct": 32598,
+    "legacy_ceiling_hit_rate_flag": true
+  },
+  "cs_breakdown": {
+    "pct_zero_or_tiny_intraday_range": 0.014283221470797282,
+    "intraday_range_over_close_p50": 0.043968327731143966,
+    "intraday_range_over_close_p99": 0.34951115368380004,
+    "pct_gap_dominated_gamma_gt_2beta": 0.042101589312375176,
+    "among_cs_ge_5pct": {
+      "n": 32598,
+      "close_p50": 6.7,
+      "pct_close_lt_5": 0.43444383090987176
+    },
+    "notes": [
+      "Corwin\u2013Schultz (2012) yields negative estimates when overnight variance dominates the two-day range; standard practice sets those to 0 / invalid.",
+      "Legacy clip upper=5% was hit on >>2% of finite cells \u2192 ceiling is not a rare safety net.",
+      "High CS cells concentrate in low-priced names with wide intraday ranges."
+    ]
+  },
+  "spike_events": [
+    {
+      "ticker": "HUDI",
+      "window": "2022-11-03 \u2192 2022-11-11",
+      "api_splits": [],
+      "splits_near_window": [],
+      "max_abs_daily_ret_near_window": 2.4280155642023344,
+      "dvol_spike_mult_vs_local_median": 16.704210335707074,
+      "verdict": "unresolved data anomaly (extreme print/pump + volume spike; no split in Massive calendar near window)"
+    },
+    {
+      "ticker": "PHUN",
+      "window": "2022-01-11 \u2192 2022-02-09",
+      "api_splits": [
+        {
+          "execution_date": "2024-02-27",
+          "split_from": 50,
+          "split_to": 1
+        }
+      ],
+      "splits_near_window": [],
+      "max_abs_daily_ret_near_window": 0.19921875,
+      "dvol_spike_mult_vs_local_median": 7.945814238162246,
+      "verdict": "confirmed real corporate event / news-driven volume (no split; price/volume elevated but plausible)"
+    },
+    {
+      "ticker": "PHUN",
+      "window": "2022-07-11 \u2192 2022-07-21",
+      "api_splits": [
+        {
+          "execution_date": "2024-02-27",
+          "split_from": 50,
+          "split_to": 1
+        }
+      ],
+      "splits_near_window": [],
+      "max_abs_daily_ret_near_window": 0.24822695035460995,
+      "dvol_spike_mult_vs_local_median": 16.05662563572377,
+      "verdict": "unresolved data anomaly (volume spike \u226510\u00d7 local median without matching split; treat as noise \u2192 ADV winsorize)"
+    },
+    {
+      "ticker": "IDAI",
+      "window": "2022-04-28 \u2192 2022-04-29",
+      "api_splits": [
+        {
+          "execution_date": "2021-08-23",
+          "split_from": 1,
+          "split_to": 5
+        },
+        {
+          "execution_date": "2023-03-23",
+          "split_from": 5,
+          "split_to": 1
+        },
+        {
+          "execution_date": "2025-01-06",
+          "split_from": 15,
+          "split_to": 1
+        }
+      ],
+      "splits_near_window": [],
+      "max_abs_daily_ret_near_window": 1.2380952380952381,
+      "dvol_spike_mult_vs_local_median": 410.7765762729951,
+      "verdict": "unresolved data anomaly (extreme print/pump + volume spike; no split in Massive calendar near window)"
+    },
+    {
+      "ticker": "TPST",
+      "window": "2024-04-01 \u2192 2024-04-01",
+      "api_splits": [
+        {
+          "execution_date": "2025-04-09",
+          "split_from": 13,
+          "split_to": 1
+        },
+        {
+          "execution_date": "2026-01-30",
+          "split_from": 1,
+          "split_to": 2
+        }
+      ],
+      "splits_near_window": [],
+      "max_abs_daily_ret_near_window": 0.3913043478260869,
+      "dvol_spike_mult_vs_local_median": 29.360756142664357,
+      "verdict": "unresolved data anomaly (volume spike \u226510\u00d7 local median without matching split; treat as noise \u2192 ADV winsorize)"
+    },
+    {
+      "ticker": "NXTT",
+      "window": "2025-08-29 \u2192 2025-09-11",
+      "api_splits": [
+        {
+          "execution_date": "2025-09-16",
+          "split_from": 200,
+          "split_to": 1
+        }
+      ],
+      "splits_near_window": [
+        "2025-09-16"
+      ],
+      "max_abs_daily_ret_near_window": 0.9722222222222223,
+      "dvol_spike_mult_vs_local_median": 18.656281197610628,
+      "verdict": "confirmed real corporate event (nearby split; pre/post chaos \u2014 no clear adjClose*volume unit mismatch detected in continuous series)"
+    },
+    {
+      "ticker": "QTTB",
+      "window": "2026-05-27 \u2192 2026-05-27",
+      "api_splits": [],
+      "splits_near_window": [],
+      "max_abs_daily_ret_near_window": 0.8124118476727786,
+      "dvol_spike_mult_vs_local_median": 41.4711453261425,
+      "verdict": "unresolved data anomaly (extreme print/pump + volume spike; no split in Massive calendar near window)"
+    },
+    {
+      "ticker": "AOSL",
+      "window": "2022-05-13 \u2192 2022-05-18",
+      "api_splits": [],
+      "splits_near_window": [],
+      "max_abs_daily_ret_near_window": 0.16716867469879504,
+      "dvol_spike_mult_vs_local_median": 5.8183738874544275,
+      "verdict": "confirmed real corporate event / news-driven volume (no split; price/volume elevated but plausible)"
+    }
+  ],
+  "fill_vs_target": {
+    "n_buy_orders": 6262,
+    "n_zero_fill": 43,
+    "mean_fill_pct_of_target": 0.5811593596638261,
+    "p50_fill_pct_of_target": 0.6410993601349321,
+    "p90_fill_pct_of_target": 1.0106915848049673,
+    "share_fully_filled": 0.2564675822420952,
+    "share_lt_50pct_filled": 0.46151389332481635,
+    "share_lt_25pct_filled": 0.3570744171191313
+  },
+  "comparison": [
+    {
+      "CAGR": -0.24623100641196405,
+      "Sharpe": -0.9587927042408871,
+      "Maximum_Drawdown": -0.7739912029845673,
+      "Alpha_CAGR": -0.39085069990438914,
+      "total_cost_dollars": 28195824.334019985,
+      "n_cost_events": 11560,
+      "cost_model": "corwin_schultz",
+      "flat_cost_one_way": 0.0005,
+      "label": "Legacy CS (5% clip, raw ADV)",
+      "winsorize_adv": false
+    },
+    {
+      "CAGR": -0.07996162597028245,
+      "Sharpe": -0.2234778388096142,
+      "Maximum_Drawdown": -0.5547227690531069,
+      "Alpha_CAGR": -0.22458131946270754,
+      "total_cost_dollars": 17743691.39352143,
+      "n_cost_events": 12051,
+      "cost_model": "corwin_schultz_v2",
+      "flat_cost_one_way": 0.0005,
+      "label": "Fixed CS v2 + winsor ADV",
+      "winsorize_adv": true
+    },
+    {
+      "CAGR": 0.011219395011933253,
+      "Sharpe": 0.16626265054874395,
+      "Maximum_Drawdown": -0.39845393246012417,
+      "Alpha_CAGR": -0.13340029848049184,
+      "total_cost_dollars": 1805089.4237674975,
+      "n_cost_events": 12059,
+      "cost_model": "flat",
+      "flat_cost_one_way": 0.0005,
+      "label": "Flat 10bps RT (5bps/side)",
+      "winsorize_adv": false
+    },
+    {
+      "CAGR": -0.0030259426152017266,
+      "Sharpe": 0.10789331707464772,
+      "Maximum_Drawdown": -0.4163091731711912,
+      "Alpha_CAGR": -0.14764563610762682,
+      "total_cost_dollars": 5280676.216633434,
+      "n_cost_events": 12036,
+      "cost_model": "flat",
+      "flat_cost_one_way": 0.0015,
+      "label": "Flat 30bps RT (15bps/side)",
+      "winsorize_adv": false
+    }
+  ],
+  "fixed_dvol_spike_cells": 19146
+}

@@ -125,13 +125,27 @@ def classify_spike_events(config_path: str) -> List[Dict[str, Any]]:
             if near:
                 # Nearby official split — check for discontinuous adjustment
                 # A true unadjusted reverse-split would show ~split_ratio jump on execution day.
-                verdict = "confirmed real corporate event (nearby split; pre/post chaos — no clear adjClose*volume unit mismatch detected in continuous series)"
+                verdict = (
+                    "confirmed real corporate event (nearby split; pre/post chaos — "
+                    "no clear adjClose*volume unit mismatch detected in continuous series)"
+                )
                 if max_abs_ret == max_abs_ret and max_abs_ret > 50:  # absurd jump
                     verdict = "confirmed split-adjustment bug (catastrophic price jump near split)"
-            elif max_abs_ret == max_abs_ret and max_abs_ret > 1.0:
-                verdict = "unresolved data anomaly (pump/crash + volume spike; no split in Massive calendar)"
+            elif max_abs_ret == max_abs_ret and max_abs_ret >= 0.5:
+                verdict = (
+                    "unresolved data anomaly (extreme print/pump + volume spike; "
+                    "no split in Massive calendar near window)"
+                )
+            elif spike_mult == spike_mult and spike_mult >= 10:
+                verdict = (
+                    "unresolved data anomaly (volume spike ≥10× local median without "
+                    "matching split; treat as noise → ADV winsorize)"
+                )
             else:
-                verdict = "confirmed real corporate event / news-driven volume (no split; price move moderate)"
+                verdict = (
+                    "confirmed real corporate event / news-driven volume "
+                    "(no split; price/volume elevated but plausible)"
+                )
 
             rows.append(
                 {

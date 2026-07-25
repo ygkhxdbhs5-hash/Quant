@@ -1,0 +1,117 @@
+########################################################################
+# COST + DATA QUALITY FIX REPORT — Baseline v1 (2022-2026)
+# Strategy entry/exit/sizing/leverage unchanged.
+########################################################################
+
+### ISSUE 1a — Raw Corwin–Schultz spread distribution (pre-clip)
+  n_obs              : 701,000
+  n_finite           : 464,163
+  % NaN              : 33.786%
+  % Inf              : 0.000%
+  % negative (finite): 39.471%
+  min / p50 / p90    : -1.999977 / 0.005626 / 0.041486
+  p99 / p99.9 / max  : 0.113019 / 0.300571 / 1.116247
+
+### ISSUE 1b — Legacy 5% ceiling saturation
+  % finite >= 5%     : 7.023%  (n=32,598)
+  % finite >= 2%     : 26.214%
+  % finite >= 1%     : 41.826%
+  flag (>2% hit rate): True
+
+### ISSUE 1c — Breakdown diagnostics
+  % tiny/zero range  : 1.428%
+  range/close p50/p99: 0.043968 / 0.349511
+  % gap-dominated    : 4.210%
+  among CS>=5%: n=32598 close_p50=6.7 %close<5=43.444%
+
+### ISSUE 1d — Chosen robust fix
+  negatives / NaN / near-zero-range → liquidity-tiered flat spread fallback
+  CS ceiling 1.00% (was 5.00%); floor 0.02%
+  fallback tiers by ADV20: >=$20M→15bps, >=$5M→30bps, >=$1M→50bps, else→100bps (full spread)
+  impact (v2 only): σ capped at 5% daily; impact ratio capped at 0.50% (legacy left 5–8% one-way impacts)
+  Justification: legacy 5% ceiling hit 7.023% of finite cells (>>1–2% rare-tail budget); daily CS on gap-heavy microcaps is upward-biased.
+  note: Corwin–Schultz (2012) yields negative estimates when overnight variance dominates the two-day range; standard practice sets those to 0 / invalid.
+  note: Legacy clip upper=5% was hit on >>2% of finite cells → ceiling is not a rare safety net.
+  note: High CS cells concentrate in low-priced names with wide intraday ranges.
+
+### ISSUE 2 — Corporate action / volume-spike findings
+  winsorize filter (v2 runs): daily dvol capped at 5× trailing-20d median (shifted); spike cells flagged in fixed run ≈ 19,146
+
+  [HUDI] 2022-11-03 → 2022-11-11
+    splits_near_window : []
+    all_api_splits     : []
+    max_|daily_ret|    : 242.80%
+    dvol_spike_mult    : 16.704× local median
+    VERDICT           : unresolved data anomaly (extreme print/pump + volume spike; no split in Massive calendar near window)
+
+  [PHUN] 2022-01-11 → 2022-02-09
+    splits_near_window : []
+    all_api_splits     : [{'execution_date': '2024-02-27', 'split_from': 50, 'split_to': 1}]
+    max_|daily_ret|    : 19.92%
+    dvol_spike_mult    : 7.946× local median
+    VERDICT           : confirmed real corporate event / news-driven volume (no split; price/volume elevated but plausible)
+
+  [PHUN] 2022-07-11 → 2022-07-21
+    splits_near_window : []
+    all_api_splits     : [{'execution_date': '2024-02-27', 'split_from': 50, 'split_to': 1}]
+    max_|daily_ret|    : 24.82%
+    dvol_spike_mult    : 16.057× local median
+    VERDICT           : unresolved data anomaly (volume spike ≥10× local median without matching split; treat as noise → ADV winsorize)
+
+  [IDAI] 2022-04-28 → 2022-04-29
+    splits_near_window : []
+    all_api_splits     : [{'execution_date': '2021-08-23', 'split_from': 1, 'split_to': 5}, {'execution_date': '2023-03-23', 'split_from': 5, 'split_to': 1}, {'execution_date': '2025-01-06', 'split_from': 15, 'split_to': 1}]
+    max_|daily_ret|    : 123.81%
+    dvol_spike_mult    : 410.777× local median
+    VERDICT           : unresolved data anomaly (extreme print/pump + volume spike; no split in Massive calendar near window)
+
+  [TPST] 2024-04-01 → 2024-04-01
+    splits_near_window : []
+    all_api_splits     : [{'execution_date': '2025-04-09', 'split_from': 13, 'split_to': 1}, {'execution_date': '2026-01-30', 'split_from': 1, 'split_to': 2}]
+    max_|daily_ret|    : 39.13%
+    dvol_spike_mult    : 29.361× local median
+    VERDICT           : unresolved data anomaly (volume spike ≥10× local median without matching split; treat as noise → ADV winsorize)
+
+  [NXTT] 2025-08-29 → 2025-09-11
+    splits_near_window : ['2025-09-16']
+    all_api_splits     : [{'execution_date': '2025-09-16', 'split_from': 200, 'split_to': 1}]
+    max_|daily_ret|    : 97.22%
+    dvol_spike_mult    : 18.656× local median
+    VERDICT           : confirmed real corporate event (nearby split; pre/post chaos — no clear adjClose*volume unit mismatch detected in continuous series)
+
+  [QTTB] 2026-05-27 → 2026-05-27
+    splits_near_window : []
+    all_api_splits     : []
+    max_|daily_ret|    : 81.24%
+    dvol_spike_mult    : 41.471× local median
+    VERDICT           : unresolved data anomaly (extreme print/pump + volume spike; no split in Massive calendar near window)
+
+  [AOSL] 2022-05-13 → 2022-05-18
+    splits_near_window : []
+    all_api_splits     : []
+    max_|daily_ret|    : 16.72%
+    dvol_spike_mult    : 5.818× local median
+    VERDICT           : confirmed real corporate event / news-driven volume (no split; price/volume elevated but plausible)
+
+### ISSUE 3 — Buy fill vs equal-weight target (diagnostic only; legacy CS run)
+  n_buy_orders              : 6,262
+  n_zero_fill               : 43
+  mean fill % of target     : 58.12%
+  p50 fill % of target      : 64.11%
+  p90 fill % of target      : 101.07%
+  share fully filled        : 25.65%
+  share < 50% filled        : 46.15%
+  share < 25% filled        : 35.71%
+  (no sizing/fill logic change in this pass)
+
+### FOUR-WAY COST COMPARISON — 2022-01-01 → 2026-06-30
+Cost model                               CAGR     Sharpe        MDD     Total cost $      Alpha
+------------------------------------------------------------------------------------------------
+Legacy CS (5% clip, raw ADV)          -24.62%     -0.959    -77.40%       28,195,824    -39.09%
+Fixed CS v2 + winsor ADV               -8.00%     -0.223    -55.47%       17,743,691    -22.46%
+Flat 10bps RT (5bps/side)               1.12%      0.166    -39.85%        1,805,089    -13.34%
+Flat 30bps RT (15bps/side)             -0.30%      0.108    -41.63%        5,280,676    -14.76%
+------------------------------------------------------------------------------------------------
+Legacy = prior audit Corwin–Schultz; Fixed = CS v2 + ADV winsorize; flats unchanged.
+
+# END REPORT

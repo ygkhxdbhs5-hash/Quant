@@ -1,0 +1,487 @@
+>> Classifying volume-spike / split events via Massive splits API...
+
+########################################################################
+# Legacy CS (5% clip, raw ADV)
+########################################################################
+>> Baseline v1: loading local panels (infrastructure artifacts)...
+{'strategy_id': 'baseline_v1_mom12_1_atr', 'TOP_LIQUID_POOL': 250, 'TOP_MOMENTUM_COUNT': 30, 'ATR_MULTIPLIER': 2.5, 'GROSS_EXPOSURE': 1.0, 'entry': 'mom_12_1 = price[t-21]/price[t-252]-1', 'exit': 'ATR(14) Wilder trail; Low < stop → next Open', 'sizing': 'equal_weight_1_over_N', 'leverage': '1.0x_always', 'rebalance': 'monthly_first_session; hold until ATR stop; refill empties'}
+==================================================
+BASELINE STRATEGY: baseline_v1_mom12_1_atr
+==================================================
+  strategy_id: baseline_v1_mom12_1_atr
+  TOP_LIQUID_POOL: 250
+  TOP_MOMENTUM_COUNT: 30
+  ATR_MULTIPLIER: 2.5
+  GROSS_EXPOSURE: 1.0
+  entry: mom_12_1 = price[t-21]/price[t-252]-1
+  exit: ATR(14) Wilder trail; Low < stop → next Open
+  sizing: equal_weight_1_over_N
+  leverage: 1.0x_always
+  rebalance: monthly_first_session; hold until ATR stop; refill empties
+  cost_model: corwin_schultz
+  winsorize_adv: False
+  cs_raw_%_ge_5pct_clip: 7.02%
+==================================================
+[QQQ B&H] bought 125297 @ 399.05 on 2022-01-03
+[REBALANCE] 2022-01-03 candidates=30 held=0 target_n=30
+[REBALANCE] 2022-02-01 candidates=30 held=30 target_n=30
+[REBALANCE] 2022-03-01 candidates=30 held=23 target_n=30
+[REBALANCE] 2022-04-01 candidates=30 held=27 target_n=30
+[REBALANCE] 2022-05-02 candidates=30 held=23 target_n=30
+[REBALANCE] 2022-06-01 candidates=30 held=27 target_n=30
+[REBALANCE] 2022-07-01 candidates=30 held=23 target_n=30
+[REBALANCE] 2022-08-01 candidates=30 held=25 target_n=30
+[REBALANCE] 2022-09-01 candidates=30 held=21 target_n=30
+[REBALANCE] 2022-10-03 candidates=30 held=29 target_n=30
+[REBALANCE] 2022-11-01 candidates=30 held=27 target_n=30
+[REBALANCE] 2022-12-01 candidates=30 held=29 target_n=30
+[REBALANCE] 2023-01-03 candidates=30 held=30 target_n=30
+[REBALANCE] 2023-02-01 candidates=30 held=28 target_n=30
+[REBALANCE] 2023-03-01 candidates=30 held=27 target_n=30
+[REBALANCE] 2023-04-03 candidates=30 held=30 target_n=30
+[REBALANCE] 2023-05-01 candidates=30 held=28 target_n=30
+[REBALANCE] 2023-06-01 candidates=30 held=26 target_n=30
+[REBALANCE] 2023-07-03 candidates=30 held=27 target_n=30
+[REBALANCE] 2023-08-01 candidates=30 held=28 target_n=30
+[REBALANCE] 2023-09-01 candidates=30 held=29 target_n=30
+[REBALANCE] 2023-10-02 candidates=30 held=28 target_n=30
+[REBALANCE] 2023-11-01 candidates=30 held=30 target_n=30
+[REBALANCE] 2023-12-01 candidates=30 held=25 target_n=30
+[REBALANCE] 2024-01-02 candidates=30 held=27 target_n=30
+[REBALANCE] 2024-02-01 candidates=30 held=28 target_n=30
+[REBALANCE] 2024-03-01 candidates=30 held=27 target_n=30
+[REBALANCE] 2024-04-01 candidates=30 held=28 target_n=30
+[REBALANCE] 2024-05-01 candidates=30 held=29 target_n=30
+[REBALANCE] 2024-06-03 candidates=30 held=28 target_n=30
+[REBALANCE] 2024-07-01 candidates=30 held=29 target_n=30
+[REBALANCE] 2024-08-01 candidates=30 held=25 target_n=30
+[REBALANCE] 2024-09-03 candidates=30 held=26 target_n=30
+[REBALANCE] 2024-10-01 candidates=30 held=25 target_n=30
+[REBALANCE] 2024-11-01 candidates=30 held=21 target_n=30
+[REBALANCE] 2024-12-02 candidates=30 held=28 target_n=30
+[REBALANCE] 2025-01-02 candidates=30 held=27 target_n=30
+[REBALANCE] 2025-02-03 candidates=30 held=25 target_n=30
+[REBALANCE] 2025-03-03 candidates=30 held=26 target_n=30
+[REBALANCE] 2025-04-01 candidates=30 held=17 target_n=30
+[REBALANCE] 2025-05-01 candidates=30 held=29 target_n=30
+[REBALANCE] 2025-06-02 candidates=30 held=28 target_n=30
+[REBALANCE] 2025-07-01 candidates=30 held=30 target_n=30
+[REBALANCE] 2025-08-01 candidates=30 held=24 target_n=30
+[REBALANCE] 2025-09-02 candidates=30 held=28 target_n=30
+[REBALANCE] 2025-10-01 candidates=30 held=29 target_n=30
+[REBALANCE] 2025-11-03 candidates=30 held=28 target_n=30
+[REBALANCE] 2025-12-01 candidates=30 held=29 target_n=30
+[REBALANCE] 2026-01-02 candidates=30 held=25 target_n=30
+[REBALANCE] 2026-02-02 candidates=30 held=26 target_n=30
+[REBALANCE] 2026-03-02 candidates=30 held=29 target_n=30
+[REBALANCE] 2026-04-01 candidates=30 held=29 target_n=30
+[REBALANCE] 2026-05-01 candidates=30 held=30 target_n=30
+[REBALANCE] 2026-06-01 candidates=30 held=30 target_n=30
+
+================================================================
+  KPI SUMMARY — Strategy vs QQQ Buy & Hold
+================================================================
+Metric                       Strategy            QQQ
+----------------------------------------------------------------
+CAGR                          -24.62%         14.46%
+Sharpe                         -0.959          0.697
+Maximum Drawdown              -77.40%        -35.25%
+----------------------------------------------------------------
+Alpha (CAGR−QQQ)              -39.09%
+================================================================
+
+
+########################################################################
+# Fixed CS v2 + winsor ADV
+########################################################################
+>> Baseline v1: loading local panels (infrastructure artifacts)...
+{'strategy_id': 'baseline_v1_mom12_1_atr', 'TOP_LIQUID_POOL': 250, 'TOP_MOMENTUM_COUNT': 30, 'ATR_MULTIPLIER': 2.5, 'GROSS_EXPOSURE': 1.0, 'entry': 'mom_12_1 = price[t-21]/price[t-252]-1', 'exit': 'ATR(14) Wilder trail; Low < stop → next Open', 'sizing': 'equal_weight_1_over_N', 'leverage': '1.0x_always', 'rebalance': 'monthly_first_session; hold until ATR stop; refill empties'}
+==================================================
+BASELINE STRATEGY: baseline_v1_mom12_1_atr
+==================================================
+  strategy_id: baseline_v1_mom12_1_atr
+  TOP_LIQUID_POOL: 250
+  TOP_MOMENTUM_COUNT: 30
+  ATR_MULTIPLIER: 2.5
+  GROSS_EXPOSURE: 1.0
+  entry: mom_12_1 = price[t-21]/price[t-252]-1
+  exit: ATR(14) Wilder trail; Low < stop → next Open
+  sizing: equal_weight_1_over_N
+  leverage: 1.0x_always
+  rebalance: monthly_first_session; hold until ATR stop; refill empties
+  cost_model: corwin_schultz_v2
+  winsorize_adv: True
+  cs_raw_%_ge_5pct_clip: 7.02%
+==================================================
+[QQQ B&H] bought 125297 @ 399.05 on 2022-01-03
+[REBALANCE] 2022-01-03 candidates=30 held=0 target_n=30
+[REBALANCE] 2022-02-01 candidates=30 held=29 target_n=30
+[REBALANCE] 2022-03-01 candidates=30 held=22 target_n=30
+[REBALANCE] 2022-04-01 candidates=30 held=26 target_n=30
+[REBALANCE] 2022-05-02 candidates=30 held=24 target_n=30
+[REBALANCE] 2022-06-01 candidates=30 held=27 target_n=30
+[REBALANCE] 2022-07-01 candidates=30 held=21 target_n=30
+[REBALANCE] 2022-08-01 candidates=30 held=26 target_n=30
+[REBALANCE] 2022-09-01 candidates=30 held=20 target_n=30
+[REBALANCE] 2022-10-03 candidates=30 held=29 target_n=30
+[REBALANCE] 2022-11-01 candidates=30 held=28 target_n=30
+[REBALANCE] 2022-12-01 candidates=30 held=30 target_n=30
+[REBALANCE] 2023-01-03 candidates=30 held=30 target_n=30
+[REBALANCE] 2023-02-01 candidates=30 held=28 target_n=30
+[REBALANCE] 2023-03-01 candidates=30 held=26 target_n=30
+[REBALANCE] 2023-04-03 candidates=30 held=29 target_n=30
+[REBALANCE] 2023-05-01 candidates=30 held=26 target_n=30
+[REBALANCE] 2023-06-01 candidates=30 held=27 target_n=30
+[REBALANCE] 2023-07-03 candidates=30 held=27 target_n=30
+[REBALANCE] 2023-08-01 candidates=30 held=26 target_n=30
+[REBALANCE] 2023-09-01 candidates=30 held=29 target_n=30
+[REBALANCE] 2023-10-02 candidates=30 held=26 target_n=30
+[REBALANCE] 2023-11-01 candidates=30 held=29 target_n=30
+[REBALANCE] 2023-12-01 candidates=30 held=25 target_n=30
+[REBALANCE] 2024-01-02 candidates=30 held=26 target_n=30
+[REBALANCE] 2024-02-01 candidates=30 held=28 target_n=30
+[REBALANCE] 2024-03-01 candidates=30 held=26 target_n=30
+[REBALANCE] 2024-04-01 candidates=30 held=26 target_n=30
+[REBALANCE] 2024-05-01 candidates=30 held=28 target_n=30
+[REBALANCE] 2024-06-03 candidates=30 held=28 target_n=30
+[REBALANCE] 2024-07-01 candidates=30 held=29 target_n=30
+[REBALANCE] 2024-08-01 candidates=30 held=24 target_n=30
+[REBALANCE] 2024-09-03 candidates=30 held=26 target_n=30
+[REBALANCE] 2024-10-01 candidates=30 held=25 target_n=30
+[REBALANCE] 2024-11-01 candidates=30 held=21 target_n=30
+[REBALANCE] 2024-12-02 candidates=30 held=28 target_n=30
+[REBALANCE] 2025-01-02 candidates=30 held=27 target_n=30
+[REBALANCE] 2025-02-03 candidates=30 held=24 target_n=30
+[REBALANCE] 2025-03-03 candidates=30 held=27 target_n=30
+[REBALANCE] 2025-04-01 candidates=30 held=21 target_n=30
+[REBALANCE] 2025-05-01 candidates=30 held=29 target_n=30
+[REBALANCE] 2025-06-02 candidates=30 held=28 target_n=30
+[REBALANCE] 2025-07-01 candidates=30 held=30 target_n=30
+[REBALANCE] 2025-08-01 candidates=30 held=24 target_n=30
+[REBALANCE] 2025-09-02 candidates=30 held=27 target_n=30
+[REBALANCE] 2025-10-01 candidates=30 held=29 target_n=30
+[REBALANCE] 2025-11-03 candidates=30 held=28 target_n=30
+[REBALANCE] 2025-12-01 candidates=30 held=30 target_n=30
+[REBALANCE] 2026-01-02 candidates=30 held=29 target_n=30
+[REBALANCE] 2026-02-02 candidates=30 held=25 target_n=30
+[REBALANCE] 2026-03-02 candidates=30 held=30 target_n=30
+[REBALANCE] 2026-04-01 candidates=30 held=29 target_n=30
+[REBALANCE] 2026-05-01 candidates=30 held=28 target_n=30
+[REBALANCE] 2026-06-01 candidates=30 held=30 target_n=30
+
+================================================================
+  KPI SUMMARY — Strategy vs QQQ Buy & Hold
+================================================================
+Metric                       Strategy            QQQ
+----------------------------------------------------------------
+CAGR                           -8.00%         14.46%
+Sharpe                         -0.223          0.697
+Maximum Drawdown              -55.47%        -35.25%
+----------------------------------------------------------------
+Alpha (CAGR−QQQ)              -22.46%
+================================================================
+
+
+########################################################################
+# Flat 10bps RT (5bps/side)
+########################################################################
+>> Baseline v1: loading local panels (infrastructure artifacts)...
+{'strategy_id': 'baseline_v1_mom12_1_atr', 'TOP_LIQUID_POOL': 250, 'TOP_MOMENTUM_COUNT': 30, 'ATR_MULTIPLIER': 2.5, 'GROSS_EXPOSURE': 1.0, 'entry': 'mom_12_1 = price[t-21]/price[t-252]-1', 'exit': 'ATR(14) Wilder trail; Low < stop → next Open', 'sizing': 'equal_weight_1_over_N', 'leverage': '1.0x_always', 'rebalance': 'monthly_first_session; hold until ATR stop; refill empties'}
+==================================================
+BASELINE STRATEGY: baseline_v1_mom12_1_atr
+==================================================
+  strategy_id: baseline_v1_mom12_1_atr
+  TOP_LIQUID_POOL: 250
+  TOP_MOMENTUM_COUNT: 30
+  ATR_MULTIPLIER: 2.5
+  GROSS_EXPOSURE: 1.0
+  entry: mom_12_1 = price[t-21]/price[t-252]-1
+  exit: ATR(14) Wilder trail; Low < stop → next Open
+  sizing: equal_weight_1_over_N
+  leverage: 1.0x_always
+  rebalance: monthly_first_session; hold until ATR stop; refill empties
+  cost_model: flat
+  winsorize_adv: False
+  flat_cost_one_way: 0.0005
+  cs_raw_%_ge_5pct_clip: 7.02%
+==================================================
+[QQQ B&H] bought 125297 @ 399.05 on 2022-01-03
+[REBALANCE] 2022-01-03 candidates=30 held=0 target_n=30
+[REBALANCE] 2022-02-01 candidates=30 held=30 target_n=30
+[REBALANCE] 2022-03-01 candidates=30 held=22 target_n=30
+[REBALANCE] 2022-04-01 candidates=30 held=27 target_n=30
+[REBALANCE] 2022-05-02 candidates=30 held=23 target_n=30
+[REBALANCE] 2022-06-01 candidates=30 held=27 target_n=30
+[REBALANCE] 2022-07-01 candidates=30 held=24 target_n=30
+[REBALANCE] 2022-08-01 candidates=30 held=25 target_n=30
+[REBALANCE] 2022-09-01 candidates=30 held=15 target_n=30
+[REBALANCE] 2022-10-03 candidates=30 held=29 target_n=30
+[REBALANCE] 2022-11-01 candidates=30 held=27 target_n=30
+[REBALANCE] 2022-12-01 candidates=30 held=31 target_n=31
+[REBALANCE] 2023-01-03 candidates=30 held=29 target_n=30
+[REBALANCE] 2023-02-01 candidates=30 held=29 target_n=30
+[REBALANCE] 2023-03-01 candidates=30 held=27 target_n=30
+[REBALANCE] 2023-04-03 candidates=30 held=30 target_n=30
+[REBALANCE] 2023-05-01 candidates=30 held=28 target_n=30
+[REBALANCE] 2023-06-01 candidates=30 held=25 target_n=30
+[REBALANCE] 2023-07-03 candidates=30 held=27 target_n=30
+[REBALANCE] 2023-08-01 candidates=30 held=29 target_n=30
+[REBALANCE] 2023-09-01 candidates=30 held=29 target_n=30
+[REBALANCE] 2023-10-02 candidates=30 held=28 target_n=30
+[REBALANCE] 2023-11-01 candidates=30 held=30 target_n=30
+[REBALANCE] 2023-12-01 candidates=30 held=24 target_n=30
+[REBALANCE] 2024-01-02 candidates=30 held=26 target_n=30
+[REBALANCE] 2024-02-01 candidates=30 held=28 target_n=30
+[REBALANCE] 2024-03-01 candidates=30 held=27 target_n=30
+[REBALANCE] 2024-04-01 candidates=30 held=26 target_n=30
+[REBALANCE] 2024-05-01 candidates=30 held=28 target_n=30
+[REBALANCE] 2024-06-03 candidates=30 held=27 target_n=30
+[REBALANCE] 2024-07-01 candidates=30 held=30 target_n=30
+[REBALANCE] 2024-08-01 candidates=30 held=23 target_n=30
+[REBALANCE] 2024-09-03 candidates=30 held=26 target_n=30
+[REBALANCE] 2024-10-01 candidates=30 held=25 target_n=30
+[REBALANCE] 2024-11-01 candidates=30 held=21 target_n=30
+[REBALANCE] 2024-12-02 candidates=30 held=27 target_n=30
+[REBALANCE] 2025-01-02 candidates=30 held=27 target_n=30
+[REBALANCE] 2025-02-03 candidates=30 held=24 target_n=30
+[REBALANCE] 2025-03-03 candidates=30 held=23 target_n=30
+[REBALANCE] 2025-04-01 candidates=30 held=16 target_n=30
+[REBALANCE] 2025-05-01 candidates=30 held=29 target_n=30
+[REBALANCE] 2025-06-02 candidates=30 held=28 target_n=30
+[REBALANCE] 2025-07-01 candidates=30 held=32 target_n=32
+[REBALANCE] 2025-08-01 candidates=30 held=23 target_n=30
+[REBALANCE] 2025-09-02 candidates=30 held=27 target_n=30
+[REBALANCE] 2025-10-01 candidates=30 held=28 target_n=30
+[REBALANCE] 2025-11-03 candidates=30 held=28 target_n=30
+[REBALANCE] 2025-12-01 candidates=30 held=30 target_n=30
+[REBALANCE] 2026-01-02 candidates=30 held=29 target_n=30
+[REBALANCE] 2026-02-02 candidates=30 held=25 target_n=30
+[REBALANCE] 2026-03-02 candidates=30 held=30 target_n=30
+[REBALANCE] 2026-04-01 candidates=30 held=29 target_n=30
+[REBALANCE] 2026-05-01 candidates=30 held=29 target_n=30
+[REBALANCE] 2026-06-01 candidates=30 held=30 target_n=30
+
+================================================================
+  KPI SUMMARY — Strategy vs QQQ Buy & Hold
+================================================================
+Metric                       Strategy            QQQ
+----------------------------------------------------------------
+CAGR                            1.12%         14.46%
+Sharpe                          0.166          0.697
+Maximum Drawdown              -39.85%        -35.25%
+----------------------------------------------------------------
+Alpha (CAGR−QQQ)              -13.34%
+================================================================
+
+
+########################################################################
+# Flat 30bps RT (15bps/side)
+########################################################################
+>> Baseline v1: loading local panels (infrastructure artifacts)...
+{'strategy_id': 'baseline_v1_mom12_1_atr', 'TOP_LIQUID_POOL': 250, 'TOP_MOMENTUM_COUNT': 30, 'ATR_MULTIPLIER': 2.5, 'GROSS_EXPOSURE': 1.0, 'entry': 'mom_12_1 = price[t-21]/price[t-252]-1', 'exit': 'ATR(14) Wilder trail; Low < stop → next Open', 'sizing': 'equal_weight_1_over_N', 'leverage': '1.0x_always', 'rebalance': 'monthly_first_session; hold until ATR stop; refill empties'}
+==================================================
+BASELINE STRATEGY: baseline_v1_mom12_1_atr
+==================================================
+  strategy_id: baseline_v1_mom12_1_atr
+  TOP_LIQUID_POOL: 250
+  TOP_MOMENTUM_COUNT: 30
+  ATR_MULTIPLIER: 2.5
+  GROSS_EXPOSURE: 1.0
+  entry: mom_12_1 = price[t-21]/price[t-252]-1
+  exit: ATR(14) Wilder trail; Low < stop → next Open
+  sizing: equal_weight_1_over_N
+  leverage: 1.0x_always
+  rebalance: monthly_first_session; hold until ATR stop; refill empties
+  cost_model: flat
+  winsorize_adv: False
+  flat_cost_one_way: 0.0015
+  cs_raw_%_ge_5pct_clip: 7.02%
+==================================================
+[QQQ B&H] bought 125297 @ 399.05 on 2022-01-03
+[REBALANCE] 2022-01-03 candidates=30 held=0 target_n=30
+[REBALANCE] 2022-02-01 candidates=30 held=30 target_n=30
+[REBALANCE] 2022-03-01 candidates=30 held=22 target_n=30
+[REBALANCE] 2022-04-01 candidates=30 held=27 target_n=30
+[REBALANCE] 2022-05-02 candidates=30 held=23 target_n=30
+[REBALANCE] 2022-06-01 candidates=30 held=27 target_n=30
+[REBALANCE] 2022-07-01 candidates=30 held=23 target_n=30
+[REBALANCE] 2022-08-01 candidates=30 held=26 target_n=30
+[REBALANCE] 2022-09-01 candidates=30 held=15 target_n=30
+[REBALANCE] 2022-10-03 candidates=30 held=29 target_n=30
+[REBALANCE] 2022-11-01 candidates=30 held=27 target_n=30
+[REBALANCE] 2022-12-01 candidates=30 held=31 target_n=31
+[REBALANCE] 2023-01-03 candidates=30 held=29 target_n=30
+[REBALANCE] 2023-02-01 candidates=30 held=29 target_n=30
+[REBALANCE] 2023-03-01 candidates=30 held=27 target_n=30
+[REBALANCE] 2023-04-03 candidates=30 held=30 target_n=30
+[REBALANCE] 2023-05-01 candidates=30 held=27 target_n=30
+[REBALANCE] 2023-06-01 candidates=30 held=25 target_n=30
+[REBALANCE] 2023-07-03 candidates=30 held=27 target_n=30
+[REBALANCE] 2023-08-01 candidates=30 held=28 target_n=30
+[REBALANCE] 2023-09-01 candidates=30 held=29 target_n=30
+[REBALANCE] 2023-10-02 candidates=30 held=28 target_n=30
+[REBALANCE] 2023-11-01 candidates=30 held=29 target_n=30
+[REBALANCE] 2023-12-01 candidates=30 held=24 target_n=30
+[REBALANCE] 2024-01-02 candidates=30 held=27 target_n=30
+[REBALANCE] 2024-02-01 candidates=30 held=28 target_n=30
+[REBALANCE] 2024-03-01 candidates=30 held=27 target_n=30
+[REBALANCE] 2024-04-01 candidates=30 held=26 target_n=30
+[REBALANCE] 2024-05-01 candidates=30 held=29 target_n=30
+[REBALANCE] 2024-06-03 candidates=30 held=28 target_n=30
+[REBALANCE] 2024-07-01 candidates=30 held=31 target_n=31
+[REBALANCE] 2024-08-01 candidates=30 held=24 target_n=30
+[REBALANCE] 2024-09-03 candidates=30 held=26 target_n=30
+[REBALANCE] 2024-10-01 candidates=30 held=25 target_n=30
+[REBALANCE] 2024-11-01 candidates=30 held=21 target_n=30
+[REBALANCE] 2024-12-02 candidates=30 held=28 target_n=30
+[REBALANCE] 2025-01-02 candidates=30 held=27 target_n=30
+[REBALANCE] 2025-02-03 candidates=30 held=24 target_n=30
+[REBALANCE] 2025-03-03 candidates=30 held=24 target_n=30
+[REBALANCE] 2025-04-01 candidates=30 held=21 target_n=30
+[REBALANCE] 2025-05-01 candidates=30 held=29 target_n=30
+[REBALANCE] 2025-06-02 candidates=30 held=28 target_n=30
+[REBALANCE] 2025-07-01 candidates=30 held=32 target_n=32
+[REBALANCE] 2025-08-01 candidates=30 held=23 target_n=30
+[REBALANCE] 2025-09-02 candidates=30 held=27 target_n=30
+[REBALANCE] 2025-10-01 candidates=30 held=29 target_n=30
+[REBALANCE] 2025-11-03 candidates=30 held=28 target_n=30
+[REBALANCE] 2025-12-01 candidates=30 held=30 target_n=30
+[REBALANCE] 2026-01-02 candidates=30 held=29 target_n=30
+[REBALANCE] 2026-02-02 candidates=30 held=25 target_n=30
+[REBALANCE] 2026-03-02 candidates=30 held=30 target_n=30
+[REBALANCE] 2026-04-01 candidates=30 held=29 target_n=30
+[REBALANCE] 2026-05-01 candidates=30 held=28 target_n=30
+[REBALANCE] 2026-06-01 candidates=30 held=30 target_n=30
+
+================================================================
+  KPI SUMMARY — Strategy vs QQQ Buy & Hold
+================================================================
+Metric                       Strategy            QQQ
+----------------------------------------------------------------
+CAGR                           -0.30%         14.46%
+Sharpe                          0.108          0.697
+Maximum Drawdown              -41.63%        -35.25%
+----------------------------------------------------------------
+Alpha (CAGR−QQQ)              -14.76%
+================================================================
+
+
+########################################################################
+# COST + DATA QUALITY FIX REPORT — Baseline v1 (2022-2026)
+# Strategy entry/exit/sizing/leverage unchanged.
+########################################################################
+
+### ISSUE 1a — Raw Corwin–Schultz spread distribution (pre-clip)
+  n_obs              : 701,000
+  n_finite           : 464,163
+  % NaN              : 33.786%
+  % Inf              : 0.000%
+  % negative (finite): 39.471%
+  min / p50 / p90    : -1.999977 / 0.005626 / 0.041486
+  p99 / p99.9 / max  : 0.113019 / 0.300571 / 1.116247
+
+### ISSUE 1b — Legacy 5% ceiling saturation
+  % finite >= 5%     : 7.023%  (n=32,598)
+  % finite >= 2%     : 26.214%
+  % finite >= 1%     : 41.826%
+  flag (>2% hit rate): True
+
+### ISSUE 1c — Breakdown diagnostics
+  % tiny/zero range  : 1.428%
+  range/close p50/p99: 0.043968 / 0.349511
+  % gap-dominated    : 4.210%
+  among CS>=5%: n=32598 close_p50=6.7 %close<5=43.444%
+
+### ISSUE 1d — Chosen robust fix
+  negatives / NaN / near-zero-range → liquidity-tiered flat spread fallback
+  CS ceiling 1.00% (was 5.00%); floor 0.02%
+  fallback tiers by ADV20: >=$20M→15bps, >=$5M→30bps, >=$1M→50bps, else→100bps (full spread)
+  impact (v2 only): σ capped at 5% daily; impact ratio capped at 0.50% (legacy left 5–8% one-way impacts)
+  Justification: legacy 5% ceiling hit 7.023% of finite cells (>>1–2% rare-tail budget); daily CS on gap-heavy microcaps is upward-biased.
+  note: Corwin–Schultz (2012) yields negative estimates when overnight variance dominates the two-day range; standard practice sets those to 0 / invalid.
+  note: Legacy clip upper=5% was hit on >>2% of finite cells → ceiling is not a rare safety net.
+  note: High CS cells concentrate in low-priced names with wide intraday ranges.
+
+### ISSUE 2 — Corporate action / volume-spike findings
+  winsorize filter (v2 runs): daily dvol capped at 5× trailing-20d median (shifted); spike cells flagged in fixed run ≈ 19,146
+
+  [HUDI] 2022-11-03 → 2022-11-11
+    splits_near_window : []
+    all_api_splits     : []
+    max_|daily_ret|    : 242.80%
+    dvol_spike_mult    : 16.704× local median
+    VERDICT           : unresolved data anomaly (extreme print/pump + volume spike; no split in Massive calendar near window)
+
+  [PHUN] 2022-01-11 → 2022-02-09
+    splits_near_window : []
+    all_api_splits     : [{'execution_date': '2024-02-27', 'split_from': 50, 'split_to': 1}]
+    max_|daily_ret|    : 19.92%
+    dvol_spike_mult    : 7.946× local median
+    VERDICT           : confirmed real corporate event / news-driven volume (no split; price/volume elevated but plausible)
+
+  [PHUN] 2022-07-11 → 2022-07-21
+    splits_near_window : []
+    all_api_splits     : [{'execution_date': '2024-02-27', 'split_from': 50, 'split_to': 1}]
+    max_|daily_ret|    : 24.82%
+    dvol_spike_mult    : 16.057× local median
+    VERDICT           : unresolved data anomaly (volume spike ≥10× local median without matching split; treat as noise → ADV winsorize)
+
+  [IDAI] 2022-04-28 → 2022-04-29
+    splits_near_window : []
+    all_api_splits     : [{'execution_date': '2021-08-23', 'split_from': 1, 'split_to': 5}, {'execution_date': '2023-03-23', 'split_from': 5, 'split_to': 1}, {'execution_date': '2025-01-06', 'split_from': 15, 'split_to': 1}]
+    max_|daily_ret|    : 123.81%
+    dvol_spike_mult    : 410.777× local median
+    VERDICT           : unresolved data anomaly (extreme print/pump + volume spike; no split in Massive calendar near window)
+
+  [TPST] 2024-04-01 → 2024-04-01
+    splits_near_window : []
+    all_api_splits     : [{'execution_date': '2025-04-09', 'split_from': 13, 'split_to': 1}, {'execution_date': '2026-01-30', 'split_from': 1, 'split_to': 2}]
+    max_|daily_ret|    : 39.13%
+    dvol_spike_mult    : 29.361× local median
+    VERDICT           : unresolved data anomaly (volume spike ≥10× local median without matching split; treat as noise → ADV winsorize)
+
+  [NXTT] 2025-08-29 → 2025-09-11
+    splits_near_window : ['2025-09-16']
+    all_api_splits     : [{'execution_date': '2025-09-16', 'split_from': 200, 'split_to': 1}]
+    max_|daily_ret|    : 97.22%
+    dvol_spike_mult    : 18.656× local median
+    VERDICT           : confirmed real corporate event (nearby split; pre/post chaos — no clear adjClose*volume unit mismatch detected in continuous series)
+
+  [QTTB] 2026-05-27 → 2026-05-27
+    splits_near_window : []
+    all_api_splits     : []
+    max_|daily_ret|    : 81.24%
+    dvol_spike_mult    : 41.471× local median
+    VERDICT           : unresolved data anomaly (extreme print/pump + volume spike; no split in Massive calendar near window)
+
+  [AOSL] 2022-05-13 → 2022-05-18
+    splits_near_window : []
+    all_api_splits     : []
+    max_|daily_ret|    : 16.72%
+    dvol_spike_mult    : 5.818× local median
+    VERDICT           : confirmed real corporate event / news-driven volume (no split; price/volume elevated but plausible)
+
+### ISSUE 3 — Buy fill vs equal-weight target (diagnostic only; legacy CS run)
+  n_buy_orders              : 6,262
+  n_zero_fill               : 43
+  mean fill % of target     : 58.12%
+  p50 fill % of target      : 64.11%
+  p90 fill % of target      : 101.07%
+  share fully filled        : 25.65%
+  share < 50% filled        : 46.15%
+  share < 25% filled        : 35.71%
+  (no sizing/fill logic change in this pass)
+
+### FOUR-WAY COST COMPARISON — 2022-01-01 → 2026-06-30
+Cost model                               CAGR     Sharpe        MDD     Total cost $      Alpha
+------------------------------------------------------------------------------------------------
+Legacy CS (5% clip, raw ADV)          -24.62%     -0.959    -77.40%       28,195,824    -39.09%
+Fixed CS v2 + winsor ADV               -8.00%     -0.223    -55.47%       17,743,691    -22.46%
+Flat 10bps RT (5bps/side)               1.12%      0.166    -39.85%        1,805,089    -13.34%
+Flat 30bps RT (15bps/side)             -0.30%      0.108    -41.63%        5,280,676    -14.76%
+------------------------------------------------------------------------------------------------
+Legacy = prior audit Corwin–Schultz; Fixed = CS v2 + ADV winsorize; flats unchanged.
+
+# END REPORT
+
+Wrote -> docs/experiments/BASELINE_V1_COST_DATA_FIX/cost_data_fix_report.txt
