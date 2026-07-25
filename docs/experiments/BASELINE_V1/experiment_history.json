@@ -1,0 +1,428 @@
+[
+  {
+    "id": "EXP-20260725-8cd08efe",
+    "parent_exp": null,
+    "changed_variables": {
+      "strategy": "baseline_v1_mom12_1_atr",
+      "entry": "mom_12_1_only",
+      "exit": "atr_trail_2.5",
+      "sizing": "equal_weight",
+      "leverage": 1.0
+    },
+    "hypothesis": "Minimal 12-1 momentum + ATR trail baseline for future factor experiments",
+    "expected_outcome": "Runnable KPIs vs QQQ B&H on 2018-20 / 2021-22 / 2023-25",
+    "actual_outcome": "{\"2018-2020\": -0.27367768098170697, \"2021-2022\": -0.2716102257535896, \"2023-2025\": -0.5261996225621106}",
+    "decision": "BASELINE",
+    "metrics": {
+      "strategy_id": "baseline_v1_mom12_1_atr",
+      "knobs": {
+        "strategy_id": "baseline_v1_mom12_1_atr",
+        "TOP_LIQUID_POOL": 250,
+        "TOP_MOMENTUM_COUNT": 30,
+        "ATR_MULTIPLIER": 2.5,
+        "GROSS_EXPOSURE": 1.0,
+        "entry": "mom_12_1 = price[t-21]/price[t-252]-1",
+        "exit": "ATR(14) Wilder trail; Low < stop \u2192 next Open",
+        "sizing": "equal_weight_1_over_N",
+        "leverage": "1.0x_always",
+        "rebalance": "monthly_first_session; hold until ATR stop; refill empties"
+      },
+      "periods": {
+        "2018-2020": {
+          "window": {
+            "start": "2018-01-01",
+            "end": "2020-12-31"
+          },
+          "n_equity_days": 750,
+          "comparison": {
+            "strategy": {
+              "CAGR": -0.01579956601983401,
+              "Sharpe": 0.03602656794570695,
+              "Maximum_Drawdown": -0.5181080725636955
+            },
+            "QQQ": {
+              "CAGR": 0.25787811496187296,
+              "Sharpe": 1.0057705298008401,
+              "Maximum_Drawdown": -0.2855931056456924
+            },
+            "Alpha_CAGR": -0.27367768098170697,
+            "knobs": {
+              "strategy_id": "baseline_v1_mom12_1_atr",
+              "TOP_LIQUID_POOL": 250,
+              "TOP_MOMENTUM_COUNT": 30,
+              "ATR_MULTIPLIER": 2.5,
+              "GROSS_EXPOSURE": 1.0,
+              "entry": "mom_12_1 = price[t-21]/price[t-252]-1",
+              "exit": "ATR(14) Wilder trail; Low < stop \u2192 next Open",
+              "sizing": "equal_weight_1_over_N",
+              "leverage": "1.0x_always",
+              "rebalance": "monthly_first_session; hold until ATR stop; refill empties"
+            },
+            "window": {
+              "start": "2018-01-01",
+              "end": "2020-12-31"
+            }
+          }
+        },
+        "2021-2022": {
+          "window": {
+            "start": "2021-01-01",
+            "end": "2022-12-31"
+          },
+          "n_equity_days": 503,
+          "comparison": {
+            "strategy": {
+              "CAGR": -0.329049435501801,
+              "Sharpe": -1.2967376821342442,
+              "Maximum_Drawdown": -0.6523652658314976
+            },
+            "QQQ": {
+              "CAGR": -0.05743920974821137,
+              "Sharpe": -0.09317871001897891,
+              "Maximum_Drawdown": -0.35617191495626677
+            },
+            "Alpha_CAGR": -0.2716102257535896,
+            "knobs": {
+              "strategy_id": "baseline_v1_mom12_1_atr",
+              "TOP_LIQUID_POOL": 250,
+              "TOP_MOMENTUM_COUNT": 30,
+              "ATR_MULTIPLIER": 2.5,
+              "GROSS_EXPOSURE": 1.0,
+              "entry": "mom_12_1 = price[t-21]/price[t-252]-1",
+              "exit": "ATR(14) Wilder trail; Low < stop \u2192 next Open",
+              "sizing": "equal_weight_1_over_N",
+              "leverage": "1.0x_always",
+              "rebalance": "monthly_first_session; hold until ATR stop; refill empties"
+            },
+            "window": {
+              "start": "2021-01-01",
+              "end": "2022-12-31"
+            }
+          }
+        },
+        "2023-2025": {
+          "window": {
+            "start": "2023-01-01",
+            "end": "2025-12-31"
+          },
+          "n_equity_days": 752,
+          "comparison": {
+            "strategy": {
+              "CAGR": -0.20092813671667398,
+              "Sharpe": -0.805424228848043,
+              "Maximum_Drawdown": -0.5759632557890736
+            },
+            "QQQ": {
+              "CAGR": 0.32527148584543664,
+              "Sharpe": 1.5153262140740291,
+              "Maximum_Drawdown": -0.22883256902528004
+            },
+            "Alpha_CAGR": -0.5261996225621106,
+            "knobs": {
+              "strategy_id": "baseline_v1_mom12_1_atr",
+              "TOP_LIQUID_POOL": 250,
+              "TOP_MOMENTUM_COUNT": 30,
+              "ATR_MULTIPLIER": 2.5,
+              "GROSS_EXPOSURE": 1.0,
+              "entry": "mom_12_1 = price[t-21]/price[t-252]-1",
+              "exit": "ATR(14) Wilder trail; Low < stop \u2192 next Open",
+              "sizing": "equal_weight_1_over_N",
+              "leverage": "1.0x_always",
+              "rebalance": "monthly_first_session; hold until ATR stop; refill empties"
+            },
+            "window": {
+              "start": "2023-01-01",
+              "end": "2025-12-31"
+            }
+          }
+        }
+      }
+    },
+    "notes": "Infrastructure preserved; strategy isolated in strategy_baseline_v1.py",
+    "created_at_utc": "2026-07-25T15:45:37.859978+00:00"
+  },
+  {
+    "id": "EXP-20260725-487456c3",
+    "parent_exp": null,
+    "changed_variables": {
+      "strategy": "baseline_v1_mom12_1_atr",
+      "entry": "mom_12_1_only",
+      "exit": "atr_trail_2.5",
+      "sizing": "equal_weight",
+      "leverage": 1.0
+    },
+    "hypothesis": "Minimal 12-1 momentum + ATR trail baseline for future factor experiments",
+    "expected_outcome": "Runnable KPIs vs QQQ B&H on 2018-20 / 2021-22 / 2023-25",
+    "actual_outcome": "{\"2018-2020\": -0.27734498452428247, \"2021-2022\": -0.2716102257535896, \"2023-2025\": -0.526199622562111}",
+    "decision": "BASELINE",
+    "metrics": {
+      "strategy_id": "baseline_v1_mom12_1_atr",
+      "knobs": {
+        "strategy_id": "baseline_v1_mom12_1_atr",
+        "TOP_LIQUID_POOL": 250,
+        "TOP_MOMENTUM_COUNT": 30,
+        "ATR_MULTIPLIER": 2.5,
+        "GROSS_EXPOSURE": 1.0,
+        "entry": "mom_12_1 = price[t-21]/price[t-252]-1",
+        "exit": "ATR(14) Wilder trail; Low < stop \u2192 next Open",
+        "sizing": "equal_weight_1_over_N",
+        "leverage": "1.0x_always",
+        "rebalance": "monthly_first_session; hold until ATR stop; refill empties"
+      },
+      "periods": {
+        "2018-2020": {
+          "window": {
+            "start": "2018-01-01",
+            "end": "2020-12-31"
+          },
+          "n_equity_days": 755,
+          "comparison": {
+            "strategy": {
+              "CAGR": -0.01569917788839914,
+              "Sharpe": 0.03590707632126218,
+              "Maximum_Drawdown": -0.5181080725636958
+            },
+            "QQQ": {
+              "CAGR": 0.2616458066358833,
+              "Sharpe": 1.0192887253630876,
+              "Maximum_Drawdown": -0.2855936254975767
+            },
+            "Alpha_CAGR": -0.27734498452428247,
+            "knobs": {
+              "strategy_id": "baseline_v1_mom12_1_atr",
+              "TOP_LIQUID_POOL": 250,
+              "TOP_MOMENTUM_COUNT": 30,
+              "ATR_MULTIPLIER": 2.5,
+              "GROSS_EXPOSURE": 1.0,
+              "entry": "mom_12_1 = price[t-21]/price[t-252]-1",
+              "exit": "ATR(14) Wilder trail; Low < stop \u2192 next Open",
+              "sizing": "equal_weight_1_over_N",
+              "leverage": "1.0x_always",
+              "rebalance": "monthly_first_session; hold until ATR stop; refill empties"
+            },
+            "window": {
+              "start": "2018-01-01",
+              "end": "2020-12-31"
+            }
+          }
+        },
+        "2021-2022": {
+          "window": {
+            "start": "2021-01-01",
+            "end": "2022-12-31"
+          },
+          "n_equity_days": 503,
+          "comparison": {
+            "strategy": {
+              "CAGR": -0.329049435501801,
+              "Sharpe": -1.2967376821342473,
+              "Maximum_Drawdown": -0.6523652658314976
+            },
+            "QQQ": {
+              "CAGR": -0.05743920974821137,
+              "Sharpe": -0.09317871001897891,
+              "Maximum_Drawdown": -0.35617191495626677
+            },
+            "Alpha_CAGR": -0.2716102257535896,
+            "knobs": {
+              "strategy_id": "baseline_v1_mom12_1_atr",
+              "TOP_LIQUID_POOL": 250,
+              "TOP_MOMENTUM_COUNT": 30,
+              "ATR_MULTIPLIER": 2.5,
+              "GROSS_EXPOSURE": 1.0,
+              "entry": "mom_12_1 = price[t-21]/price[t-252]-1",
+              "exit": "ATR(14) Wilder trail; Low < stop \u2192 next Open",
+              "sizing": "equal_weight_1_over_N",
+              "leverage": "1.0x_always",
+              "rebalance": "monthly_first_session; hold until ATR stop; refill empties"
+            },
+            "window": {
+              "start": "2021-01-01",
+              "end": "2022-12-31"
+            }
+          }
+        },
+        "2023-2025": {
+          "window": {
+            "start": "2023-01-01",
+            "end": "2025-12-31"
+          },
+          "n_equity_days": 752,
+          "comparison": {
+            "strategy": {
+              "CAGR": -0.2009281367166743,
+              "Sharpe": -0.805424228848043,
+              "Maximum_Drawdown": -0.5759632557890739
+            },
+            "QQQ": {
+              "CAGR": 0.32527148584543664,
+              "Sharpe": 1.5153262140740291,
+              "Maximum_Drawdown": -0.22883256902528004
+            },
+            "Alpha_CAGR": -0.526199622562111,
+            "knobs": {
+              "strategy_id": "baseline_v1_mom12_1_atr",
+              "TOP_LIQUID_POOL": 250,
+              "TOP_MOMENTUM_COUNT": 30,
+              "ATR_MULTIPLIER": 2.5,
+              "GROSS_EXPOSURE": 1.0,
+              "entry": "mom_12_1 = price[t-21]/price[t-252]-1",
+              "exit": "ATR(14) Wilder trail; Low < stop \u2192 next Open",
+              "sizing": "equal_weight_1_over_N",
+              "leverage": "1.0x_always",
+              "rebalance": "monthly_first_session; hold until ATR stop; refill empties"
+            },
+            "window": {
+              "start": "2023-01-01",
+              "end": "2025-12-31"
+            }
+          }
+        }
+      }
+    },
+    "notes": "Infrastructure preserved; strategy isolated in strategy_baseline_v1.py",
+    "created_at_utc": "2026-07-25T15:46:04.275483+00:00"
+  },
+  {
+    "id": "EXP-20260725-6b7c745e",
+    "parent_exp": null,
+    "changed_variables": {
+      "strategy": "baseline_v1_mom12_1_atr",
+      "entry": "mom_12_1_only",
+      "exit": "atr_trail_2.5",
+      "sizing": "equal_weight",
+      "leverage": 1.0
+    },
+    "hypothesis": "Minimal 12-1 momentum + ATR trail baseline for future factor experiments",
+    "expected_outcome": "Runnable KPIs vs QQQ B&H on 2018-20 / 2021-22 / 2023-25",
+    "actual_outcome": "{\"2018-2020\": -0.27310562248206527, \"2021-2022\": -0.2716102257535896, \"2023-2025\": -0.5261996225621108}",
+    "decision": "BASELINE",
+    "metrics": {
+      "strategy_id": "baseline_v1_mom12_1_atr",
+      "knobs": {
+        "strategy_id": "baseline_v1_mom12_1_atr",
+        "TOP_LIQUID_POOL": 250,
+        "TOP_MOMENTUM_COUNT": 30,
+        "ATR_MULTIPLIER": 2.5,
+        "GROSS_EXPOSURE": 1.0,
+        "entry": "mom_12_1 = price[t-21]/price[t-252]-1",
+        "exit": "ATR(14) Wilder trail; Low < stop \u2192 next Open",
+        "sizing": "equal_weight_1_over_N",
+        "leverage": "1.0x_always",
+        "rebalance": "monthly_first_session; hold until ATR stop; refill empties"
+      },
+      "periods": {
+        "2018-2020": {
+          "window": {
+            "start": "2018-01-01",
+            "end": "2020-12-31"
+          },
+          "n_equity_days": 755,
+          "comparison": {
+            "strategy": {
+              "CAGR": -0.011459815846181942,
+              "Sharpe": 0.05690156145977677,
+              "Maximum_Drawdown": -0.5113367609084027
+            },
+            "QQQ": {
+              "CAGR": 0.2616458066358833,
+              "Sharpe": 1.0192887253630876,
+              "Maximum_Drawdown": -0.2855936254975767
+            },
+            "Alpha_CAGR": -0.27310562248206527,
+            "knobs": {
+              "strategy_id": "baseline_v1_mom12_1_atr",
+              "TOP_LIQUID_POOL": 250,
+              "TOP_MOMENTUM_COUNT": 30,
+              "ATR_MULTIPLIER": 2.5,
+              "GROSS_EXPOSURE": 1.0,
+              "entry": "mom_12_1 = price[t-21]/price[t-252]-1",
+              "exit": "ATR(14) Wilder trail; Low < stop \u2192 next Open",
+              "sizing": "equal_weight_1_over_N",
+              "leverage": "1.0x_always",
+              "rebalance": "monthly_first_session; hold until ATR stop; refill empties"
+            },
+            "window": {
+              "start": "2018-01-01",
+              "end": "2020-12-31"
+            }
+          }
+        },
+        "2021-2022": {
+          "window": {
+            "start": "2021-01-01",
+            "end": "2022-12-31"
+          },
+          "n_equity_days": 503,
+          "comparison": {
+            "strategy": {
+              "CAGR": -0.329049435501801,
+              "Sharpe": -1.2967376821342456,
+              "Maximum_Drawdown": -0.6523652658314975
+            },
+            "QQQ": {
+              "CAGR": -0.05743920974821137,
+              "Sharpe": -0.09317871001897891,
+              "Maximum_Drawdown": -0.35617191495626677
+            },
+            "Alpha_CAGR": -0.2716102257535896,
+            "knobs": {
+              "strategy_id": "baseline_v1_mom12_1_atr",
+              "TOP_LIQUID_POOL": 250,
+              "TOP_MOMENTUM_COUNT": 30,
+              "ATR_MULTIPLIER": 2.5,
+              "GROSS_EXPOSURE": 1.0,
+              "entry": "mom_12_1 = price[t-21]/price[t-252]-1",
+              "exit": "ATR(14) Wilder trail; Low < stop \u2192 next Open",
+              "sizing": "equal_weight_1_over_N",
+              "leverage": "1.0x_always",
+              "rebalance": "monthly_first_session; hold until ATR stop; refill empties"
+            },
+            "window": {
+              "start": "2021-01-01",
+              "end": "2022-12-31"
+            }
+          }
+        },
+        "2023-2025": {
+          "window": {
+            "start": "2023-01-01",
+            "end": "2025-12-31"
+          },
+          "n_equity_days": 752,
+          "comparison": {
+            "strategy": {
+              "CAGR": -0.2009281367166742,
+              "Sharpe": -0.8054242288480403,
+              "Maximum_Drawdown": -0.5759632557890739
+            },
+            "QQQ": {
+              "CAGR": 0.32527148584543664,
+              "Sharpe": 1.5153262140740291,
+              "Maximum_Drawdown": -0.22883256902528004
+            },
+            "Alpha_CAGR": -0.5261996225621108,
+            "knobs": {
+              "strategy_id": "baseline_v1_mom12_1_atr",
+              "TOP_LIQUID_POOL": 250,
+              "TOP_MOMENTUM_COUNT": 30,
+              "ATR_MULTIPLIER": 2.5,
+              "GROSS_EXPOSURE": 1.0,
+              "entry": "mom_12_1 = price[t-21]/price[t-252]-1",
+              "exit": "ATR(14) Wilder trail; Low < stop \u2192 next Open",
+              "sizing": "equal_weight_1_over_N",
+              "leverage": "1.0x_always",
+              "rebalance": "monthly_first_session; hold until ATR stop; refill empties"
+            },
+            "window": {
+              "start": "2023-01-01",
+              "end": "2025-12-31"
+            }
+          }
+        }
+      }
+    },
+    "notes": "Infrastructure preserved; strategy isolated in strategy_baseline_v1.py",
+    "created_at_utc": "2026-07-25T15:46:24.455795+00:00"
+  }
+]

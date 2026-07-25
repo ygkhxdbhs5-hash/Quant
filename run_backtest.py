@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Single entry point for the Q_Alpha v5 standalone backtest.
+"""Single entry point for the Baseline v1 backtest.
 
 Requires local datasets under data/ (populate via downloader.update_data).
+Strategy logic lives in engine/strategy_baseline_v1.py.
 """
 
 from __future__ import annotations
@@ -11,58 +12,54 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 
-from engine.strategy import StandaloneEngine, load_config
+from engine.baseline_engine import BaselineEngineV1
+from engine.strategy import load_config
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Run Q_Alpha v5 standalone backtest")
+    parser = argparse.ArgumentParser(description="Run Baseline v1 (mom 12-1 + ATR trail)")
     parser.add_argument("--config", default="config/config.yaml")
-    parser.add_argument("--equity-out", default="cache/equity_curve.csv")
-    parser.add_argument("--chart-out", default="cache/equity_curve_v5.png")
+    parser.add_argument("--start", default=None, help="Override START_DATE (YYYY-MM-DD)")
+    parser.add_argument("--end", default=None, help="Override END_DATE (YYYY-MM-DD)")
+    parser.add_argument("--equity-out", default="cache/baseline_v1/equity_curve.csv")
+    parser.add_argument("--chart-out", default="cache/baseline_v1/equity_curve.png")
     args = parser.parse_args(argv)
 
     config = load_config(args.config)
-    engine = StandaloneEngine(config=config, config_path=args.config)
+    if args.start:
+        config["start_date"] = args.start
+    if args.end:
+        config["end_date"] = args.end
+
+    engine = BaselineEngineV1(config=config, config_path=args.config)
     result = engine.run()
 
     if result.empty:
         print("No equity curve produced (check data coverage / warmup).")
         return 1
 
-    result["Peak"] = result["Total_Equity"].cummax()
-    result["Drawdown"] = (result["Total_Equity"] - result["Peak"]) / result["Peak"]
-    final_return = (result["Total_Equity"].iloc[-1] / result["Total_Equity"].iloc[0] - 1) * 100
-    mdd = result["Drawdown"].min() * 100
-
-    print("\n" + "=" * 60)
-    print("   STANDALONE (Pure Python) INSTITUTIONAL ENGINE (v5)   ")
-    print("=" * 60)
-    print(f"▶ 누적 순수익률   : {final_return:.2f}%")
-    print(f"▶ 최대 낙폭       : {mdd:.2f}%")
-    print(f"▶ 최종 자산가치   : {result['Total_Equity'].iloc[-1]:,.0f}")
-    print("=" * 60)
-    # Research Facts are emitted by StandaloneEngine.emit_research_reports at end of run()
-    arts = getattr(engine, "research_artifacts", None) or {}
-    if arts.get("report_path"):
-        print(f"▶ Research report : {arts['report_path']}")
-    if arts.get("trades_path"):
-        print(f"▶ Trade journal   : {arts['trades_path']}")
-
     equity_out = Path(args.equity_out)
     equity_out.parent.mkdir(parents=True, exist_ok=True)
     result.to_csv(equity_out)
-    print(f"\nWrote equity curve -> {equity_out}")
+    print(f"Wrote equity curve -> {equity_out}")
 
     chart_out = Path(args.chart_out)
     chart_out.parent.mkdir(parents=True, exist_ok=True)
     plt.figure(figsize=(14, 6))
-    plt.plot(result["Total_Equity"], color="darkgreen", lw=2.5, label="Standalone PIT Strategy (v5)")
-    plt.title("Pure Python Standalone Engine - Equity Curve", fontsize=13, fontweight="bold")
+    plt.plot(result["Total_Equity"], color="darkgreen", lw=2.5, label="Baseline v1")
+    qqq_path = Path("cache/baseline_v1/qqq_equity_curve.csv")
+    if qqq_path.exists():
+        import pandas as pd
+
+        qqq = pd.read_csv(qqq_path, parse_dates=["Date"]).set_index("Date")
+        if "Total_Equity" in qqq.columns:
+            plt.plot(qqq["Total_Equity"], color="steelblue", lw=1.8, label="QQQ B&H")
+    plt.title("Baseline v1 — 12-1 Momentum + ATR Trail", fontsize=13, fontweight="bold")
     plt.grid(True, linestyle=":", alpha=0.6)
     plt.legend()
     plt.savefig(chart_out, dpi=150)
     plt.close()
-    print(f"차트 저장: {chart_out}")
+    print(f"Chart saved: {chart_out}")
     return 0
 
 
