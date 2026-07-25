@@ -1,0 +1,54 @@
+# Three-way regime A/B: MQ | sma200-regime | FAST sma50+RoC (VALID)
+
+Window: 2022-01-01 → 2026-06-30
+repro_id=7303e0d94dbc
+payload_sha256_16=80f48095842e48bd
+git_head=d27b86d53bba5a872a48739df2c8a2b842b21972
+git_dirty=False
+
+FAST rule: QQQ vs SMA50; breadth level OR +10pp/20d RoC override; tiers 1.0/0.5/0.0; no >1.0x.
+
+## TASK 3 — Three-way comparison
+Metric                     MQ default    sma200 rej.           FAST
+------------------------------------------------------------------
+CAGR                           +3.02%         +2.40%         -0.34%
+Sharpe                          0.268          0.255          0.035
+MDD                           -25.60%        -19.13%        -25.24%
+Cost $                     13,404,546     11,810,933     11,594,528
+n_trades                        1,580          1,550          1,524
+Avg hold days                    28.9           27.9           27.9
+Turnover (repl/yr)              11.74          11.51          11.32
+Alpha vs QQQ                  -11.44%        -12.06%        -14.80%
+2023 Alpha                    -51.00%        -53.77%        -54.07%
+------------------------------------------------------------------
+% mo @ 1.0x                      100%          53.7%          55.6%
+% mo @ 0.5x                        0%          40.7%          37.0%
+% mo @ 0.0x                        0%           5.6%           7.4%
+
+## TASK 4 — FAST per-year vs QQQ
+Year       Strat CAGR     QQQ CAGR        Alpha    Strat MDD       note
+----------------------------------------------------------------------
+2022          -19.66%      -34.03%      +14.37%      -20.06%           
+2023           +1.76%      +55.83%      -54.07%       -8.09%           
+2024           +5.57%      +27.09%      -21.52%       -9.57%           
+2025           -0.53%      +20.54%      -21.06%       -8.42%           
+2026          +33.00%      +45.33%      -12.33%       -5.33%    partial
+----------------------------------------------------------------------
+CALLOUT: 2023 Alpha: MQ -51.00% | sma200 -53.77% | FAST -54.07% | Jan tier=0.5x (did NOT reach 1.0x in January)
+
+## Q1 2023 exposure (FAST vs rejected sma200)
+  sma200 (rejected): Jan 0.5x → Feb 1.0x → Mar 1.0x
+  FAST:
+    2023-01-03: tier=0.5x above_ma50=False breadth=0.34156378600823045 prev20=0.6859504132231405 improving=False
+    2023-02-01: tier=1.0x above_ma50=True breadth=0.763265306122449 prev20=0.3292181069958848 improving=True
+    2023-03-01: tier=1.0x above_ma50=True breadth=0.4897119341563786 prev20=0.7344398340248963 improving=False
+
+## Decision rule (LAST regime variant this round)
+  alpha_2023_improves_vs_mq      : False
+  alpha_2023_improves_vs_sma200  : False
+  sharpe_not_materially_worse    : False
+  caught_january_1.0x            : False
+  KEEP as new default            : False
+  If rejected: stop regime tuning; keep MQ default; next = industry-neutral ranking.
+
+# END
