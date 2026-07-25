@@ -38,6 +38,9 @@ COMPARISON_JSON = BASELINE_DIR / "benchmark_comparison.json"
 TRADE_JOURNAL = BASELINE_DIR / "trade_journal.csv"
 BASELINE_HISTORY = ROOT / "docs" / "experiments" / "BASELINE_V1" / "experiment_history.json"
 BASELINE_PERIODS = ROOT / "docs" / "experiments" / "BASELINE_V1" / "period_results.json"
+CHASE_CHART = ROOT / "docs" / "experiments" / "BASELINE_V1_TOPUP_CHASE" / "topup_chase_charts.png"
+CHASE_JSON = ROOT / "docs" / "experiments" / "BASELINE_V1_TOPUP_CHASE" / "topup_chase_results.json"
+CHASE_REPORT = ROOT / "docs" / "experiments" / "BASELINE_V1_TOPUP_CHASE" / "topup_chase_report.txt"
 
 st.set_page_config(page_title="Quant Baseline v1", page_icon="📈", layout="wide")
 
@@ -262,8 +265,14 @@ c4.metric("Benchmark", "QQQ B&H")
 if status["price_range"]:
     st.write(f"Price history: `{status['price_range']}`")
 
-tab_dl, tab_bt, tab_val, tab_help = st.tabs(
-    ["1) Download data", "2) Run backtest", "3) 3-period validation", "Help"]
+tab_dl, tab_bt, tab_val, tab_charts, tab_help = st.tabs(
+    [
+        "1) Download data",
+        "2) Run backtest",
+        "3) 3-period validation",
+        "4) Report charts",
+        "Help",
+    ]
 )
 
 with tab_dl:
@@ -480,6 +489,49 @@ with tab_val:
             mime="application/json",
         )
 
+with tab_charts:
+    st.subheader("Report charts (single image)")
+    st.caption(
+        "All Task 1–3 diagnostic charts are combined into one PNG so you can "
+        "copy or download everything at once."
+    )
+    if CHASE_CHART.exists():
+        st.image(str(CHASE_CHART), use_container_width=True)
+        st.download_button(
+            "Download all charts (one PNG)",
+            data=CHASE_CHART.read_bytes(),
+            file_name="topup_chase_charts.png",
+            mime="image/png",
+            type="primary",
+        )
+        c1, c2 = st.columns(2)
+        if CHASE_REPORT.exists():
+            c1.download_button(
+                "Download text report",
+                data=CHASE_REPORT.read_bytes(),
+                file_name="topup_chase_report.txt",
+                mime="text/plain",
+            )
+        if CHASE_JSON.exists():
+            c2.download_button(
+                "Download results JSON",
+                data=CHASE_JSON.read_bytes(),
+                file_name="topup_chase_results.json",
+                mime="application/json",
+            )
+    else:
+        st.info(
+            "No chart file yet. Generate with: "
+            "`python run_topup_chase_report.py` "
+            "(writes `docs/experiments/BASELINE_V1_TOPUP_CHASE/topup_chase_charts.png`)."
+        )
+        if CHASE_JSON.exists() and st.button("Build chart from saved JSON"):
+            from engine.report_charts import render_from_json_file
+
+            path = render_from_json_file(CHASE_JSON, CHASE_CHART)
+            st.success(f"Wrote {path}")
+            st.rerun()
+
 with tab_help:
     st.markdown(
         """
@@ -495,8 +547,12 @@ with tab_help:
 EMA exits · hard stop-loss · institutional multi-factor · rank hysteresis ·
 exhaustion · cooldown · industry caps · correlation filters
 
+### Report charts
+Tab **4) Report charts** shows Task 1–3 diagnostics as **one PNG**
+(`topup_chase_charts.png`) for a single copy/download.
+
 ### Streamlit Cloud
-1. Branch: `cursor/baseline-v1-cb1c`
+1. Branch: `cursor/baseline-v1-cb1c` (or your deploy branch with this UI)
 2. Main file: `app.py`
 3. Secret:
 ```toml

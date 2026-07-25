@@ -18,6 +18,7 @@ from pathlib import Path
 
 from engine.baseline_engine import BaselineEngineV1
 from engine.strategy import load_config
+from engine.report_charts import render_topup_chase_dashboard
 from engine.topup_chase_diagnostics import (
     analyze_cost_components,
     analyze_new_entry_vs_topup,
@@ -105,22 +106,24 @@ def main(argv=None) -> int:
         task1=task1, task2=task2, comparison_rows=comparison
     )
 
+    payload = {
+        "window": {"start": START, "end": END},
+        "task1_new_entry_vs_topup": task1,
+        "task2_cost_components": task2,
+        "comparison": comparison,
+    }
     (out_dir / "topup_chase_report.txt").write_text(report, encoding="utf-8")
     (out_dir / "topup_chase_results.json").write_text(
-        json.dumps(
-            {
-                "window": {"start": START, "end": END},
-                "task1_new_entry_vs_topup": task1,
-                "task2_cost_components": task2,
-                "comparison": comparison,
-            },
-            indent=2,
-            default=str,
-        ),
+        json.dumps(payload, indent=2, default=str),
         encoding="utf-8",
+    )
+    # One composite PNG so all charts can be copied/downloaded at once
+    chart_path = render_topup_chase_dashboard(
+        payload, out_dir / "topup_chase_charts.png"
     )
     print("\n" + report)
     print(f"\nWrote -> {out_dir / 'topup_chase_report.txt'}")
+    print(f"Wrote -> {chart_path}  (all charts in one image)")
     return 0
 
 
