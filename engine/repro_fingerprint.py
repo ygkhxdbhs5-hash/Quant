@@ -79,6 +79,7 @@ def build_repro_fingerprint(
         "initial_cash": cfg.get("initial_cash"),
         "cost_model": cfg.get("cost_model"),
         "winsorize_adv": cfg.get("winsorize_adv"),
+        "enable_topup_chasing": cfg.get("enable_topup_chasing"),
         "disable_topup_chasing": cfg.get("disable_topup_chasing"),
         "flat_cost_one_way": cfg.get("flat_cost_one_way"),
         "participation_cap_buy": cfg.get("participation_cap_buy"),

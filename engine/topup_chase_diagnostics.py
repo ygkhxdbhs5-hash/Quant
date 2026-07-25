@@ -199,6 +199,7 @@ def kpi_with_trades(engine) -> Dict[str, Any]:
     m = kpi_slice(engine)
     trades = engine.trade_journal.to_frame()
     m["n_closed_trades"] = int(len(trades)) if trades is not None and not trades.empty else 0
+    m["enable_topup_chasing"] = bool(getattr(engine, "ENABLE_TOPUP_CHASING", False))
     m["disable_topup_chasing"] = bool(getattr(engine, "DISABLE_TOPUP_CHASING", False))
     return m
 
@@ -300,8 +301,8 @@ def format_chase_report(
         )
     lines += [
         "-" * 100,
-        "No-chase = Fixed CS v2 + DISABLE_TOPUP_CHASING (skip BUY top-ups / size-trims for held names).",
-        "Entry momentum factor, ATR trail exit, and leverage unchanged.",
+        "No-chase = Fixed CS v2 + ENABLE_TOPUP_CHASING=False (engine default; skip BUY top-ups for held names).",
+        "Chase ON remains available via enable_topup_chasing=true. Entry/exit/leverage unchanged.",
         "",
         "# END REPORT",
     ]

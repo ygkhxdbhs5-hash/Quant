@@ -76,12 +76,23 @@ class BaselineEngineV1:
                 self.COST_MODEL in ("corwin_schultz_v2", "robust"),
             )
         )
-        # Fill/order variant (NOT entry/exit signal): when True, skip BUY top-ups
-        # (and size-trimming SELLs) for symbols already held — leave position at
-        # whatever the initial fill(s) achieved until ATR exit or drop from selection.
-        self.DISABLE_TOPUP_CHASING = bool(
-            cfg.get("disable_topup_chasing", cfg.get("DISABLE_TOPUP_CHASING", False))
-        )
+        # Fill/order policy (NOT entry/exit signal).
+        # Baseline default (post no-chase promotion): once a position is opened,
+        # do NOT submit further BUY orders solely to catch up to equal-weight
+        # after a partial fill. Chase-on remains available via ENABLE_TOPUP_CHASING.
+        if "enable_topup_chasing" in cfg or "ENABLE_TOPUP_CHASING" in cfg:
+            self.ENABLE_TOPUP_CHASING = bool(
+                cfg.get("enable_topup_chasing", cfg.get("ENABLE_TOPUP_CHASING"))
+            )
+            self.DISABLE_TOPUP_CHASING = not self.ENABLE_TOPUP_CHASING
+        elif "disable_topup_chasing" in cfg or "DISABLE_TOPUP_CHASING" in cfg:
+            self.DISABLE_TOPUP_CHASING = bool(
+                cfg.get("disable_topup_chasing", cfg.get("DISABLE_TOPUP_CHASING"))
+            )
+            self.ENABLE_TOPUP_CHASING = not self.DISABLE_TOPUP_CHASING
+        else:
+            self.ENABLE_TOPUP_CHASING = False  # new baseline default
+            self.DISABLE_TOPUP_CHASING = True
 
         # Strategy knobs — defaults from strategy_baseline_v1; optional config.baseline_v1 overrides
         bcfg = dict(cfg.get("baseline_v1") or {})
@@ -724,6 +735,7 @@ class BaselineEngineV1:
             print(f"  {k}: {v}")
         print(f"  cost_model: {self.COST_MODEL}")
         print(f"  winsorize_adv: {self.WINSORIZE_ADV}")
+        print(f"  enable_topup_chasing: {self.ENABLE_TOPUP_CHASING}")
         print(f"  disable_topup_chasing: {self.DISABLE_TOPUP_CHASING}")
         if self.COST_MODEL == "flat":
             print(f"  flat_cost_one_way: {self.FLAT_COST_ONE_WAY}")

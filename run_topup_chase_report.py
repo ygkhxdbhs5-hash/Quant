@@ -32,31 +32,31 @@ END = "2026-06-30"
 
 VARIANTS = [
     {
-        "label": "Fixed CS v2 (chase ON)",
+        "label": "Fixed CS v2 (chase ON, legacy)",
         "cost_model": "corwin_schultz_v2",
         "winsorize_adv": True,
-        "disable_topup_chasing": False,
+        "enable_topup_chasing": True,
         "flat_cost_one_way": None,
     },
     {
-        "label": "Fixed CS v2 + NO-CHASE",
+        "label": "Fixed CS v2 + NO-CHASE (default)",
         "cost_model": "corwin_schultz_v2",
         "winsorize_adv": True,
-        "disable_topup_chasing": True,
+        "enable_topup_chasing": False,
         "flat_cost_one_way": None,
     },
     {
         "label": "Flat 10bps RT (5bps/side)",
         "cost_model": "flat",
         "winsorize_adv": False,
-        "disable_topup_chasing": False,
+        "enable_topup_chasing": True,
         "flat_cost_one_way": 0.0005,
     },
     {
         "label": "Flat 30bps RT (15bps/side)",
         "cost_model": "flat",
         "winsorize_adv": False,
-        "disable_topup_chasing": False,
+        "enable_topup_chasing": True,
         "flat_cost_one_way": 0.0015,
     },
 ]
@@ -68,7 +68,9 @@ def run_variant(config_path: str, variant: dict):
     cfg["end_date"] = END
     cfg["cost_model"] = variant["cost_model"]
     cfg["winsorize_adv"] = bool(variant["winsorize_adv"])
-    cfg["disable_topup_chasing"] = bool(variant["disable_topup_chasing"])
+    # Explicit enable flag (overrides engine default) so chase ON stays reproducible.
+    cfg["enable_topup_chasing"] = bool(variant["enable_topup_chasing"])
+    cfg.pop("disable_topup_chasing", None)
     if variant["flat_cost_one_way"] is not None:
         cfg["flat_cost_one_way"] = variant["flat_cost_one_way"]
     print("\n" + "#" * 72)
@@ -78,6 +80,7 @@ def run_variant(config_path: str, variant: dict):
     engine.run()
     metrics = kpi_with_trades(engine)
     metrics["label"] = variant["label"]
+    metrics["enable_topup_chasing"] = bool(variant["enable_topup_chasing"])
     return engine, metrics
 
 
@@ -110,7 +113,7 @@ def main(argv=None) -> int:
         comparison.append(metrics)
         if (
             variant["cost_model"] == "corwin_schultz_v2"
-            and not variant["disable_topup_chasing"]
+            and variant["enable_topup_chasing"]
         ):
             engine_chase = engine
 

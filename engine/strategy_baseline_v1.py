@@ -1,7 +1,15 @@
 """Baseline strategy v1 — 12-1 momentum entry + ATR trailing exit only.
 
 This module contains ONLY strategy decision logic. Infrastructure (data load,
-execution costs, reporting) lives outside and must not be modified here.
+execution costs, fill/order generation, reporting) lives outside and must not
+be modified here.
+
+Order-generation note (engine-side default, not computed in this file):
+  After a name is opened, the baseline engine does **not** keep submitting
+  BUY top-ups merely to catch up to the equal-weight target after a partial
+  fill (no-chase). Re-enable the old chase path with ``ENABLE_TOPUP_CHASING``
+  / ``enable_topup_chasing: true`` in config. Entry/exit/sizing formulas here
+  are unchanged.
 
 Configurable constants (edit these for future experiments):
 """
@@ -142,7 +150,7 @@ def refill_from_candidates(
 
 
 def strategy_id() -> str:
-    return "baseline_v1_mom12_1_atr"
+    return "baseline_v1_mom12_1_atr_nochase"
 
 
 def strategy_knobs() -> Dict[str, object]:
@@ -156,5 +164,10 @@ def strategy_knobs() -> Dict[str, object]:
         "exit": "ATR(14) Wilder trail; Low < stop → next Open",
         "sizing": "equal_weight_1_over_N",
         "leverage": "1.0x_always",
-        "rebalance": "monthly_first_session; hold until ATR stop; refill empties",
+        "rebalance": (
+            "monthly_first_session; hold until ATR stop; refill empties; "
+            "no BUY top-up chasing after partial fills (engine default; "
+            "ENABLE_TOPUP_CHASING=true restores chase)"
+        ),
+        "fill_policy": "no_topup_chasing_default",
     }

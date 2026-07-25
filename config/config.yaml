@@ -76,6 +76,13 @@ participation_cap_sell: 0.15
 commission_rate: 0.0005  # 0.05%
 slippage_rate: 0.0002    # 0.02%
 
+# Baseline v1 fill/order policy (engine BaselineEngineV1):
+# Default = no top-up chasing (once opened, do not BUY solely to catch equal-weight).
+# Set enable_topup_chasing: true to restore legacy chase-to-target BUYs.
+cost_model: corwin_schultz_v2
+winsorize_adv: true
+enable_topup_chasing: false
+
 # Universe filters in get_universe (loosened; missing metrics do not reject)
 min_roic: 0.03               # was 0.10 — ROIC must exceed 3% when available
 min_fcf_sales_yield: -0.05   # was 0.0 — allow mildly negative FCF/Sales
