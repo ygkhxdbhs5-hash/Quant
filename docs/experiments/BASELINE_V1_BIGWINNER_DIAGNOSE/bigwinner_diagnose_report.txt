@@ -1,0 +1,71 @@
+# Big-winner capture diagnose — mom+quality default (VALID)
+
+Window: 2022-01-01 → 2026-06-30
+repro_id=d8ec44d6cd5c
+payload_sha256_16=41391fa64cefcf9d
+git_head=f6d80116f0d189007eda2a051ef20c2b69221ce5
+git_dirty=False
+journal=cache/baseline_v1/trade_journal.csv sha16=ab7edef124875fc4
+
+Winner def: liquid top-250 at month-start; forward 252d peak/start ≥ 1.5x; overlap-deduped per ticker.
+Capture ratio = sum(max(trade ret,0)) / (multiple−1); (c) if capture ≥ 60%.
+Opp-cost notional ≈ $1,666,667/name (50M/30).
+
+## TASK 1 — Big winners in tradable universe
+  n_events (deduped)     : 686
+  n_unique_tickers       : 307
+  tradable_at_start      : 100% (liquid-filtered by construction)
+  Multiple distribution:
+    1.5-2x      341
+    2-3x        185
+    3-5x        109
+    5-10x        41
+    10x+         10
+
+## TASK 2 — Cross-ref vs MQ trade journal (KEY)
+  (a) NEVER ENTERED              :   554  (80.8%)
+  (b) ENTERED BUT EXITED EARLY   :    37  (5.4%)
+  (c) HELD THROUGH MOST (≥60%) :     2  (0.3%)
+  (d) CHURNED (re-entered)       :    93  (13.6%)
+
+  Opportunity cost estimate (a)+(b residual vs full window gain):
+    (a) missed entries $         : $1,966,607,213
+    (b) early-exit residual $    : $110,140,866
+    (a)+(b) TOTAL $           : $2,076,748,079
+    (d) churn residual $ (excl.) : $235,252,991
+
+## TASK 3 — Why early exit (b)
+  n_b                        : 37
+  normal pullback (<2×ATR)   : 6  (16.2%)
+  large giveback (≥2×ATR)    : 31  (83.8%)
+  ATR multiples entry→peak (b): p50=7.24 p75=15.66 p90=22.20 max=107.23
+  vol60 at entry: b_mean=0.0330 b_p50=0.0266 | c_mean=0.0400 c_p50=0.0400 | b>c? False
+
+## TASK 4 — Why never entered (a)
+  n_a=554; sampled=20; reasons={'missing_momentum': 7, 'rank_too_low': 8, 'missing_pit_quality': 5}
+    QMMM   start=2024-12-02 mult=233.34x reason=missing_momentum rank=None liquid=True pit_miss=None
+    EPSM   start=2025-04-01 mult=27.06x reason=missing_momentum rank=None liquid=True pit_miss=None
+    MVST   start=2024-10-01 mult=20.07x reason=rank_too_low rank=177 liquid=True pit_miss=False
+    MLGO   start=2025-02-03 mult=16.61x reason=rank_too_low rank=170 liquid=True pit_miss=False
+    WAVE   start=2024-04-01 mult=13.37x reason=missing_pit_quality rank=None liquid=True pit_miss=True
+    SERV   start=2024-07-01 mult=11.81x reason=missing_momentum rank=None liquid=True pit_miss=None
+    COSM   start=2022-11-01 mult=11.01x reason=missing_momentum rank=None liquid=True pit_miss=None
+    MLGO   start=2024-06-03 mult=11.00x reason=rank_too_low rank=169 liquid=True pit_miss=False
+    HUDI   start=2022-08-01 mult=9.66x reason=missing_pit_quality rank=None liquid=True pit_miss=True
+    EOSE   start=2024-06-03 mult=9.64x reason=rank_too_low rank=183 liquid=True pit_miss=False
+    KC     start=2024-09-03 mult=9.33x reason=missing_pit_quality rank=None liquid=True pit_miss=True
+    MRKR   start=2023-05-01 mult=8.96x reason=missing_pit_quality rank=None liquid=True pit_miss=True
+    TGTX   start=2022-06-01 mult=8.95x reason=rank_too_low rank=173 liquid=True pit_miss=False
+    NKTR   start=2025-05-01 mult=8.58x reason=rank_too_low rank=174 liquid=True pit_miss=False
+    SLDP   start=2025-04-01 mult=8.18x reason=rank_too_low rank=178 liquid=True pit_miss=False
+    GCT    start=2023-05-01 mult=7.73x reason=missing_momentum rank=None liquid=True pit_miss=None
+    OMH    start=2023-04-03 mult=7.61x reason=missing_momentum rank=None liquid=True pit_miss=None
+    COGT   start=2025-06-02 mult=7.51x reason=missing_pit_quality rank=None liquid=True pit_miss=True
+    MLGO   start=2023-01-03 mult=7.43x reason=missing_momentum rank=None liquid=True pit_miss=None
+    RXT    start=2025-06-02 mult=7.08x reason=rank_too_low rank=142 liquid=True pit_miss=False
+
+## Recommendation
+  NEXT: entry-signal / eligibility focus — category (a) never-entered dominates big-winner windows (score timing or PIT/liquidity gates).
+  side=entry_signal
+
+# END
