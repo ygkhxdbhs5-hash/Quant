@@ -1,0 +1,44 @@
+# Correlation diagnose — mom+quality global default (VALID)
+
+Window: 2022-01-01 → 2026-06-30
+repro_id=12856df76acf
+payload_sha256_16=c17efc319c8921d2
+git_head=870199b4650f9287cb100e62a123e0b06ae03d1d
+git_dirty=False
+
+Selection: global mom+quality top-30 after liquid top-250.
+Corr: Spearman on trailing 60d returns; high-corr threshold = 0.80
+(config corr_threshold currently 0.95 — report uses 0.80 as requested).
+
+## Pairwise correlation distribution (all months pooled)
+  n_months              : 54
+  n_pairs_total         : 23,490
+  p50                   : +0.263
+  p75                   : +0.396
+  p90                   : +0.514
+  max                   : +0.921
+  mean                  : +0.268
+  % pairs ≥ 0.80        : 0.23%  (55 pairs)
+
+## High-corr pair clustering (≥ 0.80)
+  n_high_pairs          : 55
+  same industry         : 23.64%
+  different industry    : 76.36%
+  same sector           : 23.64%
+  different sector      : 76.36%
+
+  Top industries among same-industry high-corr pairs:
+        9  SEMICONDUCTORS & RELATED DEVICES
+        3  STATE COMMERCIAL BANKS
+        1  ARRANGEMENT OF TRANSPORTATION OF FREIGHT & CARGO
+
+  Top sectors among same-sector high-corr pairs:
+        9  SEMICONDUCTORS & RELATED DEVICES
+        3  STATE COMMERCIAL BANKS
+        1  ARRANGEMENT OF TRANSPORTATION OF FREIGHT & CARGO
+
+## Verdict (diagnose-first)
+  LOW: pairwise correlations are mostly moderate/low and pairs ≥0.80 are rare — like industry-neutral, a filter may be solving a non-problem; do NOT rush to A/B without a stronger rationale.
+  recommend_filter_ab   : False
+
+# END
