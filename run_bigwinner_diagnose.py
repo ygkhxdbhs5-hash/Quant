@@ -751,14 +751,6 @@ def main(argv=None) -> int:
     for b in ("1.5-2x", "2-3x", "3-5x", "5-10x", "10x+"):
         lines.append(f"    {b:<8} {bucket_counts.get(b, 0):>6}")
 
-    def pct(x):
-        return f"{100.0 * float(x):.1f}%"
-
-    def num(x, d=2):
-        if x is None:
-            return "n/a"
-        return f"{float(x):.{d}f}"
-
     lines += [
         "",
         "## TASK 2 — Cross-ref vs MQ trade journal (KEY)",
