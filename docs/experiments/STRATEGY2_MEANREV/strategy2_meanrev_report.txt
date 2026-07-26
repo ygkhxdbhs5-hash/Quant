@@ -1,0 +1,76 @@
+# Strategy #2 — weekly short-term mean-reversion (VALID)
+
+Window: 2022-01-01 → 2026-06-30
+repro_id=54c77ab1a87d
+payload_sha256_16=c54c13244fb50c0e
+git_head=2c43c6ee6f93bdc777db3c565e8143b2abb1c104
+git_dirty=False
+
+Isolated module: engine/strategy_s2_meanrev.py + engine/strategy2_engine.py.
+Strategy #1 code paths untouched. Shared infra only: panels, Fixed CS v2,
+participation caps, no-chase fills, PIT quality helpers.
+
+Signal: weekly first-session eval; reversal_score = pctile(-ret_5d)
+in liquid top-250; top-K=30; equal-weight 1.0x.
+Exit (S2-specific): time stop 10 trading days OR hard stop -15% (does NOT reverse S1's ATR-only policy).
+
+## TASK 3 — Turnover / cost diagnostic (BEFORE return judgment)
+
+Metric                         S1 confirmed    S2 rev-only     S2+quality
+--------------------------------------------------------------------------
+n_closed_trades                        1580           2729           2424
+turnover (repl/yr)                    11.74          20.27          18.01
+total cost $                    $13,404,546    $15,304,224    $19,249,069
+cost % of avg equity                +30.62%        +39.35%        +47.71%
+--------------------------------------------------------------------------
+Cost component breakdown (S2):
+  rev-only: spread=$3,641,582 (+23.79%)  impact=$9,956,346 (+65.06%)  comm=$1,218,783  slip=$487,513
+  rev+quality: spread=$5,442,983 (+28.28%)  impact=$11,013,019 (+57.21%)  comm=$1,995,048  slip=$798,019
+
+Entry participation (notional/ADV) distribution:
+  rev-only: n=2759  p50=0.0800  p90=0.0800  max=0.0800
+  rev+quality: n=2454  p50=0.0799  p90=0.0800  max=0.0800
+
+  Cost guardrail vs S1 (rev-only): ratio=1.28 → OK (limit ~2x cost-as-%-equity)
+  Cost guardrail vs S1 (rev+quality): ratio=1.56 → OK (limit ~2x cost-as-%-equity)
+
+## TASK 4 — Standalone performance (context vs S1, not a bake-off)
+
+Metric             S1 confirmed    S2 rev-only     S2+quality
+--------------------------------------------------------------
+CAGR                     +3.02%        -12.03%         -4.50%
+Sharpe                    0.268         -0.723         -0.248
+MDD                     -25.60%        -54.73%        -35.32%
+Cost $              $13,404,546    $15,304,224    $19,249,069
+n_trades                   1580           2729           2424
+Alpha vs QQQ            -11.44%        -26.49%        -18.96%
+turnover/yr               11.74          20.27          18.01
+win_rate                    n/a        +40.09%        +49.09%
+--------------------------------------------------------------
+Chosen for Tasks 5–6: S2 reversal+quality guard
+
+## TASK 5 — Correlation with Strategy #1 (DECISION-CRITICAL)
+
+  Pair: S2 reversal+quality guard  vs  Strategy #1 MQ (this session)
+  Daily correlation   : 0.728  (n=1125)
+  Monthly correlation : 0.795  (n=53)
+  Target for diversification value: monthly corr below ~0.30.
+
+## TASK 6 — 50/50 blended portfolio (monthly rebalance to 50/50)
+
+Book                               CAGR     Sharpe        MDD      Alpha
+------------------------------------------------------------------------
+Strategy #1 alone                +3.02%      0.268    -25.60%    -11.44%
+S2 reversal+quality guard        -4.50%     -0.248    -35.32%    -18.96%
+50/50 blend                      -0.71%      0.020    -27.01%    -15.17%
+------------------------------------------------------------------------
+
+## DECISION RULE
+
+  (a) cost ≤ ~2x S1 cost%-equity : True  (ratio=1.56)
+  (b) monthly corr < ~0.30         : False  (corr=0.795)
+  (c) blend Sharpe > S1 Sharpe     : False  (blend=0.020 vs S1=0.268)
+  ADOPT Strategy #2 as portfolio component: False
+  Rationale: FAIL (b): correlation with S1 too high — limited diversification value; consider a different Strategy #2 family (e.g. pairs/stat-arb).
+
+# END
