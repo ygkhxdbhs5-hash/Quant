@@ -126,11 +126,12 @@ def _run_engine(
         else pd.DataFrame()
     )
     risk = worst_month_and_mdd(strat_eq, initial_capital=INITIAL_CASH)
-    # Realized average gross exposure proxy
-    avg_invested = None
-    if not strat_eq.empty:
-        # approximate from cash interest path: not stored; use leverage target
-        avg_invested = float(leverage)
+    rf = load_tbill_annual(DEFAULT_RF_PATH)
+    ex_kelly = (
+        kelly_daily_from_equity(strat_eq, rf, label=label)
+        if not strat_eq.empty
+        else {}
+    )
     return {
         "label": label,
         "leverage": float(leverage),
@@ -144,7 +145,8 @@ def _run_engine(
         "financing_dollars_net_charge": float(
             getattr(engine, "diag_financing_dollars", 0.0)
         ),
-        "avg_target_gross_exposure": avg_invested,
+        "avg_target_gross_exposure": float(leverage),
+        "excess_sharpe": ex_kelly.get("sharpe_excess"),
         "kpi_eq": _cagr_sharpe_mdd(strat_eq) if not strat_eq.empty else {},
         "qqq_kpi": _cagr_sharpe_mdd(qqq_eq) if not qqq_eq.empty else {},
     }
@@ -170,7 +172,7 @@ def format_report(
     lines.append("# Kelly leverage — finalized momentum+quality baseline (VALID)")
     lines.append("")
     lines.append(f"Window: {START} → {END}")
-    lines.append(f"repro_id={repro.get('repro_id')}")
+    lines.append(f"repro_id={repro.get('fingerprint_id') or repro.get('repro_id')}")
     lines.append(f"payload_sha256_16={repro.get('payload_sha256_16')}")
     lines.append(f"git_head={repro.get('git_head')}")
     lines.append(f"git_dirty={repro.get('git_dirty')}")
@@ -309,24 +311,32 @@ def format_report(
     )
     lines.append("")
     lines.append(
-        f"{'Level':<22} {'Lev':>7} {'CAGR':>9} {'Sharpe':>8} {'MDD':>9} "
+        f"{'Level':<22} {'Lev':>7} {'CAGR':>9} {'Sharpe0':>8} {'Sh_ex':>8} {'MDD':>9} "
         f"{'Cost$':>14} {'Alpha':>9}"
     )
-    lines.append("-" * 84)
+    lines.append("-" * 100)
+    lines.append(
+        "Sharpe0 = project Sharpe (rf=0). Sh_ex = excess Sharpe vs T-bill (honest for cash-heavy books)."
+    )
+    lines.append(
+        "NOTE: cash-heavy fractional Kelly inflates Sharpe0 because T-bill yield looks like alpha when rf=0."
+    )
+    lines.append("-" * 100)
     # confirmed reference first
     lines.append(
         f"{'1.0x confirmed (no rf)':<22} {'1.0000':>7} {_pct(CONFIRMED['CAGR']):>9} "
-        f"{_num(CONFIRMED['Sharpe']):>8} {_pct(CONFIRMED['Maximum_Drawdown']):>9} "
+        f"{_num(CONFIRMED['Sharpe']):>8} {'n/a':>8} {_pct(CONFIRMED['Maximum_Drawdown']):>9} "
         f"{_usd(CONFIRMED['total_cost_dollars']):>14} {_pct(CONFIRMED['Alpha_CAGR']):>9}"
     )
     for v in variants:
         m = v["metrics"]
         lines.append(
             f"{v['label']:<22} {_num(v['leverage'], 4):>7} {_pct(m.get('CAGR')):>9} "
-            f"{_num(m.get('Sharpe')):>8} {_pct(m.get('Maximum_Drawdown')):>9} "
+            f"{_num(m.get('Sharpe')):>8} {_num(v.get('excess_sharpe')):>8} "
+            f"{_pct(m.get('Maximum_Drawdown')):>9} "
             f"{_usd(m.get('total_cost_dollars')):>14} {_pct(m.get('Alpha_CAGR')):>9}"
         )
-    lines.append("-" * 84)
+    lines.append("-" * 100)
     lines.append("")
     lines.append("Cost-model check: costs should scale roughly with notional traded.")
     base_cost = None

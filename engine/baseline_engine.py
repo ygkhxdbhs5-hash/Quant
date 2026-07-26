@@ -804,7 +804,10 @@ class BaselineEngineV1:
             currently_held = sym in self.portfolio and int(self.portfolio.get(sym, 0)) > 0
             current_value = self.portfolio.get(sym, 0) * float(price)
             delta = target_value - current_value
-            if abs(delta) < total_equity * 0.001:
+            # Deadband scales with gross exposure so fractional-Kelly (<1x) targets
+            # are not entirely skipped (0.1% of equity can exceed per-name target).
+            deadband = float(total_equity) * 0.001 * min(1.0, max(float(self.GROSS_EXPOSURE), 1e-6))
+            if abs(delta) < deadband:
                 continue
             qty = int(abs(delta) / float(price))
             if qty <= 0:
