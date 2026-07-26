@@ -1,0 +1,65 @@
+# Rank-too-low big-winner diagnose (VALID)
+
+Window: 2022-01-01 → 2026-06-30
+repro_id=107fd240ea36
+payload_sha256_16=5b87f97313c8fccc
+git_head=111783967b267ccb1248aba3dbb2b6a66e218605
+git_dirty=False
+source_bigwinner_payload=41391fa64cefcf9d
+
+Full (a) never-entered events: 554
+Reclassified reasons: {'missing_momentum': 88, 'rank_too_low': 292, 'missing_pit_quality': 174}
+rank_too_low set: 292
+
+## TASK 1 — Factor values at evaluation (rank_too_low)
+  bottleneck counts: {'momentum_low': 152, 'both_low': 40, 'quality_low': 73, 'blend_dilution': 27}
+  frac momentum_low  : 52.1%
+  frac quality_low   : 25.0%
+  frac blend_dilution: 9.2%
+  frac both_low      : 13.7%
+  mom_pctile     p25/p50/p75 : 0.069 / 0.207 / 0.410
+  quality_pctile p25/p50/p75 : 0.149 / 0.331 / 0.508
+  ret_1m p50/mean            : -0.110 / -0.116
+  ret_3m p50/mean            : -0.275 / -0.269
+  combined_rank p50/mean     : 146.0 / 136.2
+  mom_low subset ret_1m p50  : -0.103
+
+  Top RTL rows by multiple:
+    MVST   2024-10-01 mult=20.07x rank=177 mom%=0.02 q%=0.13 1m=-0.199 3m=-0.367 bn=momentum_low
+    MLGO   2025-02-03 mult=16.61x rank=170 mom%=0.01 q%=0.39 1m=-0.612 3m=-0.657 bn=momentum_low
+    MLGO   2024-06-03 mult=11.00x rank=169 mom%=0.02 q%=0.37 1m=-0.366 3m=-0.694 bn=momentum_low
+    EOSE   2024-06-03 mult=9.64x rank=183 mom%=0.05 q%=0.05 1m=0.067 3m=-0.270 bn=both_low
+    TGTX   2022-06-01 mult=8.95x rank=173 mom%=0.03 q%=0.02 1m=-0.482 3m=-0.621 bn=both_low
+    NKTR   2025-05-01 mult=8.58x rank=174 mom%=0.04 q%=0.20 1m=0.224 3m=-0.083 bn=momentum_low
+    SLDP   2025-04-01 mult=8.18x rank=178 mom%=0.13 q%=0.11 1m=-0.080 3m=-0.512 bn=both_low
+    RXT    2025-06-02 mult=7.08x rank=142 mom%=0.32 q%=0.33 1m=-0.254 3m=-0.565 bn=both_low
+    AMPG   2024-12-02 mult=6.56x rank=169 mom%=0.14 q%=0.30 1m=-0.121 3m=0.098 bn=momentum_low
+    LEXX   2023-09-01 mult=6.25x rank=188 mom%=0.03 q%=0.07 1m=0.189 3m=0.324 bn=both_low
+    RMTI   2023-01-03 mult=6.01x rank=171 mom%=0.05 q%=0.09 1m=-0.019 3m=-0.259 bn=both_low
+    FULC   2025-04-01 mult=5.29x rank=185 mom%=0.04 q%=0.08 1m=-0.148 3m=-0.424 bn=both_low
+    PHUN   2024-01-02 mult=5.17x rank=183 mom%=0.02 q%=0.15 1m=-0.285 3m=-0.563 bn=momentum_low
+    MYSZ   2024-12-02 mult=5.15x rank=171 mom%=0.04 q%=0.36 1m=-0.163 3m=-0.256 bn=momentum_low
+    ACRS   2023-12-01 mult=5.08x rank=168 mom%=0.09 q%=0.29 1m=-0.822 3m=-0.886 bn=momentum_low
+    KLXE   2022-01-03 mult=4.98x rank=153 mom%=0.11 q%=0.14 1m=0.000 3m=-0.236 bn=both_low
+    EOSE   2022-12-01 mult=4.84x rank=175 mom%=0.02 q%=0.05 1m=-0.333 3m=-0.464 bn=both_low
+    MSTR   2023-01-03 mult=4.72x rank=149 mom%=0.13 q%=0.30 1m=-0.271 3m=-0.354 bn=momentum_low
+    VRCA   2022-06-01 mult=4.70x rank=117 mom%=0.33 q%=0.50 1m=-0.726 3m=-0.789 bn=momentum_low
+    LYEL   2025-06-02 mult=4.70x rank=181 mom%=0.02 q%=0.06 1m=-0.126 3m=-0.379 bn=both_low
+    TSHA   2025-04-01 mult=4.67x rank=175 mom%=0.14 q%=0.19 1m=-0.219 3m=-0.277 bn=both_low
+    TMDX   2023-11-01 mult=4.63x rank=95 mom%=0.62 q%=0.40 1m=-0.264 3m=-0.565 bn=quality_low
+    EOSE   2025-06-02 mult=4.62x rank=96 mom%=1.00 q%=0.04 1m=-0.193 3m=0.041 bn=quality_low
+    FTCI   2025-04-01 mult=4.55x rank=179 mom%=0.12 q%=0.12 1m=-0.055 3m=-0.481 bn=both_low
+    GEOS   2025-06-02 mult=4.54x rank=155 mom%=0.26 q%=0.29 1m=-0.044 3m=-0.192 bn=both_low
+
+## TASK 2 — Rank trajectory next 1–3 months
+  ever reached top-30  : 3  (1.0%)
+  NEVER reached top-30 : 289  (99.0%)
+
+## TASK 3 gate
+  mom_is_primary_bottleneck : True
+  never_top30_frac≥60%   : True (actual 99.0%)
+  elevated_1m (median>10%)  : False (p50=-0.110)
+  PROCEED to accel variant  : False
+  STOP Task 3: RTL names do not show systematically elevated 1m returns at evaluation — acceleration-skip hypothesis not supported.
+
+# END
