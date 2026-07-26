@@ -1,0 +1,40 @@
+# Deep 3m drawdown + quality → 12m bounce vs crash (VALID)
+
+Window: 2022-01-01 → 2026-06-30
+repro_id=cc3e30784125
+payload_sha256_16=0242e7a21c873b2f
+git_head=03f8057c00b2e48a7bb6deb0094a210439bcf34e
+git_dirty=False
+
+Screen: liquid top-250 + PIT quality; ret_3m≤-50%; quality_pctile≥50%.
+Forward 252d: bounce = peak≥+50%; crash = trough≤-50%.
+
+## Cohort
+  n_events              : 27
+  n_unique_tickers      : 15
+  ret_3m p50/mean/min   : -0.548 / -0.613 / -0.990
+  quality_pctile p50    : 0.678
+
+## KEY — win rate & payoff
+  bounce_only            : 13
+  crash_only             : 10
+  both (path hit both)   : 2
+  neither                : 2
+  WIN RATE (exclusive)   : 56.5%  [= bounce_only / (bounce_only+crash_only)]
+  mean bounce gain       : 133.2%
+  mean |crash| loss      : 79.2%
+  PAYOFF RATIO           : 1.68  [= mean_win / mean_|loss|]
+
+## Rates vs full cohort (peak/trough path)
+  any bounce (≥+50% peak): 15  (55.6%)
+  any crash (≤−50% trough): 12  (44.4%)
+
+## Secondary — end-to-end +12m close
+  end ≥ +50%             : 9  (33.3%)
+  end ≤ −50%             : 7  (25.9%)
+  end ret p50            : -17.1%
+
+## Verdict (diagnose-first)
+  SUPPORTIVE: exclusive bounce win-rate and payoff look favorable — a deep-DD + quality mean-reversion sleeve may be worth an isolated A/B.
+
+# END
