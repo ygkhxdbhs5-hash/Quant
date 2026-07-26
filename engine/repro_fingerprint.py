@@ -39,6 +39,10 @@ FINGERPRINT_PATHS = [
     "run_kelly_leverage_report.py",
     "run_strategy2_meanrev_report.py",
     "run_s2_family_search_20.py",
+    "engine/sector_taxonomy.py",
+    "engine/strategy_baseline_v1_sector.py",
+    "engine/sector_satellite_engine.py",
+    "run_satellite1_sector_report.py",
     "config/config.yaml",
 ]
 
