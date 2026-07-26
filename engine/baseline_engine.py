@@ -65,6 +65,13 @@ from engine.strategy_baseline_v1_quality import (
     strategy_id as strategy_id_quality,
     strategy_knobs as strategy_knobs_quality,
 )
+from engine.strategy_baseline_v1_mqvl import (
+    compute_vol60_panel,
+    resolve_weights,
+    select_monthly_candidates_mqvl,
+    strategy_id as strategy_id_mqvl,
+    strategy_knobs as strategy_knobs_mqvl,
+)
 
 
 class BaselineEngineV1:
@@ -172,6 +179,35 @@ class BaselineEngineV1:
         if self.ENABLE_INDUSTRY_NEUTRAL:
             # Industry-neutral ranks mom+quality within industry — requires quality path.
             self.ENABLE_QUALITY_FACTOR = True
+
+        # Value + low-vol overlay on mom+quality (isolated; default OFF until A/B).
+        # Requires quality/PIT path. Weight presets a/b/c in strategy_baseline_v1_mqvl.
+        self.ENABLE_VALUE_LOWVOL = bool(
+            cfg.get(
+                "enable_value_lowvol_factor",
+                cfg.get(
+                    "ENABLE_VALUE_LOWVOL_FACTOR",
+                    bcfg.get("ENABLE_VALUE_LOWVOL_FACTOR", False),
+                ),
+            )
+        )
+        self.VALUE_LOWVOL_VARIANT = str(
+            cfg.get(
+                "value_lowvol_variant",
+                cfg.get(
+                    "VALUE_LOWVOL_VARIANT",
+                    bcfg.get("VALUE_LOWVOL_VARIANT", "a"),
+                ),
+            )
+        ).strip().lower()
+        raw_w = cfg.get("value_lowvol_weights") or bcfg.get("VALUE_LOWVOL_WEIGHTS")
+        self.VALUE_LOWVOL_WEIGHTS = dict(raw_w) if isinstance(raw_w, dict) else None
+        if self.ENABLE_VALUE_LOWVOL:
+            self.ENABLE_QUALITY_FACTOR = True
+            # Validate preset / weights early.
+            self.VALUE_LOWVOL_WEIGHTS = resolve_weights(
+                self.VALUE_LOWVOL_VARIANT, self.VALUE_LOWVOL_WEIGHTS
+            )
 
         print(">> Baseline v1: loading local panels (infrastructure artifacts)...")
         universe_path = Path(paths.get("metadata", "data/metadata")) / "universe.pkl"
@@ -289,6 +325,12 @@ class BaselineEngineV1:
 
         # 12-1 momentum panel (exact definition)
         self.mom_12_1_m = compute_mom_12_1_panel(close_m)
+
+        # 60d realized vol panel (value/low-vol entry variant only)
+        if self.ENABLE_VALUE_LOWVOL:
+            self.vol60_m = compute_vol60_panel(close_m)
+        else:
+            self.vol60_m = None
 
         # Regime SMAs (used by either regime variant)
         if self.ENABLE_REGIME_EXPOSURE or self.ENABLE_REGIME_EXPOSURE_FAST:
@@ -839,7 +881,9 @@ class BaselineEngineV1:
         return bool(self.ENABLE_REGIME_EXPOSURE or self.ENABLE_REGIME_EXPOSURE_FAST)
 
     def _active_strategy_id(self) -> str:
-        if self.ENABLE_QUALITY_FACTOR and self.ENABLE_INDUSTRY_NEUTRAL:
+        if self.ENABLE_VALUE_LOWVOL:
+            base = strategy_id_mqvl(self.VALUE_LOWVOL_VARIANT)
+        elif self.ENABLE_QUALITY_FACTOR and self.ENABLE_INDUSTRY_NEUTRAL:
             base = strategy_id_indneutral()
         elif self.ENABLE_QUALITY_FACTOR:
             base = strategy_id_quality()
@@ -852,7 +896,13 @@ class BaselineEngineV1:
         return base
 
     def _active_strategy_knobs(self) -> Dict[str, object]:
-        if self.ENABLE_QUALITY_FACTOR and self.ENABLE_INDUSTRY_NEUTRAL:
+        if self.ENABLE_VALUE_LOWVOL:
+            knobs = dict(
+                strategy_knobs_mqvl(
+                    self.VALUE_LOWVOL_VARIANT, self.VALUE_LOWVOL_WEIGHTS
+                )
+            )
+        elif self.ENABLE_QUALITY_FACTOR and self.ENABLE_INDUSTRY_NEUTRAL:
             knobs = dict(strategy_knobs_indneutral())
         elif self.ENABLE_QUALITY_FACTOR:
             knobs = dict(strategy_knobs_quality())
@@ -862,11 +912,28 @@ class BaselineEngineV1:
         knobs["enable_regime_exposure"] = bool(self.ENABLE_REGIME_EXPOSURE)
         knobs["enable_regime_exposure_fast"] = bool(self.ENABLE_REGIME_EXPOSURE_FAST)
         knobs["enable_industry_neutral_ranking"] = bool(self.ENABLE_INDUSTRY_NEUTRAL)
+        knobs["enable_value_lowvol_factor"] = bool(self.ENABLE_VALUE_LOWVOL)
+        knobs["value_lowvol_variant"] = str(self.VALUE_LOWVOL_VARIANT)
         knobs["MIN_INDUSTRY_SIZE"] = int(self.MIN_INDUSTRY_SIZE)
         knobs["regime_max_exposure"] = 1.0  # no >1.0x in this pass
         return knobs
 
     def _select_candidates(self, idx: int, live: List[str]) -> List[str]:
+        if self.ENABLE_VALUE_LOWVOL:
+            return select_monthly_candidates_mqvl(
+                date_idx=idx,
+                close_m=self.close_m,
+                dvol_m=self.dvol_m,
+                mom_12_1_m=self.mom_12_1_m,
+                vol60_m=self.vol60_m,
+                eligible_symbols=live,
+                fundamental_history=self.fundamental_history,
+                fund_ts=self._fund_ts,
+                top_liquid_pool=self.TOP_LIQUID_POOL,
+                top_momentum_count=self.TOP_MOMENTUM_COUNT,
+                weights=self.VALUE_LOWVOL_WEIGHTS,
+                variant=self.VALUE_LOWVOL_VARIANT,
+            )
         if self.ENABLE_QUALITY_FACTOR and self.ENABLE_INDUSTRY_NEUTRAL:
             return select_monthly_candidates_mom_quality_indneutral(
                 date_idx=idx,
@@ -1033,6 +1100,10 @@ class BaselineEngineV1:
         print(f"  enable_regime_exposure: {self.ENABLE_REGIME_EXPOSURE}")
         print(f"  enable_regime_exposure_fast: {self.ENABLE_REGIME_EXPOSURE_FAST}")
         print(f"  enable_industry_neutral_ranking: {self.ENABLE_INDUSTRY_NEUTRAL}")
+        print(f"  enable_value_lowvol_factor: {self.ENABLE_VALUE_LOWVOL}")
+        if self.ENABLE_VALUE_LOWVOL:
+            print(f"  value_lowvol_variant: {self.VALUE_LOWVOL_VARIANT}")
+            print(f"  value_lowvol_weights: {self.VALUE_LOWVOL_WEIGHTS}")
         print(f"  min_industry_size: {self.MIN_INDUSTRY_SIZE}")
         if self.COST_MODEL == "flat":
             print(f"  flat_cost_one_way: {self.FLAT_COST_ONE_WAY}")
@@ -1222,6 +1293,8 @@ class BaselineEngineV1:
             "knobs": self._active_strategy_knobs(),
             "window": {"start": str(self.START_DATE), "end": str(self.END_DATE)},
             "enable_quality_factor": bool(self.ENABLE_QUALITY_FACTOR),
+            "enable_value_lowvol_factor": bool(self.ENABLE_VALUE_LOWVOL),
+            "value_lowvol_variant": str(self.VALUE_LOWVOL_VARIANT),
         }
 
         self._print_comparison(comparison)

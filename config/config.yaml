@@ -91,6 +91,9 @@ enable_quality_factor: true
 # Industry-neutral ranking (default OFF until A/B adoption).
 # enable_industry_neutral_ranking: false
 # min_industry_size: 8
+# Value + low-vol overlay on mom+quality (default OFF until A/B adoption).
+# enable_value_lowvol_factor: false
+# value_lowvol_variant: a   # a|b|c weight presets in strategy_baseline_v1_mqvl
 
 # Universe filters in get_universe (loosened; missing metrics do not reject)
 min_roic: 0.03               # was 0.10 — ROIC must exceed 3% when available
