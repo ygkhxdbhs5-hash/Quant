@@ -1,0 +1,56 @@
+# Mom+Quality vs Value+LowVol weight presets A/B (VALID)
+
+Window: 2022-01-01 → 2026-06-30
+repro_id=953a0f3163ee
+payload_sha256_16=5c203adb26b072b9
+git_head=89a14ea5e1385f75f6b09a211539b465279b357d
+git_dirty=False
+variant_payload_sha256_16={'a': '1c3b888768ca40ee', 'b': 'b87a123793b2c112', 'c': '0bced88a92550175'}
+mq_baseline_from_checkpoint=True
+
+Value (PIT-safe FCF/EV):
+  FCF = op_cf - capex (filing_date ≤ as_of)
+  EV  = close[as_of] × diluted_shares(PIT) + total_debt(PIT) - cash_eq(PIT)
+  No FMP mcap/EV endpoint used; shares from existing Massive PIT pickle.
+Low-vol: pctile(-vol60), vol60 = 60d realized vol of daily returns.
+Exclude missing quality / value / vol (no impute).
+Unchanged: ATR 2.5, EW, 1.0x, monthly, no-chase, Fixed CS v2,
+  industry-neutral / corr filter / hysteresis OFF.
+
+Weights:
+  (a) {'mom': 0.35, 'quality': 0.35, 'value': 0.2, 'low_vol': 0.1}
+  (b) {'mom': 0.3, 'quality': 0.3, 'value': 0.2, 'low_vol': 0.2}
+  (c) {'mom': 0.4, 'quality': 0.3, 'value': 0.15, 'low_vol': 0.15}
+
+## TASK 5 — Four-way comparison
+Metric                      MQ base          (a)          (b)          (c)
+--------------------------------------------------------------------------
+CAGR                         +3.02%       +2.68%       +0.92%       +2.21%
+Sharpe                        0.268        0.263        0.137        0.234
+MDD                         -25.60%      -20.73%      -19.17%      -19.85%
+Cost $                  $13,404,546  $13,197,972  $12,953,464  $13,047,490
+n_trades                      1,580        1,580        1,592        1,582
+Turnover (repl/yr)            11.70        11.74        11.83        11.75
+Alpha vs QQQ                -11.44%      -11.78%      -13.54%      -12.26%
+--------------------------------------------------------------------------
+Highest Sharpe among a/b/c : a (0.263)
+
+## TASK 6 — Per-year breakdown (best = a)
+Year       Strat CAGR     QQQ CAGR        Alpha    Strat MDD       note
+----------------------------------------------------------------------
+2022          -12.88%      -34.03%      +21.15%      -16.95%           
+2023           +2.20%      +55.83%      -53.63%      -10.48%           
+2024           +4.37%      +27.09%      -22.72%       -8.95%           
+2025           +0.34%      +20.54%      -20.20%      -13.97%           
+2026          +50.69%      +45.33%       +5.36%       -7.02%    partial
+----------------------------------------------------------------------
+CALLOUT: 2023 Alpha: MQ -51.00% → MQVL-A -53.63% (Δ=-2.63%; WORSENED (more negative))
+
+## Decision rule
+  best_variant                : a
+  sharpe_improved             : False  (0.263 vs MQ 0.268)
+  mdd_worsened (>3pp deeper)  : False
+  ADOPT                       : False
+  SIDE                        : NON-ADDITIVE: none of (a)/(b)/(c) improved Sharpe over mom+quality (0.268); keep mom+quality as default. Further long-only factor tweaks are unlikely to close the alpha gap — long-short is next.
+
+# END

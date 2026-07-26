@@ -1,0 +1,678 @@
+{
+  "repro": {
+    "git_head": "89a14ea5e1385f75f6b09a211539b465279b357d",
+    "git_dirty": false,
+    "window": {
+      "start": "2022-01-01",
+      "end": "2026-06-30"
+    },
+    "config_slice": {
+      "start_date": "2022-01-01",
+      "end_date": "2026-06-30",
+      "initial_cash": 50000000,
+      "cost_model": "corwin_schultz_v2",
+      "winsorize_adv": true,
+      "enable_topup_chasing": false,
+      "disable_topup_chasing": null,
+      "flat_cost_one_way": null,
+      "participation_cap_buy": 0.08,
+      "participation_cap_sell": 0.15,
+      "commission_rate": 0.0005,
+      "slippage_rate": 0.0002,
+      "universe_sample_size": 500,
+      "universe_sample_seed": 42,
+      "baseline_v1": null
+    },
+    "code_file_sha256_16": {
+      "engine/baseline_engine.py": "ce75c4af0dc13939",
+      "engine/strategy_baseline_v1.py": "7c386e901369e704",
+      "engine/strategy_baseline_v1_quality.py": "6bf3bdcc0ae0a2e7",
+      "engine/pit_fundamentals.py": "94fc2a3ea78f7557",
+      "engine/regime_exposure.py": "6d0322d6d9888b79",
+      "engine/regime_exposure_fast.py": "797504f692429c56",
+      "engine/strategy_baseline_v1_indneutral.py": "67ec3a8d15cd7019",
+      "engine/strategy_baseline_v1_mqvl.py": "d262f279312f3b25",
+      "engine/execution_costs.py": "2effc46d3bffc006",
+      "engine/topup_chase_diagnostics.py": "c76cc5f0965fe076",
+      "engine/report_charts.py": "5f694822f04c375f",
+      "engine/cost_model_audit.py": "19bd6e4e66187d72",
+      "run_topup_chase_report.py": "18f8be69fbfcfc5d",
+      "config/config.yaml": "16a3130ec085dc37"
+    },
+    "data_cache": {
+      "panels.pkl": "5ce58a430ac1beec",
+      "universe.pkl": "3445a4589dd34c15",
+      "panels_bytes": 48091715,
+      "universe_bytes": 306708
+    },
+    "extra": {
+      "report": "value_lowvol_ab",
+      "variants": [
+        "mq",
+        "a",
+        "b",
+        "c"
+      ],
+      "weights": {
+        "a": {
+          "mom": 0.35,
+          "quality": 0.35,
+          "value": 0.2,
+          "low_vol": 0.1
+        },
+        "b": {
+          "mom": 0.3,
+          "quality": 0.3,
+          "value": 0.2,
+          "low_vol": 0.2
+        },
+        "c": {
+          "mom": 0.4,
+          "quality": 0.3,
+          "value": 0.15,
+          "low_vol": 0.15
+        }
+      },
+      "value_def": "fcf_yield_ev = (op_cf-capex)/(close*PIT_shares+debt-cash)",
+      "baseline_mq_repro_id": "42799a276531"
+    },
+    "fingerprint_sha256": "953a0f3163ee2a26a91f5cef016234680537f199bbec515d8c56ce5530380937",
+    "fingerprint_id": "953a0f3163ee"
+  },
+  "methodology": {
+    "value": "FCF/EV with FCF=op_cf-capex (PIT filing\u2264as_of); EV=close[as_of]*diluted_shares(PIT)+total_debt(PIT)-cash_eq(PIT). No FMP market-cap endpoint; constructed with PIT shares \u00d7 that day's close (no look-ahead). Exclude if EV\u22640 or missing ingredients.",
+    "low_vol": "pctile(-vol60); vol60=60d trailing std of daily returns",
+    "exclusion": "missing quality OR value OR vol \u2192 exclude (no impute)",
+    "unchanged": "ATR 2.5, equal-weight, 1.0x, monthly, no-chase, Fixed CS v2",
+    "presets": {
+      "a": {
+        "mom": 0.35,
+        "quality": 0.35,
+        "value": 0.2,
+        "low_vol": 0.1
+      },
+      "b": {
+        "mom": 0.3,
+        "quality": 0.3,
+        "value": 0.2,
+        "low_vol": 0.2
+      },
+      "c": {
+        "mom": 0.4,
+        "quality": 0.3,
+        "value": 0.15,
+        "low_vol": 0.15
+      }
+    }
+  },
+  "mq_baseline": {
+    "label": "mom+quality global (checkpoint)",
+    "variant": "mq",
+    "weights": {
+      "mom": 0.5,
+      "quality": 0.5,
+      "value": 0.0,
+      "low_vol": 0.0
+    },
+    "enable_value_lowvol_factor": false,
+    "from_checkpoint": true,
+    "metrics": {
+      "CAGR": 0.0302,
+      "Sharpe": 0.268,
+      "Maximum_Drawdown": -0.256,
+      "total_cost_dollars": 13404546.0,
+      "n_closed_trades": 1580
+    },
+    "trade_stats": {
+      "n_closed_trades": 1580,
+      "portfolio_replacement_rate_per_year": 11.7,
+      "avg_holding_period_days": null
+    },
+    "comparison": {
+      "strategy": {
+        "CAGR": 0.0302,
+        "Sharpe": 0.268,
+        "Maximum_Drawdown": -0.256
+      },
+      "QQQ": {
+        "CAGR": 0.1446
+      },
+      "Alpha_CAGR": -0.1144
+    },
+    "by_year": [
+      {
+        "year": 2022,
+        "partial_year": false,
+        "strategy": {},
+        "QQQ": {},
+        "Alpha_CAGR": 0.1576
+      },
+      {
+        "year": 2023,
+        "partial_year": false,
+        "strategy": {},
+        "QQQ": {},
+        "Alpha_CAGR": -0.51
+      },
+      {
+        "year": 2024,
+        "partial_year": false,
+        "strategy": {},
+        "QQQ": {},
+        "Alpha_CAGR": -0.1776
+      },
+      {
+        "year": 2025,
+        "partial_year": false,
+        "strategy": {},
+        "QQQ": {},
+        "Alpha_CAGR": -0.2383
+      },
+      {
+        "year": 2026,
+        "partial_year": true,
+        "strategy": {},
+        "QQQ": {},
+        "Alpha_CAGR": 0.1666
+      }
+    ]
+  },
+  "variants": {
+    "a": {
+      "label": "MQVL-A (m35%/q35%/v20%/l10%)",
+      "variant": "a",
+      "weights": {
+        "mom": 0.35,
+        "quality": 0.35,
+        "value": 0.2,
+        "low_vol": 0.1
+      },
+      "enable_value_lowvol_factor": true,
+      "metrics": {
+        "CAGR": 0.026829377535009913,
+        "Sharpe": 0.2631640026658957,
+        "Maximum_Drawdown": -0.20726274771901815,
+        "Alpha_CAGR": -0.11779031595741518,
+        "total_cost_dollars": 13197971.915317342,
+        "n_cost_events": 3215,
+        "cost_model": "corwin_schultz_v2",
+        "flat_cost_one_way": 0.0005,
+        "n_closed_trades": 1580,
+        "enable_topup_chasing": false,
+        "disable_topup_chasing": true
+      },
+      "trade_stats": {
+        "n_closed_trades": 1580,
+        "trades_per_year": 352.1018913971934,
+        "portfolio_replacement_rate_per_year": 11.73672971323978,
+        "avg_holding_period_days": 28.73227848101266,
+        "win_rate": 0.3905063291139241,
+        "avg_return_winning_trade": 0.11213901646215076,
+        "avg_return_losing_trade": -0.059910697742562975,
+        "win_loss_payoff_ratio": 1.8717694950576862,
+        "total_execution_cost_dollars": 13197971.915317342,
+        "avg_equity": 44892665.25641696,
+        "execution_cost_drag_pct_of_avg_equity": 0.29398949338234764,
+        "years": 4.487337440109514
+      },
+      "comparison": {
+        "strategy": {
+          "CAGR": 0.026829377535009913,
+          "Sharpe": 0.2631640026658957,
+          "Maximum_Drawdown": -0.20726274771901815
+        },
+        "QQQ": {
+          "CAGR": 0.1446196934924251,
+          "Sharpe": 0.696850630177712,
+          "Maximum_Drawdown": -0.35246800176279247
+        },
+        "Alpha_CAGR": -0.11779031595741518,
+        "knobs": {
+          "strategy_id": "baseline_v1_mqvl_a_atr_nochase",
+          "TOP_LIQUID_POOL": 250,
+          "TOP_MOMENTUM_COUNT": 30,
+          "ATR_MULTIPLIER": 2.5,
+          "GROSS_EXPOSURE": 1.0,
+          "entry": "combined = 0.35*mom + 0.35*quality + 0.2*value(FCF/EV) + 0.1*low_vol(-vol60); quality = mean(pctile(GP), pctile(ROIC), pctile(op_margin)); EV = close*PIT_shares + debt - cash; exclude missing PIT/vol",
+          "exit": "ATR(14) Wilder trail; Low < stop \u2192 next Open",
+          "sizing": "equal_weight_1_over_N",
+          "leverage": "1.0x_always",
+          "fill_policy": "no_topup_chasing_default",
+          "value_definition": "fcf_yield_ev_pit_shares_times_close",
+          "lowvol_window": 60,
+          "value_lowvol_variant": "a",
+          "w_mom": 0.35,
+          "w_quality": 0.35,
+          "w_value": 0.2,
+          "w_low_vol": 0.1,
+          "enable_regime_exposure": false,
+          "enable_regime_exposure_fast": false,
+          "enable_industry_neutral_ranking": false,
+          "enable_value_lowvol_factor": true,
+          "MIN_INDUSTRY_SIZE": 8,
+          "regime_max_exposure": 1.0
+        },
+        "window": {
+          "start": "2022-01-01",
+          "end": "2026-06-30"
+        },
+        "enable_quality_factor": true,
+        "enable_value_lowvol_factor": true,
+        "value_lowvol_variant": "a"
+      },
+      "by_year": [
+        {
+          "year": 2022,
+          "partial_year": false,
+          "strategy": {
+            "CAGR": -0.12876332054395423,
+            "Sharpe": -0.851680418721173,
+            "Maximum_Drawdown": -0.16947649006556256
+          },
+          "QQQ": {
+            "CAGR": -0.3402833791991774,
+            "Sharpe": -1.1260786147346324,
+            "Maximum_Drawdown": -0.35246800176279247
+          },
+          "Alpha_CAGR": 0.21152005865522316
+        },
+        {
+          "year": 2023,
+          "partial_year": false,
+          "strategy": {
+            "CAGR": 0.02196247601388479,
+            "Sharpe": 0.24834147180447128,
+            "Maximum_Drawdown": -0.10478184561151867
+          },
+          "QQQ": {
+            "CAGR": 0.5582972478799555,
+            "Sharpe": 2.5657073101572774,
+            "Maximum_Drawdown": -0.10908849971761518
+          },
+          "Alpha_CAGR": -0.5363347718660707
+        },
+        {
+          "year": 2024,
+          "partial_year": false,
+          "strategy": {
+            "CAGR": 0.043708458580555165,
+            "Sharpe": 0.4389020330534882,
+            "Maximum_Drawdown": -0.08952452470046457
+          },
+          "QQQ": {
+            "CAGR": 0.270893673050034,
+            "Sharpe": 1.426398532027721,
+            "Maximum_Drawdown": -0.13557688246273436
+          },
+          "Alpha_CAGR": -0.2271852144694788
+        },
+        {
+          "year": 2025,
+          "partial_year": false,
+          "strategy": {
+            "CAGR": 0.0033557849124281613,
+            "Sharpe": 0.09530299453780562,
+            "Maximum_Drawdown": -0.13968352517523286
+          },
+          "QQQ": {
+            "CAGR": 0.20537185476329745,
+            "Sharpe": 0.9119176204385306,
+            "Maximum_Drawdown": -0.22883225092697176
+          },
+          "Alpha_CAGR": -0.20201606985086928
+        },
+        {
+          "year": 2026,
+          "partial_year": true,
+          "strategy": {
+            "CAGR": 0.5069161524893111,
+            "Sharpe": 2.4309494873408832,
+            "Maximum_Drawdown": -0.07020683463642116
+          },
+          "QQQ": {
+            "CAGR": 0.453312080197368,
+            "Sharpe": 1.8834776662053123,
+            "Maximum_Drawdown": -0.11834714747902969
+          },
+          "Alpha_CAGR": 0.05360407229194308
+        }
+      ]
+    },
+    "b": {
+      "label": "MQVL-B (m30%/q30%/v20%/l20%)",
+      "variant": "b",
+      "weights": {
+        "mom": 0.3,
+        "quality": 0.3,
+        "value": 0.2,
+        "low_vol": 0.2
+      },
+      "enable_value_lowvol_factor": true,
+      "metrics": {
+        "CAGR": 0.009204340377736875,
+        "Sharpe": 0.1371270575310836,
+        "Maximum_Drawdown": -0.19166034131985724,
+        "Alpha_CAGR": -0.13541535311468822,
+        "total_cost_dollars": 12953464.247125283,
+        "n_cost_events": 3236,
+        "cost_model": "corwin_schultz_v2",
+        "flat_cost_one_way": 0.0005,
+        "n_closed_trades": 1592,
+        "enable_topup_chasing": false,
+        "disable_topup_chasing": true
+      },
+      "trade_stats": {
+        "n_closed_trades": 1592,
+        "trades_per_year": 354.77608297742523,
+        "portfolio_replacement_rate_per_year": 11.825869432580841,
+        "avg_holding_period_days": 28.350502512562816,
+        "win_rate": 0.4001256281407035,
+        "avg_return_winning_trade": 0.09675321828717764,
+        "avg_return_losing_trade": -0.053752557054781734,
+        "win_loss_payoff_ratio": 1.799974244733547,
+        "total_execution_cost_dollars": 12953464.247125283,
+        "avg_equity": 45456186.522952266,
+        "execution_cost_drag_pct_of_avg_equity": 0.2849659251680664,
+        "years": 4.487337440109514
+      },
+      "comparison": {
+        "strategy": {
+          "CAGR": 0.009204340377736875,
+          "Sharpe": 0.1371270575310836,
+          "Maximum_Drawdown": -0.19166034131985724
+        },
+        "QQQ": {
+          "CAGR": 0.1446196934924251,
+          "Sharpe": 0.696850630177712,
+          "Maximum_Drawdown": -0.35246800176279247
+        },
+        "Alpha_CAGR": -0.13541535311468822,
+        "knobs": {
+          "strategy_id": "baseline_v1_mqvl_b_atr_nochase",
+          "TOP_LIQUID_POOL": 250,
+          "TOP_MOMENTUM_COUNT": 30,
+          "ATR_MULTIPLIER": 2.5,
+          "GROSS_EXPOSURE": 1.0,
+          "entry": "combined = 0.3*mom + 0.3*quality + 0.2*value(FCF/EV) + 0.2*low_vol(-vol60); quality = mean(pctile(GP), pctile(ROIC), pctile(op_margin)); EV = close*PIT_shares + debt - cash; exclude missing PIT/vol",
+          "exit": "ATR(14) Wilder trail; Low < stop \u2192 next Open",
+          "sizing": "equal_weight_1_over_N",
+          "leverage": "1.0x_always",
+          "fill_policy": "no_topup_chasing_default",
+          "value_definition": "fcf_yield_ev_pit_shares_times_close",
+          "lowvol_window": 60,
+          "value_lowvol_variant": "b",
+          "w_mom": 0.3,
+          "w_quality": 0.3,
+          "w_value": 0.2,
+          "w_low_vol": 0.2,
+          "enable_regime_exposure": false,
+          "enable_regime_exposure_fast": false,
+          "enable_industry_neutral_ranking": false,
+          "enable_value_lowvol_factor": true,
+          "MIN_INDUSTRY_SIZE": 8,
+          "regime_max_exposure": 1.0
+        },
+        "window": {
+          "start": "2022-01-01",
+          "end": "2026-06-30"
+        },
+        "enable_quality_factor": true,
+        "enable_value_lowvol_factor": true,
+        "value_lowvol_variant": "b"
+      },
+      "by_year": [
+        {
+          "year": 2022,
+          "partial_year": false,
+          "strategy": {
+            "CAGR": -0.09826566377482127,
+            "Sharpe": -0.790307603941111,
+            "Maximum_Drawdown": -0.13219690320268898
+          },
+          "QQQ": {
+            "CAGR": -0.3402833791991774,
+            "Sharpe": -1.1260786147346324,
+            "Maximum_Drawdown": -0.35246800176279247
+          },
+          "Alpha_CAGR": 0.24201771542435613
+        },
+        {
+          "year": 2023,
+          "partial_year": false,
+          "strategy": {
+            "CAGR": 0.01604468825688299,
+            "Sharpe": 0.2040851143873275,
+            "Maximum_Drawdown": -0.10547838386467341
+          },
+          "QQQ": {
+            "CAGR": 0.5582972478799555,
+            "Sharpe": 2.5657073101572774,
+            "Maximum_Drawdown": -0.10908849971761518
+          },
+          "Alpha_CAGR": -0.5422525596230725
+        },
+        {
+          "year": 2024,
+          "partial_year": false,
+          "strategy": {
+            "CAGR": 0.01575017180760163,
+            "Sharpe": 0.20348461551924205,
+            "Maximum_Drawdown": -0.07572557141091467
+          },
+          "QQQ": {
+            "CAGR": 0.270893673050034,
+            "Sharpe": 1.426398532027721,
+            "Maximum_Drawdown": -0.13557688246273436
+          },
+          "Alpha_CAGR": -0.25514350124243235
+        },
+        {
+          "year": 2025,
+          "partial_year": false,
+          "strategy": {
+            "CAGR": -0.032533191137626094,
+            "Sharpe": -0.19260866496153006,
+            "Maximum_Drawdown": -0.1402977842981077
+          },
+          "QQQ": {
+            "CAGR": 0.20537185476329745,
+            "Sharpe": 0.9119176204385306,
+            "Maximum_Drawdown": -0.22883225092697176
+          },
+          "Alpha_CAGR": -0.23790504590092354
+        },
+        {
+          "year": 2026,
+          "partial_year": true,
+          "strategy": {
+            "CAGR": 0.38126571787687147,
+            "Sharpe": 2.4893913611136855,
+            "Maximum_Drawdown": -0.06100507092452145
+          },
+          "QQQ": {
+            "CAGR": 0.453312080197368,
+            "Sharpe": 1.8834776662053123,
+            "Maximum_Drawdown": -0.11834714747902969
+          },
+          "Alpha_CAGR": -0.07204636232049655
+        }
+      ]
+    },
+    "c": {
+      "label": "MQVL-C (m40%/q30%/v15%/l15%)",
+      "variant": "c",
+      "weights": {
+        "mom": 0.4,
+        "quality": 0.3,
+        "value": 0.15,
+        "low_vol": 0.15
+      },
+      "enable_value_lowvol_factor": true,
+      "metrics": {
+        "CAGR": 0.02205922319023479,
+        "Sharpe": 0.23400803488732455,
+        "Maximum_Drawdown": -0.19847764704315454,
+        "Alpha_CAGR": -0.1225604703021903,
+        "total_cost_dollars": 13047490.079845013,
+        "n_cost_events": 3214,
+        "cost_model": "corwin_schultz_v2",
+        "flat_cost_one_way": 0.0005,
+        "n_closed_trades": 1582,
+        "enable_topup_chasing": false,
+        "disable_topup_chasing": true
+      },
+      "trade_stats": {
+        "n_closed_trades": 1582,
+        "trades_per_year": 352.5475899938987,
+        "portfolio_replacement_rate_per_year": 11.751586333129957,
+        "avg_holding_period_days": 28.709860935524652,
+        "win_rate": 0.3919089759797724,
+        "avg_return_winning_trade": 0.10927896373926951,
+        "avg_return_losing_trade": -0.05904109281010033,
+        "win_loss_payoff_ratio": 1.8508966981819626,
+        "total_execution_cost_dollars": 13047490.079845013,
+        "avg_equity": 45679719.74318823,
+        "execution_cost_drag_pct_of_avg_equity": 0.2856298189480608,
+        "years": 4.487337440109514
+      },
+      "comparison": {
+        "strategy": {
+          "CAGR": 0.02205922319023479,
+          "Sharpe": 0.23400803488732455,
+          "Maximum_Drawdown": -0.19847764704315454
+        },
+        "QQQ": {
+          "CAGR": 0.1446196934924251,
+          "Sharpe": 0.696850630177712,
+          "Maximum_Drawdown": -0.35246800176279247
+        },
+        "Alpha_CAGR": -0.1225604703021903,
+        "knobs": {
+          "strategy_id": "baseline_v1_mqvl_c_atr_nochase",
+          "TOP_LIQUID_POOL": 250,
+          "TOP_MOMENTUM_COUNT": 30,
+          "ATR_MULTIPLIER": 2.5,
+          "GROSS_EXPOSURE": 1.0,
+          "entry": "combined = 0.4*mom + 0.3*quality + 0.15*value(FCF/EV) + 0.15*low_vol(-vol60); quality = mean(pctile(GP), pctile(ROIC), pctile(op_margin)); EV = close*PIT_shares + debt - cash; exclude missing PIT/vol",
+          "exit": "ATR(14) Wilder trail; Low < stop \u2192 next Open",
+          "sizing": "equal_weight_1_over_N",
+          "leverage": "1.0x_always",
+          "fill_policy": "no_topup_chasing_default",
+          "value_definition": "fcf_yield_ev_pit_shares_times_close",
+          "lowvol_window": 60,
+          "value_lowvol_variant": "c",
+          "w_mom": 0.4,
+          "w_quality": 0.3,
+          "w_value": 0.15,
+          "w_low_vol": 0.15,
+          "enable_regime_exposure": false,
+          "enable_regime_exposure_fast": false,
+          "enable_industry_neutral_ranking": false,
+          "enable_value_lowvol_factor": true,
+          "MIN_INDUSTRY_SIZE": 8,
+          "regime_max_exposure": 1.0
+        },
+        "window": {
+          "start": "2022-01-01",
+          "end": "2026-06-30"
+        },
+        "enable_quality_factor": true,
+        "enable_value_lowvol_factor": true,
+        "value_lowvol_variant": "c"
+      },
+      "by_year": [
+        {
+          "year": 2022,
+          "partial_year": false,
+          "strategy": {
+            "CAGR": -0.09550302757127926,
+            "Sharpe": -0.7020462744555056,
+            "Maximum_Drawdown": -0.14356117015532255
+          },
+          "QQQ": {
+            "CAGR": -0.3402833791991774,
+            "Sharpe": -1.1260786147346324,
+            "Maximum_Drawdown": -0.35246800176279247
+          },
+          "Alpha_CAGR": 0.24478035162789813
+        },
+        {
+          "year": 2023,
+          "partial_year": false,
+          "strategy": {
+            "CAGR": -0.0054528900503274524,
+            "Sharpe": 0.008646190837930706,
+            "Maximum_Drawdown": -0.12929654627418913
+          },
+          "QQQ": {
+            "CAGR": 0.5582972478799555,
+            "Sharpe": 2.5657073101572774,
+            "Maximum_Drawdown": -0.10908849971761518
+          },
+          "Alpha_CAGR": -0.563750137930283
+        },
+        {
+          "year": 2024,
+          "partial_year": false,
+          "strategy": {
+            "CAGR": 0.05768813843822329,
+            "Sharpe": 0.5602827766698364,
+            "Maximum_Drawdown": -0.09366039926712454
+          },
+          "QQQ": {
+            "CAGR": 0.270893673050034,
+            "Sharpe": 1.426398532027721,
+            "Maximum_Drawdown": -0.13557688246273436
+          },
+          "Alpha_CAGR": -0.2132055346118107
+        },
+        {
+          "year": 2025,
+          "partial_year": false,
+          "strategy": {
+            "CAGR": -0.022455967292430823,
+            "Sharpe": -0.09889927932263025,
+            "Maximum_Drawdown": -0.14668068754271976
+          },
+          "QQQ": {
+            "CAGR": 0.20537185476329745,
+            "Sharpe": 0.9119176204385306,
+            "Maximum_Drawdown": -0.22883225092697176
+          },
+          "Alpha_CAGR": -0.22782782205572827
+        },
+        {
+          "year": 2026,
+          "partial_year": true,
+          "strategy": {
+            "CAGR": 0.4500196110807304,
+            "Sharpe": 2.2817652940695226,
+            "Maximum_Drawdown": -0.0636842078567658
+          },
+          "QQQ": {
+            "CAGR": 0.453312080197368,
+            "Sharpe": 1.8834776662053123,
+            "Maximum_Drawdown": -0.11834714747902969
+          },
+          "Alpha_CAGR": -0.0032924691166376086
+        }
+      ]
+    }
+  },
+  "best_variant": "a",
+  "decision": {
+    "sharpe_improved": false,
+    "mdd_worsened_gt_3pp": false,
+    "adopt": false,
+    "best_variant": "a",
+    "side": "NON-ADDITIVE: none of (a)/(b)/(c) improved Sharpe over mom+quality (0.268); keep mom+quality as default. Further long-only factor tweaks are unlikely to close the alpha gap \u2014 long-short is next.",
+    "rule": "adopt highest-Sharpe among a/b/c IF Sharpe > MQ 0.268 AND MDD not materially worse (>3pp deeper than -25.60%)"
+  },
+  "year_2023_callout": "2023 Alpha: MQ -51.00% \u2192 MQVL-A -53.63% (\u0394=-2.63%; WORSENED (more negative))",
+  "payload_sha256_16": "5c203adb26b072b9",
+  "variant_payload_sha256_16": {
+    "a": "1c3b888768ca40ee",
+    "b": "b87a123793b2c112",
+    "c": "0bced88a92550175"
+  }
+}
