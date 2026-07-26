@@ -1,0 +1,67 @@
+# Strategy #2+ 20-family search (VALID)
+
+Window full: 2022-01-01 → 2026-06-30
+Train: 2022-01-01 → 2024-06-30 | Test: 2024-07-01 → 2026-06-30
+repro_id=4234282419fe
+payload_sha256_16=70d81a8cd54d73a6
+git_head=5b72bbe93ea76818d057f5d72d1092e21cfa39db
+git_dirty=False
+
+See DATA_AVAILABILITY.md for VIABLE/DEGRADED/NOT VIABLE (all 20).
+Implemented N=39 variants. adjusted_threshold = 0.30/sqrt(N/10) = 0.1519
+(No post-hoc threshold adjustment.)
+
+## FULL ATTEMPT LOG (training corr vs S1 monthly)
+
+fam variant                        trainρ   tr    testρ   te note
+----------------------------------------------------------------------------------------------------
+ 10 exdiv_m5p5                      0.781 fail      n/a  n/a VIABLE
+ 10 exdiv_m1p1                      0.468 fail      n/a  n/a VIABLE
+ 10 exdiv_p0p5                      0.553 fail      n/a  n/a VIABLE
+ 11 tom_l1_f3                       0.610 fail      n/a  n/a VIABLE
+ 11 tom_l2_f4                       0.369 fail      n/a  n/a VIABLE
+ 11 tom_f3_only                     0.460 fail      n/a  n/a VIABLE
+ 13 accruals_low                    0.747 fail      n/a  n/a DEGRADED oi-cf proxy
+ 13 accruals_low_q20                0.747 fail      n/a  n/a DEGRADED
+ 13 accruals_low_qual               0.801 fail      n/a  n/a DEGRADED
+ 14 asset_growth_low                0.817 fail      n/a  n/a VIABLE
+ 14 asset_growth_low_q20            0.817 fail      n/a  n/a VIABLE
+ 14 asset_growth_low_qual           0.835 fail      n/a  n/a VIABLE
+ 15 issuance_low                    0.866 fail      n/a  n/a VIABLE
+ 15 issuance_low_q20                0.866 fail      n/a  n/a VIABLE
+ 15 issuance_low_qual               0.863 fail      n/a  n/a VIABLE
+ 16 si_dtc_low                      0.555 fail      n/a  n/a DEGRADED +14d lag
+ 16 si_dtc_high                     0.589 fail      n/a  n/a DEGRADED +14d lag
+ 16 si_dtc_decrease                 0.886 fail      n/a  n/a DEGRADED +14d lag
+ 17 near_52w_high                   0.905 fail      n/a  n/a VIABLE
+ 17 far_52w_high                    0.684 fail      n/a  n/a VIABLE
+ 17 near_52w_qual                   0.941 fail      n/a  n/a VIABLE
+ 18 fscore_high                     0.875 fail      n/a  n/a DEGRADED partial; corr risk vs S1 qualit
+ 18 fscore_high_q20                 0.892 fail      n/a  n/a DEGRADED
+ 18 fscore_high_qual                0.901 fail      n/a  n/a DEGRADED
+ 19 distress_safe                   0.744 fail      n/a  n/a DEGRADED Z-proxy
+ 19 distress_risky                  0.826 fail      n/a  n/a DEGRADED Z-proxy
+ 19 distress_safe_qual              0.861 fail      n/a  n/a DEGRADED
+ 22 capex_low                       0.823 fail      n/a  n/a VIABLE
+ 22 capex_low_q20                   0.823 fail      n/a  n/a VIABLE
+ 22 capex_low_qual                  0.769 fail      n/a  n/a VIABLE
+ 23 noa_low                         0.802 fail      n/a  n/a DEGRADED proxy
+ 23 noa_low_q20                     0.802 fail      n/a  n/a DEGRADED
+ 23 noa_low_qual                    0.776 fail      n/a  n/a DEGRADED
+ 25 op_margin_expand                0.794 fail      n/a  n/a DEGRADED (op_margin not GM)
+ 25 gp_expand                       0.800 fail      n/a  n/a DEGRADED (GP/assets)
+ 25 op_margin_expand_qual           0.820 fail      n/a  n/a DEGRADED
+ 26 max_low                         0.912 fail      n/a  n/a VIABLE
+ 26 max_low_q20                     0.912 fail      n/a  n/a VIABLE
+ 26 max_low_qual                    0.959 fail      n/a  n/a VIABLE
+----------------------------------------------------------------------------------------------------
+Train passers: 0 / 39 | Both-window passers: 0 / 39
+
+## Held-out + cost + blend (both-window passers only)
+
+None passed both train and test correlation gates.
+## Ranked validated candidates (adopt=True)
+
+NONE PASSED. N=39, adjusted_threshold=0.1519. No variant cleared train+test corr, cost≤2x, and blend Sharpe>0.268.
+
+# END
