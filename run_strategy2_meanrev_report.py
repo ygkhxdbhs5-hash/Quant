@@ -460,7 +460,7 @@ def format_report(
     # ---- DECISION ----
     lines.append("## DECISION RULE")
     lines.append("")
-    lines.append(f"  (a) cost ≤ ~2x S1 cost%%-equity : {decision['a_pass']}  "
+    lines.append(f"  (a) cost ≤ ~2x S1 cost%-equity : {decision['a_pass']}  "
                  f"(ratio={_num(decision.get('cost_ratio'), 2)})")
     lines.append(f"  (b) monthly corr < ~0.30         : {decision['b_pass']}  "
                  f"(corr={_num(decision.get('monthly_corr'), 3)})")
