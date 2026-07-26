@@ -1,0 +1,123 @@
+# Kelly leverage — finalized momentum+quality baseline (VALID)
+
+Window: 2022-01-01 → 2026-06-30
+repro_id=c3faee746588
+payload_sha256_16=9ad827bbad666a91
+git_head=09e40e59fe1e025c7d764f6c7bd2b2389787a074
+git_dirty=False
+
+Signal (FINAL for this round): momentum+quality, no-chase, ATR trail 2.5x,
+equal-weight, monthly rebalance, Fixed CS v2; NO regime / industry-neutral /
+corr-filter / hysteresis / value / low-vol / 130-30.
+Confirmed unlevered KPIs: CAGR +3.02%, Sharpe 0.268, MDD -25.60%, cost $13,404,546, n_trades 1580, Alpha vs QQQ -11.44%.
+
+HONESTY NOTE: Sharpe 0.268 (rf=0 project convention) is modest. After subtracting
+a T-bill proxy, excess return is near zero — Kelly leverage is expected to be
+well under 2x and often under 1x. This is NOT a path to beat QQQ; it is a
+principled cap on how hard to press a thin validated edge.
+
+## TASK 1 — Kelly-optimal leverage from realized stats
+
+Frequency: DAILY (primary). Why: continuous-time Kelly f*=μ/σ² matches daily
+Sharpe construction and uses ~1,100 observations vs ~50 months (less noise).
+Risk-free proxy: FRED 3-month T-bill (DTB3), path=data/rates/dtb3.csv;
+period average annualized yield ≈ 3.99%.
+Monthly Kelly reported below as sensitivity only.
+
+  n_daily_returns          : 1125
+  mean return (ann)        : +4.26%
+  mean rf (ann)            : +3.99%
+  mean EXCESS return (ann) : +0.27%
+  return variance (daily)  : 0.00010059
+  return variance (ann)    : 0.025349
+  vol (ann)                : +15.92%
+  excess Sharpe (rf-aware) : 0.017
+  full Kelly f*            : 0.1065x
+  plain language           : full Kelly implies running at approximately 0.11x gross exposure (i.e. under fully invested).
+
+  Fractional Kelly (fixed leverage = fraction × f*):
+    25pct_kelly      : 0.0266x   (≈ 2.66% of equity in the signal; rest in T-bills)
+    50pct_kelly      : 0.0532x   (≈ 5.32% of equity in the signal; rest in T-bills)
+    75pct_kelly      : 0.0799x   (≈ 7.99% of equity in the signal; rest in T-bills)
+
+  Monthly Kelly (sensitivity): f*=0.7171x (n=53)
+
+## TASK 2 — Estimation uncertainty (sub-period f*)
+
+Sub-period           n     ex_ann         f*  long-only
+--------------------------------------------------------
+2022-2023          500    -10.55%      -4.50       0.00
+2024-2025          501     -0.66%      -0.31       0.00
+2026_partial       122    +47.66%       9.89       9.89
+--------------------------------------------------------
+  BEST sub-period full-Kelly  : 9.89x (long-only clamp 9.89x)
+  WORST sub-period full-Kelly : -4.50x (long-only clamp 0.00x)
+  TAKEAWAY: f* flips from largely negative (no bet) in 2022–25 to very large
+  in the short 2026 partial sample. Full-Kelly on the best window would be
+  reckless look-ahead; fractional Kelly on the *full-period* estimate is the
+  responsible choice.
+
+## TASK 3 — Fixed-leverage backtests (no look-ahead)
+
+Each level uses FIXED leverage from Task 1 full-period f* (not re-estimated
+inside the backtest). Cash interest ON for all levered/fractional legs so
+uninvested cash earns the T-bill proxy and margin (if any) is charged.
+1.0x baseline row also run with cash interest for apples-to-apples; confirmed
+checkpoint without cash interest is restated below for reference.
+
+Level                      Lev      CAGR  Sharpe0    Sh_ex       MDD          Cost$     Alpha
+----------------------------------------------------------------------------------------------------
+Sharpe0 = project Sharpe (rf=0). Sh_ex = excess Sharpe vs T-bill (honest for cash-heavy books).
+NOTE: cash-heavy fractional Kelly inflates Sharpe0 because T-bill yield looks like alpha when rf=0.
+----------------------------------------------------------------------------------------------------
+1.0x confirmed (no rf)  1.0000    +3.02%    0.268      n/a   -25.60%    $13,404,546   -11.44%
+1.0x (cash interest ON)  1.0000    +4.29%    0.346    0.094   -24.03%    $13,724,801   -10.17%
+25% Kelly               0.0266    +4.03%    6.520   -0.026    -0.65%       $552,231   -10.43%
+50% Kelly               0.0532    +4.01%    3.382   -0.032    -1.37%     $1,101,596   -10.46%
+75% Kelly               0.0799    +4.00%    2.323   -0.021    -2.13%     $1,617,698   -10.46%
+----------------------------------------------------------------------------------------------------
+
+Cost-model check: costs should scale roughly with notional traded.
+  1.0x (cash interest ON): cost/1.0x_cost=1.000 (target lev=1.000x)
+  25% Kelly: cost/1.0x_cost=0.040 (target lev=0.027x)
+  50% Kelly: cost/1.0x_cost=0.080 (target lev=0.053x)
+  75% Kelly: cost/1.0x_cost=0.118 (target lev=0.080x)
+
+## TASK 4 — Risk disclosure (equal prominence with CAGR)
+
+Starting capital reference: $50,000,000
+
+Level                       CAGR  Worst month     Worst mo $       MDD  MDD $ on $50M
+------------------------------------------------------------------------------------------
+1.0x confirmed (no rf)    +3.02%       -7.48%    $-3,740,124   -25.60%   $-12,802,218
+  plain: at 1.0x confirmed (no rf), the worst historical drawdown would have reduced $50,000,000 starting capital by $12,802,218 (peak-to-trough -25.60%; trough date 2023-10-27).
+         Worst single month (2022-04-30): -7.48% → $-3,740,124 on $50,000,000.
+1.0x (cash interest ON)    +4.29%       -7.45%    $-3,725,430   -24.03%   $-12,016,203
+  plain: at 1.0x (cash interest ON), the worst historical drawdown would have reduced $50,000,000 starting capital by $12,016,203 (peak-to-trough -24.03%; trough date 2023-10-27).
+         Worst single month (2022-04-30): -7.45% → $-3,725,430 on $50,000,000.
+25% Kelly                 +4.03%       -0.25%      $-126,904    -0.65%      $-323,904
+  plain: at 25% Kelly, the worst historical drawdown would have reduced $50,000,000 starting capital by $323,904 (peak-to-trough -0.65%; trough date 2022-05-11).
+         Worst single month (2022-04-30): -0.25% → $-126,904 on $50,000,000.
+50% Kelly                 +4.01%       -0.53%      $-266,720    -1.37%      $-686,725
+  plain: at 50% Kelly, the worst historical drawdown would have reduced $50,000,000 starting capital by $686,725 (peak-to-trough -1.37%; trough date 2022-05-11).
+         Worst single month (2022-04-30): -0.53% → $-266,720 on $50,000,000.
+75% Kelly                 +4.00%       -0.80%      $-399,560    -2.13%    $-1,066,141
+  plain: at 75% Kelly, the worst historical drawdown would have reduced $50,000,000 starting capital by $1,066,141 (peak-to-trough -2.13%; trough date 2022-06-16).
+         Worst single month (2022-04-30): -0.80% → $-399,560 on $50,000,000.
+------------------------------------------------------------------------------------------
+
+## Plain-language close — recommended range vs QQQ
+
+QQQ buy & hold over the same window: CAGR +14.46%, Sharpe 0.697, MDD -35.25%.
+Recommended fractional band (25–50% Kelly ≈ 0.027x–0.053x): CAGR +4.03% to +4.01%, vs QQQ +14.46% — still short by roughly -10.46% to -10.43% of CAGR.
+Drawdown cost in that band: MDD -0.65% to -1.37% ($323,904 to $686,725 on $50,000,000).
+Running the signal at fully invested 1.0x (≈ 9.4× full Kelly) raised CAGR to +4.29% but also deepened MDD to -24.03% ($12,016,203 on $50,000,000) — and still trailed QQQ by -10.17%.
+
+BOTTOM LINE: Kelly does not unlock a QQQ-beating version of this strategy.
+It says the validated edge after T-bills is thin, so responsible sizing is
+fractional / under-invested — accepting a larger performance gap vs QQQ in
+exchange for not over-betting estimation error.
+
+Confirmed 1.0x re-run check (this session, cash interest OFF): CAGR +3.02%, Sharpe 0.268, MDD -25.60%, cost $13,404,546, n_trades 1580.
+
+# END

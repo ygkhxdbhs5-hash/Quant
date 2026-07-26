@@ -1,0 +1,506 @@
+{
+  "repro": {
+    "git_head": "09e40e59fe1e025c7d764f6c7bd2b2389787a074",
+    "git_dirty": false,
+    "window": {
+      "start": "2022-01-01",
+      "end": "2026-06-30"
+    },
+    "config_slice": {
+      "start_date": "2022-01-01",
+      "end_date": "2026-06-30",
+      "initial_cash": 50000000,
+      "cost_model": "corwin_schultz_v2",
+      "winsorize_adv": true,
+      "enable_topup_chasing": false,
+      "disable_topup_chasing": null,
+      "flat_cost_one_way": null,
+      "participation_cap_buy": 0.08,
+      "participation_cap_sell": 0.15,
+      "commission_rate": 0.0005,
+      "slippage_rate": 0.0002,
+      "universe_sample_size": 500,
+      "universe_sample_seed": 42,
+      "baseline_v1": null
+    },
+    "code_file_sha256_16": {
+      "engine/baseline_engine.py": "a780ac9eb3f0ddda",
+      "engine/strategy_baseline_v1.py": "7c386e901369e704",
+      "engine/strategy_baseline_v1_quality.py": "6bf3bdcc0ae0a2e7",
+      "engine/pit_fundamentals.py": "078cc008150eff0d",
+      "engine/regime_exposure.py": "6d0322d6d9888b79",
+      "engine/regime_exposure_fast.py": "797504f692429c56",
+      "engine/strategy_baseline_v1_indneutral.py": "67ec3a8d15cd7019",
+      "engine/execution_costs.py": "2effc46d3bffc006",
+      "engine/topup_chase_diagnostics.py": "c76cc5f0965fe076",
+      "engine/report_charts.py": "5f694822f04c375f",
+      "engine/cost_model_audit.py": "19bd6e4e66187d72",
+      "engine/kelly_leverage.py": "4a9eae4d3543e4f4",
+      "run_topup_chase_report.py": "18f8be69fbfcfc5d",
+      "run_kelly_leverage_report.py": "51f3b8c69115705e",
+      "config/config.yaml": "b79742aca798fba0"
+    },
+    "data_cache": {
+      "panels.pkl": "5ce58a430ac1beec",
+      "universe.pkl": "3445a4589dd34c15",
+      "panels_bytes": 48091715,
+      "universe_bytes": 306708
+    },
+    "extra": {
+      "report": "kelly_leverage",
+      "rf_path": "data/rates/dtb3.csv",
+      "fractions": [
+        0.25,
+        0.5,
+        0.75
+      ]
+    },
+    "fingerprint_sha256": "c3faee7465882fed704fbdfe3fb8e4acf9c8e84abc888038696881f9d57055ef",
+    "fingerprint_id": "c3faee746588"
+  },
+  "confirmed_checkpoint": {
+    "CAGR": 0.0302,
+    "Sharpe": 0.268,
+    "Maximum_Drawdown": -0.256,
+    "total_cost_dollars": 13404546.0,
+    "n_closed_trades": 1580,
+    "Alpha_CAGR": -0.1144
+  },
+  "confirmed_rerun": {
+    "CAGR": 0.030243471139700162,
+    "Sharpe": 0.26767447325826094,
+    "Maximum_Drawdown": -0.2560443575661832,
+    "total_cost_dollars": 13404546.424691427,
+    "n_closed_trades": 1580,
+    "Alpha_CAGR": -0.11437622235272493
+  },
+  "rf_mean_annual": 0.039877005347593586,
+  "daily_kelly": {
+    "label": "full",
+    "n": 1125,
+    "mean_return": 0.00016911707783295358,
+    "mean_excess": 1.0710023159232233e-05,
+    "mean_rf": 0.00015840705467372136,
+    "variance": 0.00010059156364207226,
+    "std": 0.010029534567569538,
+    "f_star": 0.10647039146683254,
+    "sharpe_excess": 0.01695156896314731,
+    "mean_excess_ann": 0.0026989258361265226,
+    "mean_return_ann": 0.0426175036139043,
+    "mean_rf_ann": 0.03991857777777778,
+    "variance_ann": 0.025349074037802212,
+    "vol_ann": 0.15921392538908843,
+    "frequency": "daily"
+  },
+  "monthly_kelly": {
+    "label": "full",
+    "frequency": "monthly",
+    "n": 53,
+    "mean_excess": 0.0013063344706337053,
+    "mean_excess_ann": 0.015676013647604466,
+    "variance": 0.0018217459133747808,
+    "variance_ann": 0.02186095096049737,
+    "f_star": 0.7170783044127834,
+    "sharpe_excess": 0.10602324880126936
+  },
+  "fractional_levels": {
+    "25pct_kelly": 0.026617597866708136,
+    "50pct_kelly": 0.05323519573341627,
+    "75pct_kelly": 0.0798527936001244
+  },
+  "subperiods": [
+    {
+      "label": "2022-2023",
+      "n": 500,
+      "mean_return": -0.0002773363965839264,
+      "mean_excess": -0.00041858639658392643,
+      "mean_rf": 0.00014125,
+      "variance": 9.311848559017718e-05,
+      "std": 0.009649791997249328,
+      "f_star": -4.495201934728221,
+      "sharpe_excess": -0.6886006503796632,
+      "mean_excess_ann": -0.10548377193914946,
+      "mean_return_ann": -0.06988877193914945,
+      "mean_rf_ann": 0.035594999999999995,
+      "variance_ann": 0.02346585836872465,
+      "vol_ann": 0.15318569896933804,
+      "frequency": "daily"
+    },
+    {
+      "label": "2024-2025",
+      "n": 501,
+      "mean_return": 0.00015312456293761097,
+      "mean_excess": -2.603774736242385e-05,
+      "mean_rf": 0.00017916231030003484,
+      "variance": 8.512776721634429e-05,
+      "std": 0.009226471005554848,
+      "f_star": -0.3058666779812437,
+      "sharpe_excess": -0.044798972985332905,
+      "mean_excess_ann": -0.00656151233533081,
+      "mean_return_ann": 0.03858738986027797,
+      "mean_rf_ann": 0.045148902195608784,
+      "variance_ann": 0.02145219733851876,
+      "vol_ann": 0.14646568655667702,
+      "frequency": "daily"
+    },
+    {
+      "label": "2026_partial",
+      "n": 122,
+      "mean_return": 0.0020345662679936583,
+      "mean_excess": 0.0018913285630756255,
+      "mean_rf": 0.00014323770491803282,
+      "variance": 0.00019115152261554714,
+      "std": 0.013825755770139553,
+      "f_star": 9.894394442672338,
+      "sharpe_excess": 2.1715926891542665,
+      "mean_excess_ann": 0.4766147978950576,
+      "mean_return_ann": 0.5127106995344018,
+      "mean_rf_ann": 0.03609590163934427,
+      "variance_ann": 0.04817018369911788,
+      "vol_ann": 0.2194770687318333,
+      "frequency": "daily"
+    }
+  ],
+  "variants": [
+    {
+      "label": "1.0x (cash interest ON)",
+      "leverage": 1.0,
+      "enable_cash_interest": true,
+      "allow_margin": false,
+      "metrics": {
+        "CAGR": 0.042930557314891704,
+        "Sharpe": 0.34592597777715256,
+        "Maximum_Drawdown": -0.24032405721720643,
+        "Alpha_CAGR": -0.10168913617753339,
+        "total_cost_dollars": 13724801.316470629,
+        "n_cost_events": 3223,
+        "cost_model": "corwin_schultz_v2",
+        "flat_cost_one_way": 0.0005,
+        "n_closed_trades": 1580,
+        "enable_topup_chasing": false,
+        "disable_topup_chasing": true
+      },
+      "comparison": {
+        "strategy": {
+          "CAGR": 0.042930557314891704,
+          "Sharpe": 0.34592597777715256,
+          "Maximum_Drawdown": -0.24032405721720643
+        },
+        "QQQ": {
+          "CAGR": 0.1446196934924251,
+          "Sharpe": 0.696850630177712,
+          "Maximum_Drawdown": -0.35246800176279247
+        },
+        "Alpha_CAGR": -0.10168913617753339,
+        "knobs": {
+          "strategy_id": "baseline_v1_mom12_1_quality_atr_nochase",
+          "TOP_LIQUID_POOL": 250,
+          "TOP_MOMENTUM_COUNT": 30,
+          "ATR_MULTIPLIER": 2.5,
+          "GROSS_EXPOSURE": 1.0,
+          "entry": "combined = 0.5*mom_12_1_pctile + 0.5*quality_pctile; quality = mean(pctile(GP), pctile(ROIC), pctile(op_margin)); exclude missing PIT fundamentals",
+          "exit": "ATR(14) Wilder trail; Low < stop \u2192 next Open",
+          "sizing": "equal_weight_1_over_N",
+          "leverage": "1.0000x_fixed",
+          "fill_policy": "no_topup_chasing_default",
+          "mom_weight": 0.5,
+          "quality_weight": 0.5,
+          "enable_regime_exposure": false,
+          "enable_regime_exposure_fast": false,
+          "enable_industry_neutral_ranking": false,
+          "MIN_INDUSTRY_SIZE": 8,
+          "regime_max_exposure": 1.0,
+          "FIXED_LEVERAGE": 1.0,
+          "allow_margin": false,
+          "enable_cash_interest": true
+        },
+        "window": {
+          "start": "2022-01-01",
+          "end": "2026-06-30"
+        },
+        "enable_quality_factor": true
+      },
+      "risk": {
+        "worst_month": "2022-04-30",
+        "worst_month_return": -0.07450859903816842,
+        "worst_month_dollar_on_initial": -3725429.9519084212,
+        "mdd": -0.24032405721720643,
+        "mdd_date": "2023-10-27",
+        "mdd_dollar_on_initial": -12016202.860860322,
+        "mdd_dollar_from_peak": -12016245.77587054,
+        "peak_equity_at_mdd": 50000178.571428575,
+        "trough_equity_at_mdd": 37983932.795558035,
+        "final_equity": 60379520.5977609,
+        "initial_equity": 50000178.571428575
+      },
+      "financing_dollars_net_charge": -2529398.1015315107,
+      "avg_target_gross_exposure": 1.0,
+      "excess_sharpe": 0.09389383273026211,
+      "kpi_eq": {
+        "CAGR": 0.042930557314891704,
+        "Sharpe": 0.34592597777715256,
+        "Maximum_Drawdown": -0.24032405721720643
+      },
+      "qqq_kpi": {
+        "CAGR": 0.1446196934924251,
+        "Sharpe": 0.696850630177712,
+        "Maximum_Drawdown": -0.35246800176279247
+      }
+    },
+    {
+      "label": "25% Kelly",
+      "leverage": 0.026617597866708136,
+      "enable_cash_interest": true,
+      "allow_margin": false,
+      "metrics": {
+        "CAGR": 0.040323828210850454,
+        "Sharpe": 6.520440122624595,
+        "Maximum_Drawdown": -0.006478084224773197,
+        "Alpha_CAGR": -0.10429586528157464,
+        "total_cost_dollars": 552231.2052132521,
+        "n_cost_events": 3209,
+        "cost_model": "corwin_schultz_v2",
+        "flat_cost_one_way": 0.0005,
+        "n_closed_trades": 1586,
+        "enable_topup_chasing": false,
+        "disable_topup_chasing": true
+      },
+      "comparison": {
+        "strategy": {
+          "CAGR": 0.040323828210850454,
+          "Sharpe": 6.520440122624595,
+          "Maximum_Drawdown": -0.006478084224773197
+        },
+        "QQQ": {
+          "CAGR": 0.1446196934924251,
+          "Sharpe": 0.696850630177712,
+          "Maximum_Drawdown": -0.35246800176279247
+        },
+        "Alpha_CAGR": -0.10429586528157464,
+        "knobs": {
+          "strategy_id": "baseline_v1_mom12_1_quality_atr_nochase",
+          "TOP_LIQUID_POOL": 250,
+          "TOP_MOMENTUM_COUNT": 30,
+          "ATR_MULTIPLIER": 2.5,
+          "GROSS_EXPOSURE": 0.026617597866708136,
+          "entry": "combined = 0.5*mom_12_1_pctile + 0.5*quality_pctile; quality = mean(pctile(GP), pctile(ROIC), pctile(op_margin)); exclude missing PIT fundamentals",
+          "exit": "ATR(14) Wilder trail; Low < stop \u2192 next Open",
+          "sizing": "equal_weight_1_over_N",
+          "leverage": "0.0266x_fixed",
+          "fill_policy": "no_topup_chasing_default",
+          "mom_weight": 0.5,
+          "quality_weight": 0.5,
+          "enable_regime_exposure": false,
+          "enable_regime_exposure_fast": false,
+          "enable_industry_neutral_ranking": false,
+          "MIN_INDUSTRY_SIZE": 8,
+          "regime_max_exposure": 1.0,
+          "FIXED_LEVERAGE": 0.026617597866708136,
+          "allow_margin": false,
+          "enable_cash_interest": true
+        },
+        "window": {
+          "start": "2022-01-01",
+          "end": "2026-06-30"
+        },
+        "enable_quality_factor": true
+      },
+      "risk": {
+        "worst_month": "2022-04-30",
+        "worst_month_return": -0.0025380883391050713,
+        "worst_month_dollar_on_initial": -126904.41695525356,
+        "mdd": -0.006478084224773197,
+        "mdd_date": "2022-05-11",
+        "mdd_dollar_on_initial": -323904.21123865986,
+        "mdd_dollar_from_peak": -323905.3680394143,
+        "peak_equity_at_mdd": 50000178.571428575,
+        "trough_equity_at_mdd": 49676273.20338916,
+        "final_equity": 59705262.81692591,
+        "initial_equity": 50000178.571428575
+      },
+      "financing_dollars_net_charge": -9428819.056539191,
+      "avg_target_gross_exposure": 0.026617597866708136,
+      "excess_sharpe": -0.02635686988377108,
+      "kpi_eq": {
+        "CAGR": 0.040323828210850454,
+        "Sharpe": 6.520440122624595,
+        "Maximum_Drawdown": -0.006478084224773197
+      },
+      "qqq_kpi": {
+        "CAGR": 0.1446196934924251,
+        "Sharpe": 0.696850630177712,
+        "Maximum_Drawdown": -0.35246800176279247
+      }
+    },
+    {
+      "label": "50% Kelly",
+      "leverage": 0.05323519573341627,
+      "enable_cash_interest": true,
+      "allow_margin": false,
+      "metrics": {
+        "CAGR": 0.04005240628520457,
+        "Sharpe": 3.3817304954786964,
+        "Maximum_Drawdown": -0.013734501377999532,
+        "Alpha_CAGR": -0.10456728720722053,
+        "total_cost_dollars": 1101596.174762538,
+        "n_cost_events": 3215,
+        "cost_model": "corwin_schultz_v2",
+        "flat_cost_one_way": 0.0005,
+        "n_closed_trades": 1586,
+        "enable_topup_chasing": false,
+        "disable_topup_chasing": true
+      },
+      "comparison": {
+        "strategy": {
+          "CAGR": 0.04005240628520457,
+          "Sharpe": 3.3817304954786964,
+          "Maximum_Drawdown": -0.013734501377999532
+        },
+        "QQQ": {
+          "CAGR": 0.1446196934924251,
+          "Sharpe": 0.696850630177712,
+          "Maximum_Drawdown": -0.35246800176279247
+        },
+        "Alpha_CAGR": -0.10456728720722053,
+        "knobs": {
+          "strategy_id": "baseline_v1_mom12_1_quality_atr_nochase",
+          "TOP_LIQUID_POOL": 250,
+          "TOP_MOMENTUM_COUNT": 30,
+          "ATR_MULTIPLIER": 2.5,
+          "GROSS_EXPOSURE": 0.05323519573341627,
+          "entry": "combined = 0.5*mom_12_1_pctile + 0.5*quality_pctile; quality = mean(pctile(GP), pctile(ROIC), pctile(op_margin)); exclude missing PIT fundamentals",
+          "exit": "ATR(14) Wilder trail; Low < stop \u2192 next Open",
+          "sizing": "equal_weight_1_over_N",
+          "leverage": "0.0532x_fixed",
+          "fill_policy": "no_topup_chasing_default",
+          "mom_weight": 0.5,
+          "quality_weight": 0.5,
+          "enable_regime_exposure": false,
+          "enable_regime_exposure_fast": false,
+          "enable_industry_neutral_ranking": false,
+          "MIN_INDUSTRY_SIZE": 8,
+          "regime_max_exposure": 1.0,
+          "FIXED_LEVERAGE": 0.05323519573341627,
+          "allow_margin": false,
+          "enable_cash_interest": true
+        },
+        "window": {
+          "start": "2022-01-01",
+          "end": "2026-06-30"
+        },
+        "enable_quality_factor": true
+      },
+      "risk": {
+        "worst_month": "2022-04-30",
+        "worst_month_return": -0.005334392588056569,
+        "worst_month_dollar_on_initial": -266719.62940282846,
+        "mdd": -0.013734501377999532,
+        "mdd_date": "2022-05-11",
+        "mdd_dollar_on_initial": -686725.0688999767,
+        "mdd_dollar_from_peak": -686727.5214895085,
+        "peak_equity_at_mdd": 50000178.571428575,
+        "trough_equity_at_mdd": 49313451.049939066,
+        "final_equity": 59635394.52102115,
+        "initial_equity": 50000178.571428575
+      },
+      "financing_dollars_net_charge": -9125991.948083792,
+      "avg_target_gross_exposure": 0.05323519573341627,
+      "excess_sharpe": -0.031922722950148474,
+      "kpi_eq": {
+        "CAGR": 0.04005240628520457,
+        "Sharpe": 3.3817304954786964,
+        "Maximum_Drawdown": -0.013734501377999532
+      },
+      "qqq_kpi": {
+        "CAGR": 0.1446196934924251,
+        "Sharpe": 0.696850630177712,
+        "Maximum_Drawdown": -0.35246800176279247
+      }
+    },
+    {
+      "label": "75% Kelly",
+      "leverage": 0.0798527936001244,
+      "enable_cash_interest": true,
+      "allow_margin": false,
+      "metrics": {
+        "CAGR": 0.03999511205558348,
+        "Sharpe": 2.323271958122449,
+        "Maximum_Drawdown": -0.021322820251319454,
+        "Alpha_CAGR": -0.10462458143684161,
+        "total_cost_dollars": 1617697.9835338732,
+        "n_cost_events": 3217,
+        "cost_model": "corwin_schultz_v2",
+        "flat_cost_one_way": 0.0005,
+        "n_closed_trades": 1585,
+        "enable_topup_chasing": false,
+        "disable_topup_chasing": true
+      },
+      "comparison": {
+        "strategy": {
+          "CAGR": 0.03999511205558348,
+          "Sharpe": 2.323271958122449,
+          "Maximum_Drawdown": -0.021322820251319454
+        },
+        "QQQ": {
+          "CAGR": 0.1446196934924251,
+          "Sharpe": 0.696850630177712,
+          "Maximum_Drawdown": -0.35246800176279247
+        },
+        "Alpha_CAGR": -0.10462458143684161,
+        "knobs": {
+          "strategy_id": "baseline_v1_mom12_1_quality_atr_nochase",
+          "TOP_LIQUID_POOL": 250,
+          "TOP_MOMENTUM_COUNT": 30,
+          "ATR_MULTIPLIER": 2.5,
+          "GROSS_EXPOSURE": 0.0798527936001244,
+          "entry": "combined = 0.5*mom_12_1_pctile + 0.5*quality_pctile; quality = mean(pctile(GP), pctile(ROIC), pctile(op_margin)); exclude missing PIT fundamentals",
+          "exit": "ATR(14) Wilder trail; Low < stop \u2192 next Open",
+          "sizing": "equal_weight_1_over_N",
+          "leverage": "0.0799x_fixed",
+          "fill_policy": "no_topup_chasing_default",
+          "mom_weight": 0.5,
+          "quality_weight": 0.5,
+          "enable_regime_exposure": false,
+          "enable_regime_exposure_fast": false,
+          "enable_industry_neutral_ranking": false,
+          "MIN_INDUSTRY_SIZE": 8,
+          "regime_max_exposure": 1.0,
+          "FIXED_LEVERAGE": 0.0798527936001244,
+          "allow_margin": false,
+          "enable_cash_interest": true
+        },
+        "window": {
+          "start": "2022-01-01",
+          "end": "2026-06-30"
+        },
+        "enable_quality_factor": true
+      },
+      "risk": {
+        "worst_month": "2022-04-30",
+        "worst_month_return": -0.007991208345440648,
+        "worst_month_dollar_on_initial": -399560.4172720324,
+        "mdd": -0.021322820251319454,
+        "mdd_date": "2022-06-16",
+        "mdd_dollar_on_initial": -1066141.0125659727,
+        "mdd_dollar_from_peak": -1066144.8202124462,
+        "peak_equity_at_mdd": 50000178.571428575,
+        "trough_equity_at_mdd": 48934033.75121613,
+        "final_equity": 59620654.20581417,
+        "initial_equity": 50000178.571428575
+      },
+      "financing_dollars_net_charge": -8845090.72674837,
+      "avg_target_gross_exposure": 0.0798527936001244,
+      "excess_sharpe": -0.02067509458791569,
+      "kpi_eq": {
+        "CAGR": 0.03999511205558348,
+        "Sharpe": 2.323271958122449,
+        "Maximum_Drawdown": -0.021322820251319454
+      },
+      "qqq_kpi": {
+        "CAGR": 0.1446196934924251,
+        "Sharpe": 0.696850630177712,
+        "Maximum_Drawdown": -0.35246800176279247
+      }
+    }
+  ]
+}
