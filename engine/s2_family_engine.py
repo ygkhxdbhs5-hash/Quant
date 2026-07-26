@@ -59,12 +59,15 @@ class S2FamilyEngine(BaselineEngineV1):
         self.extra = dict(extra or {})
         self.si_panel = si_panel
         self.div_events = div_events  # columns: ticker, ex_dividend_date
+        # Must exist before super().__init__ (parent prints knobs).
+        self.TOP_K = int(TOP_K)
+        self.GROSS_EXPOSURE = 1.0
+        self._prev_target_set: Set[str] = set()
 
         super().__init__(config=cfg, config_path=config_path)
         self.GROSS_EXPOSURE = 1.0
-        self.TOP_K = int(TOP_K)
         self.current_regime_exposure = 1.0
-        self._prev_target_set: Set[str] = set()
+        self._prev_regime_exposure = 1.0
 
     def _active_strategy_id(self) -> str:
         return f"s2_fam{self.family_id}_{self.variant_id}"
