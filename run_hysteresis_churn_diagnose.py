@@ -348,10 +348,23 @@ def main(argv=None) -> int:
     drop_rows = tj[tj["exit_family"] == "rank_dropout"].copy()
     atr_rows = tj[tj["exit_family"] == "atr_trail"].copy()
 
-    # Count dropouts per exit date for pro-rata replacement allocation
-    drop_per_day = (
-        drop_rows["exit_date"].dt.normalize().value_counts().to_dict() if len(drop_rows) else {}
-    )
+    # All exits per calendar day — replacement buys are split across every exit
+    # that freed a slot that day (ATR + dropout), not only dropouts.
+    exits_per_day = tj["exit_date"].dt.normalize().value_counts().to_dict()
+
+    def _replacement_share(exit_dt: pd.Timestamp) -> Tuple[float, Optional[str]]:
+        day_key = pd.Timestamp(exit_dt).normalize()
+        n_ex = int(exits_per_day.get(day_key, 0)) or 0
+        for off, label in ((0, "same_day"), (1, "+1d"), (2, "+2d"), (3, "+3d")):
+            alt = day_key + pd.Timedelta(days=off)
+            pool = float(new_entry_by_date.get(alt, 0.0))
+            if pool <= 0:
+                continue
+            # If refill lands on a later session, split by exits on the exit day
+            # (slot freed then); fallback to 1 if missing.
+            denom = float(n_ex if n_ex > 0 else 1)
+            return pool / denom, label
+        return 0.0, None
 
     dropout_details: List[Dict[str, Any]] = []
     prior_ranks: List[float] = []
@@ -378,17 +391,7 @@ def main(argv=None) -> int:
         bucket_counts[bucket] = bucket_counts.get(bucket, 0) + 1
 
         sell_c = _sum_cost(costs, symbol=sym, side="SELL", on_date=exit_dt, window_days=1)
-        day_key = exit_dt.normalize()
-        n_same_day = int(drop_per_day.get(day_key, 1)) or 1
-        repl_pool = float(new_entry_by_date.get(day_key, 0.0))
-        repl_c = repl_pool / float(n_same_day)
-        # also try +1 session if sell fills next open after month-start signal
-        if repl_c == 0.0:
-            for off in (1, 2, 3):
-                alt = day_key + pd.Timedelta(days=off)
-                if alt in new_entry_by_date:
-                    repl_c = float(new_entry_by_date[alt]) / float(n_same_day)
-                    break
+        repl_c, repl_lag = _replacement_share(exit_dt)
 
         rt = float(sell_c + repl_c)
         drop_sell_cost += float(sell_c)
@@ -412,6 +415,7 @@ def main(argv=None) -> int:
             "prior_rank_bucket": bucket,
             "sell_cost_dollars": float(sell_c),
             "replacement_buy_cost_dollars": float(repl_c),
+            "replacement_lag": repl_lag,
             "round_trip_churn_cost_dollars": rt,
             "flicker_reselected_months": flicker_months,
             "is_flicker_1_3m": bool(flicker_months),
@@ -421,31 +425,19 @@ def main(argv=None) -> int:
             flicker_details.append(detail)
             flicker_cost += rt
 
-    # ATR category costs (same definition: sell + same-day/next new_entry pro-rata)
-    atr_per_day = (
-        atr_rows["exit_date"].dt.normalize().value_counts().to_dict() if len(atr_rows) else {}
-    )
+    # ATR sell costs: match SELL events to ATR-closed lots (unambiguous).
     atr_sell_cost = 0.0
-    atr_repl_buy_cost = 0.0
     for _, row in atr_rows.iterrows():
         sym = str(row["symbol"])
         exit_dt = pd.Timestamp(row["exit_date"])
-        sell_c = _sum_cost(costs, symbol=sym, side="SELL", on_date=exit_dt, window_days=1)
-        day_key = exit_dt.normalize()
-        n_same = int(atr_per_day.get(day_key, 1)) or 1
-        # ATR exits free slots; refill new_entry may land same or next sessions.
-        # Attribute only new_entry costs on exit day pro-rata among ATR exits that day
-        # (conservative; mid-month refill is the ATR→replacement path).
-        repl_c = float(new_entry_by_date.get(day_key, 0.0)) / float(n_same)
-        if repl_c == 0.0:
-            for off in (1, 2, 3):
-                alt = day_key + pd.Timedelta(days=off)
-                if alt in new_entry_by_date:
-                    # if multiple ATR exits share nearby refill, still split by exit-day count
-                    repl_c = float(new_entry_by_date[alt]) / float(n_same)
-                    break
-        atr_sell_cost += float(sell_c)
-        atr_repl_buy_cost += float(repl_c)
+        atr_sell_cost += _sum_cost(
+            costs, symbol=sym, side="SELL", on_date=exit_dt, window_days=1
+        )
+
+    # Replacement buys: all new_entry $ minus the share already attributed to
+    # rank-dropout days (avoids double-counting the same refill across exits).
+    total_new_entry = float(sum(new_entry_by_date.values())) if new_entry_by_date else 0.0
+    atr_repl_buy_cost = max(0.0, total_new_entry - float(drop_repl_buy_cost))
 
     # Prior-rank distribution summary for dropouts
     prior_dist: Dict[str, Any] = {
@@ -516,8 +508,9 @@ def main(argv=None) -> int:
             ),
             "cost_attribution": (
                 "category round-trip ≈ sell cost_dollars of exit + pro-rata "
-                "new_entry buy cost_dollars on/near exit date among same-family "
-                "exits that day (replacement leg)."
+                "new_entry buy cost_dollars on/near exit date among ALL exits "
+                "that day (slot-replacement leg). ATR replacement remainder = "
+                "total new_entry − dropout-attributed replacement."
             ),
             "flicker": "rank-dropout name reappears in monthly Top-K within next 1–3 month-starts",
             "marginal_band": [MARGINAL_LO, MARGINAL_HI],
@@ -644,7 +637,7 @@ def main(argv=None) -> int:
     lines.extend(
         [
             "## Verdict (diagnose-first)",
-            f"  {verdict_level}: {verdict_summary}",
+            f"  {verdict_summary}",
             f"  recommend_hysteresis_ab : {recommend_ab}",
             "",
             "# END",
