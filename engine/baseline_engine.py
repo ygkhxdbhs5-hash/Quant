@@ -120,6 +120,47 @@ class BaselineEngineV1:
         self.TOP_MOMENTUM_COUNT = int(bcfg.get("TOP_MOMENTUM_COUNT", TOP_MOMENTUM_COUNT))
         self.ATR_MULTIPLIER = float(bcfg.get("ATR_MULTIPLIER", ATR_MULTIPLIER))
         self.GROSS_EXPOSURE = float(bcfg.get("GROSS_EXPOSURE", GROSS_EXPOSURE))
+        # Fixed gross leverage for Kelly / sizing experiments (default 1.0x).
+        # Does not change entry/exit/ranking — only scales equal-weight targets.
+        if "fixed_leverage" in cfg or "FIXED_LEVERAGE" in cfg:
+            self.FIXED_LEVERAGE = float(
+                cfg.get("fixed_leverage", cfg.get("FIXED_LEVERAGE"))
+            )
+        elif "FIXED_LEVERAGE" in bcfg or "fixed_leverage" in bcfg:
+            self.FIXED_LEVERAGE = float(
+                bcfg.get("FIXED_LEVERAGE", bcfg.get("fixed_leverage"))
+            )
+        else:
+            self.FIXED_LEVERAGE = float(self.GROSS_EXPOSURE)
+        if self.FIXED_LEVERAGE <= 0.0:
+            raise ValueError(f"fixed_leverage must be > 0, got {self.FIXED_LEVERAGE}")
+        self.GROSS_EXPOSURE = float(self.FIXED_LEVERAGE)
+        # Margin: allow cash < 0 so targets can exceed equity when leverage > 1.
+        self.ALLOW_MARGIN = bool(
+            cfg.get(
+                "allow_margin",
+                cfg.get("ALLOW_MARGIN", self.FIXED_LEVERAGE > 1.0 + 1e-12),
+            )
+        )
+        # Credit / charge cash at a daily risk-free rate (T-bill proxy).
+        # Used for fractional-Kelly (<1x) so idle cash is not earning 0, and for
+        # leverage >1x so borrowed dollars accrue financing.
+        self.ENABLE_CASH_INTEREST = bool(
+            cfg.get(
+                "enable_cash_interest",
+                cfg.get("ENABLE_CASH_INTEREST", False),
+            )
+        )
+        self.RF_RATE_PATH = str(
+            cfg.get(
+                "rf_rate_path",
+                cfg.get("RF_RATE_PATH", "data/rates/dtb3.csv"),
+            )
+        )
+        self._rf_annual: Optional[pd.Series] = None
+        self.diag_financing_dollars = 0.0
+        if self.ENABLE_CASH_INTEREST:
+            self._rf_annual = self._load_rf_annual_series(self.RF_RATE_PATH)
         # Quality overlay (entry ranking only). Adopted as default after mom+quality A/B
         # (repro_id=42799a276531): Sharpe 0.194→0.268, MDD −31.97%→−25.60%.
         # Set enable_quality_factor: false to restore momentum-only baseline.
@@ -547,7 +588,9 @@ class BaselineEngineV1:
                 bd = self._cost_breakdown(sym, date_idx, exec_qty, float(o_price))
                 cost = float(bd["cost_ratio"])
                 spend = exec_qty * float(o_price) * (1.0 + cost)
-                if spend > self.cash:
+                # Without margin, clip buys to available cash (baseline behavior).
+                # With allow_margin (leverage > 1x), cash may go negative.
+                if (not self.ALLOW_MARGIN) and spend > self.cash:
                     exec_qty = int(self.cash / (float(o_price) * (1.0 + cost)))
                     if exec_qty <= 0:
                         self.diag_fill_vs_target.append(
@@ -863,8 +906,66 @@ class BaselineEngineV1:
         knobs["enable_regime_exposure_fast"] = bool(self.ENABLE_REGIME_EXPOSURE_FAST)
         knobs["enable_industry_neutral_ranking"] = bool(self.ENABLE_INDUSTRY_NEUTRAL)
         knobs["MIN_INDUSTRY_SIZE"] = int(self.MIN_INDUSTRY_SIZE)
-        knobs["regime_max_exposure"] = 1.0  # no >1.0x in this pass
+        knobs["regime_max_exposure"] = 1.0  # regime path never boosts above 1.0x
+        knobs["FIXED_LEVERAGE"] = float(self.FIXED_LEVERAGE)
+        knobs["GROSS_EXPOSURE"] = float(self.GROSS_EXPOSURE)
+        knobs["leverage"] = f"{float(self.FIXED_LEVERAGE):.4f}x_fixed"
+        knobs["allow_margin"] = bool(self.ALLOW_MARGIN)
+        knobs["enable_cash_interest"] = bool(self.ENABLE_CASH_INTEREST)
         return knobs
+
+    @staticmethod
+    def _load_rf_annual_series(path: str) -> pd.Series:
+        """Load FRED DTB3-style CSV → annualized decimal yield indexed by date."""
+        p = Path(path)
+        if not p.exists():
+            raise FileNotFoundError(
+                f"Risk-free rate file missing: {p}. Expected FRED DTB3 CSV."
+            )
+        df = pd.read_csv(p)
+        date_col = "observation_date" if "observation_date" in df.columns else df.columns[0]
+        rate_col = "DTB3" if "DTB3" in df.columns else df.columns[1]
+        s = pd.Series(
+            pd.to_numeric(df[rate_col], errors="coerce").values,
+            index=pd.to_datetime(df[date_col]),
+            dtype=float,
+        ).dropna()
+        # FRED DTB3 is percent (e.g. 5.25); convert to decimal annual.
+        if float(s.abs().median()) > 1.0:
+            s = s / 100.0
+        s = s.sort_index()
+        s = s[~s.index.duplicated(keep="last")]
+        return s
+
+    def _rf_daily(self, current_date) -> float:
+        """Daily financing / cash credit rate for ``current_date`` (0 if disabled)."""
+        if not self.ENABLE_CASH_INTEREST or self._rf_annual is None:
+            return 0.0
+        dt = pd.Timestamp(current_date)
+        # pad earlier dates with first observation
+        if dt < self._rf_annual.index[0]:
+            ann = float(self._rf_annual.iloc[0])
+        else:
+            ann = float(self._rf_annual.asof(dt))
+        if not np.isfinite(ann):
+            return 0.0
+        return ann / 252.0
+
+    def _apply_cash_interest(self, current_date) -> None:
+        """Credit positive cash / charge negative cash at the daily T-bill proxy."""
+        if not self.ENABLE_CASH_INTEREST:
+            return
+        rate = self._rf_daily(current_date)
+        if rate == 0.0 or self.cash == 0.0:
+            return
+        interest = float(self.cash) * float(rate)
+        # interest > 0 credits cash; interest < 0 (when cash borrowed) is a charge
+        self.cash = float(self.cash) + interest
+        if interest < 0:
+            self.diag_financing_dollars += float(-interest)
+        else:
+            # track cash credit as negative financing for net disclosure
+            self.diag_financing_dollars += float(-interest)
 
     def _select_candidates(self, idx: int, live: List[str]) -> List[str]:
         if self.ENABLE_QUALITY_FACTOR and self.ENABLE_INDUSTRY_NEUTRAL:
@@ -1034,6 +1135,9 @@ class BaselineEngineV1:
         print(f"  enable_regime_exposure_fast: {self.ENABLE_REGIME_EXPOSURE_FAST}")
         print(f"  enable_industry_neutral_ranking: {self.ENABLE_INDUSTRY_NEUTRAL}")
         print(f"  min_industry_size: {self.MIN_INDUSTRY_SIZE}")
+        print(f"  fixed_leverage: {self.FIXED_LEVERAGE}")
+        print(f"  allow_margin: {self.ALLOW_MARGIN}")
+        print(f"  enable_cash_interest: {self.ENABLE_CASH_INTEREST}")
         if self.COST_MODEL == "flat":
             print(f"  flat_cost_one_way: {self.FLAT_COST_ONE_WAY}")
         if self.diag_cs_raw_stats:
@@ -1146,6 +1250,11 @@ class BaselineEngineV1:
                 )
                 # Mid-month refill: no-chase still applies (exposure unchanged).
                 self._queue_rebalance_to_targets(targets, idx, allow_exposure_resize=False)
+
+            # Cash interest / margin financing before mark-to-market.
+            # Only inside the evaluation window (avoid lookback cash drift).
+            if current_date >= self._run_start:
+                self._apply_cash_interest(current_date)
 
             # Mark-to-market (evaluation window only for reported curve)
             closes = self.close_m.loc[current_date]

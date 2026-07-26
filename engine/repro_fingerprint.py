@@ -29,7 +29,9 @@ FINGERPRINT_PATHS = [
     "engine/topup_chase_diagnostics.py",
     "engine/report_charts.py",
     "engine/cost_model_audit.py",
+    "engine/kelly_leverage.py",
     "run_topup_chase_report.py",
+    "run_kelly_leverage_report.py",
     "config/config.yaml",
 ]
 
