@@ -30,8 +30,11 @@ FINGERPRINT_PATHS = [
     "engine/report_charts.py",
     "engine/cost_model_audit.py",
     "engine/kelly_leverage.py",
+    "engine/strategy_s2_meanrev.py",
+    "engine/strategy2_engine.py",
     "run_topup_chase_report.py",
     "run_kelly_leverage_report.py",
+    "run_strategy2_meanrev_report.py",
     "config/config.yaml",
 ]
 
