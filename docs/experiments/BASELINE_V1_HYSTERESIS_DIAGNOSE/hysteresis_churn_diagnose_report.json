@@ -1,0 +1,278 @@
+{
+  "repro": {
+    "git_head": "4761a68f826b14c4bef96d0f02b0421c59dbecf0",
+    "git_dirty": false,
+    "window": {
+      "start": "2022-01-01",
+      "end": "2026-06-30"
+    },
+    "config_slice": {
+      "start_date": "2022-01-01",
+      "end_date": "2026-06-30",
+      "initial_cash": 50000000,
+      "cost_model": "corwin_schultz_v2",
+      "winsorize_adv": true,
+      "enable_topup_chasing": false,
+      "disable_topup_chasing": null,
+      "flat_cost_one_way": null,
+      "participation_cap_buy": 0.08,
+      "participation_cap_sell": 0.15,
+      "commission_rate": 0.0005,
+      "slippage_rate": 0.0002,
+      "universe_sample_size": 500,
+      "universe_sample_seed": 42,
+      "baseline_v1": null
+    },
+    "code_file_sha256_16": {
+      "engine/baseline_engine.py": "e9f4d40985d64fbe",
+      "engine/strategy_baseline_v1.py": "7c386e901369e704",
+      "engine/strategy_baseline_v1_quality.py": "6bf3bdcc0ae0a2e7",
+      "engine/pit_fundamentals.py": "078cc008150eff0d",
+      "engine/regime_exposure.py": "6d0322d6d9888b79",
+      "engine/regime_exposure_fast.py": "797504f692429c56",
+      "engine/strategy_baseline_v1_indneutral.py": "67ec3a8d15cd7019",
+      "engine/execution_costs.py": "2effc46d3bffc006",
+      "engine/topup_chase_diagnostics.py": "c76cc5f0965fe076",
+      "engine/report_charts.py": "5f694822f04c375f",
+      "engine/cost_model_audit.py": "19bd6e4e66187d72",
+      "run_topup_chase_report.py": "18f8be69fbfcfc5d",
+      "config/config.yaml": "b79742aca798fba0"
+    },
+    "data_cache": {
+      "panels.pkl": "5ce58a430ac1beec",
+      "universe.pkl": "3445a4589dd34c15",
+      "panels_bytes": 48091715,
+      "universe_bytes": 306708
+    },
+    "extra": {
+      "report": "hysteresis_churn_diagnose",
+      "selection": "mom_quality_global_topK",
+      "policy_note": "hold_until_ATR_refill_empties"
+    },
+    "fingerprint_sha256": "42644094088af3d7356a23c4b499a72703fd0f60c9571ce6d64d73ff96ed08fa",
+    "fingerprint_id": "42644094088a"
+  },
+  "methodology": {
+    "window": {
+      "start": "2022-01-01",
+      "end": "2026-06-30"
+    },
+    "selection": "mom_quality_global_topK",
+    "flags": {
+      "enable_quality_factor": true,
+      "enable_topup_chasing": false,
+      "enable_regime_exposure": false,
+      "enable_industry_neutral_ranking": false
+    },
+    "exit_policy": "hold until ATR trail; refill empties from monthly candidates; does NOT drop holdings merely for leaving Top-K (refill_from_candidates). rank_dropout == exit_reason rebalance_dropout (SELL while not in that day's targets).",
+    "rank_definition": "combined = 0.5*mom_pctile + 0.5*quality_pctile over liquid top-250 with usable PIT; rank 1 = best; Top-K = 30.",
+    "cost_attribution": "category round-trip \u2248 sell cost_dollars of exit + pro-rata new_entry buy cost_dollars on/near exit date among ALL exits that day (slot-replacement leg). ATR replacement remainder = total new_entry \u2212 dropout-attributed replacement.",
+    "flicker": "rank-dropout name reappears in monthly Top-K within next 1\u20133 month-starts",
+    "marginal_band": [
+      31,
+      35
+    ],
+    "clear_weak_from": 50
+  },
+  "run_kpis": {
+    "CAGR": 0.030243471139700162,
+    "Sharpe": 0.26767447325825816,
+    "Maximum_Drawdown": -0.25604435756618277,
+    "total_cost_dollars": 13404546.424691427,
+    "n_closed_trades": 1580
+  },
+  "exit_mix": {
+    "n_exits": 1580,
+    "by_family": {
+      "atr_trail": 1574,
+      "rank_dropout": 6
+    },
+    "n_atr_trail": 1574,
+    "n_rank_dropout": 6,
+    "pct_rank_dropout": 0.0037974683544303796,
+    "pct_atr_trail": 0.9962025316455696
+  },
+  "rank_dropout": {
+    "prior_rank_distribution": {
+      "n_with_prior_rank": 5,
+      "p50": 29.0,
+      "p75": 30.0,
+      "min": 19.0,
+      "max": 48.0,
+      "mean": 30.6,
+      "n_marginal_31_35": 0,
+      "n_clear_weak_50_plus": 0,
+      "bucket_counts": {
+        "in_top_30": 4,
+        "moderate_31_49": 1,
+        "unranked": 1
+      }
+    },
+    "details": [
+      {
+        "symbol": "SELF",
+        "entry_date": "2022-07-01",
+        "exit_date": "2022-08-04",
+        "holding_days": 34,
+        "final_return": 0.01831501831501825,
+        "rank_month_before_exit": 30.0,
+        "rank_at_exit_month": 33.0,
+        "prior_rank_bucket": "in_top_30",
+        "sell_cost_dollars": 329.7763940224962,
+        "replacement_buy_cost_dollars": 15114.919992513745,
+        "replacement_lag": "same_day",
+        "round_trip_churn_cost_dollars": 15444.696386536241,
+        "flicker_reselected_months": [
+          "2022-11-01"
+        ],
+        "is_flicker_1_3m": true
+      },
+      {
+        "symbol": "FISI",
+        "entry_date": "2022-07-06",
+        "exit_date": "2022-08-25",
+        "holding_days": 50,
+        "final_return": 0.02376389421234193,
+        "rank_month_before_exit": 19.0,
+        "rank_at_exit_month": 46.0,
+        "prior_rank_bucket": "in_top_30",
+        "sell_cost_dollars": 807.6703541341146,
+        "replacement_buy_cost_dollars": 7789.050256255135,
+        "replacement_lag": "same_day",
+        "round_trip_churn_cost_dollars": 8596.72061038925,
+        "flicker_reselected_months": [],
+        "is_flicker_1_3m": false
+      },
+      {
+        "symbol": "SENEA",
+        "entry_date": "2022-09-26",
+        "exit_date": "2022-11-04",
+        "holding_days": 39,
+        "final_return": 0.2588666938442723,
+        "rank_month_before_exit": 48.0,
+        "rank_at_exit_month": 42.0,
+        "prior_rank_bucket": "moderate_31_49",
+        "sell_cost_dollars": 1755.9439200026297,
+        "replacement_buy_cost_dollars": 4636.998743750357,
+        "replacement_lag": "same_day",
+        "round_trip_churn_cost_dollars": 6392.942663752987,
+        "flicker_reselected_months": [
+          "2022-12-01",
+          "2023-01-03"
+        ],
+        "is_flicker_1_3m": true
+      },
+      {
+        "symbol": "FSBC",
+        "entry_date": "2022-12-19",
+        "exit_date": "2023-01-31",
+        "holding_days": 43,
+        "final_return": 0.024316109422492405,
+        "rank_month_before_exit": 27.0,
+        "rank_at_exit_month": 51.0,
+        "prior_rank_bucket": "in_top_30",
+        "sell_cost_dollars": 727.2978642231622,
+        "replacement_buy_cost_dollars": 16272.416590278066,
+        "replacement_lag": "same_day",
+        "round_trip_churn_cost_dollars": 16999.714454501227,
+        "flicker_reselected_months": [],
+        "is_flicker_1_3m": false
+      },
+      {
+        "symbol": "CSPI",
+        "entry_date": "2024-09-10",
+        "exit_date": "2024-11-04",
+        "holding_days": 55,
+        "final_return": 0.005818786367414841,
+        "rank_month_before_exit": null,
+        "rank_at_exit_month": null,
+        "prior_rank_bucket": "unranked",
+        "sell_cost_dollars": 549.5877904873934,
+        "replacement_buy_cost_dollars": 17163.56599335873,
+        "replacement_lag": "same_day",
+        "round_trip_churn_cost_dollars": 17713.153783846123,
+        "flicker_reselected_months": [],
+        "is_flicker_1_3m": false
+      },
+      {
+        "symbol": "PESI",
+        "entry_date": "2024-12-20",
+        "exit_date": "2025-01-31",
+        "holding_days": 42,
+        "final_return": -0.01357904946653743,
+        "rank_month_before_exit": 29.0,
+        "rank_at_exit_month": 32.0,
+        "prior_rank_bucket": "in_top_30",
+        "sell_cost_dollars": 1363.4022359441828,
+        "replacement_buy_cost_dollars": 7777.26572349761,
+        "replacement_lag": "same_day",
+        "round_trip_churn_cost_dollars": 9140.667959441793,
+        "flicker_reselected_months": [],
+        "is_flicker_1_3m": false
+      }
+    ],
+    "costs": {
+      "sell_cost_dollars": 5533.678558813979,
+      "replacement_buy_cost_dollars": 68754.21729965364,
+      "round_trip_churn_cost_dollars": 74287.89585846761,
+      "share_of_total_cost": 0.005541992507976839
+    },
+    "flicker_1_3m": {
+      "n": 2,
+      "pct_of_rank_dropouts": 0.3333333333333333,
+      "round_trip_churn_cost_dollars": 21837.639050289228,
+      "details": [
+        {
+          "symbol": "SELF",
+          "entry_date": "2022-07-01",
+          "exit_date": "2022-08-04",
+          "holding_days": 34,
+          "final_return": 0.01831501831501825,
+          "rank_month_before_exit": 30.0,
+          "rank_at_exit_month": 33.0,
+          "prior_rank_bucket": "in_top_30",
+          "sell_cost_dollars": 329.7763940224962,
+          "replacement_buy_cost_dollars": 15114.919992513745,
+          "replacement_lag": "same_day",
+          "round_trip_churn_cost_dollars": 15444.696386536241,
+          "flicker_reselected_months": [
+            "2022-11-01"
+          ],
+          "is_flicker_1_3m": true
+        },
+        {
+          "symbol": "SENEA",
+          "entry_date": "2022-09-26",
+          "exit_date": "2022-11-04",
+          "holding_days": 39,
+          "final_return": 0.2588666938442723,
+          "rank_month_before_exit": 48.0,
+          "rank_at_exit_month": 42.0,
+          "prior_rank_bucket": "moderate_31_49",
+          "sell_cost_dollars": 1755.9439200026297,
+          "replacement_buy_cost_dollars": 4636.998743750357,
+          "replacement_lag": "same_day",
+          "round_trip_churn_cost_dollars": 6392.942663752987,
+          "flicker_reselected_months": [
+            "2022-12-01",
+            "2023-01-03"
+          ],
+          "is_flicker_1_3m": true
+        }
+      ]
+    }
+  },
+  "atr_trail_costs": {
+    "sell_cost_dollars": 6533285.06160335,
+    "replacement_buy_cost_dollars": 6737981.699808774,
+    "round_trip_churn_cost_dollars": 13271266.761412123,
+    "share_of_total_cost": 0.9900571299425842
+  },
+  "total_diag_cost_dollars": 13404546.424691427,
+  "verdict": {
+    "level": "LOW",
+    "summary": "LOW: current default holds until ATR and almost never sells on rank-dropout; rank-buffer hysteresis would address a negligible exit path (like industry-neutral / corr filter \u2014 non-problem).",
+    "recommend_hysteresis_ab": false
+  },
+  "payload_sha256_16": "5a354542c2358f2b"
+}

@@ -1,0 +1,50 @@
+# Turnover hysteresis diagnose — mom+quality default (VALID)
+
+Window: 2022-01-01 → 2026-06-30
+repro_id=42644094088a
+payload_sha256_16=5a354542c2358f2b
+git_head=4761a68f826b14c4bef96d0f02b0421c59dbecf0
+git_dirty=False
+
+Policy: hold until ATR; refill empties; no rank-forced exit by design
+(refill_from_candidates). Top-K=30. Costs: Fixed CS v2.
+
+## Exit mix
+  n_exits                : 1,580
+  ATR-trail (a)          : 1,574  (99.62%)
+  rank-dropout (b)       : 6  (0.38%)
+  other families         : {}
+
+## Rank-dropout (b) — prior-month combined rank
+  n_with_prior_rank      : 5
+  prior rank p50/p75/max : 29.0 / 30.0 / 48.0
+  marginal ranks 31-35: 0
+  clear-weak rank ≥50  : 0
+  bucket_counts          : {'in_top_30': 4, 'moderate_31_49': 1, 'unranked': 1}
+
+## Cost attribution (sell + replacement new_entry buy)
+  total diag cost $      : $13,404,546
+  (b) rank-dropout RT $  : $74,288  (0.55% of total)
+      sell $             : $5,534
+      replacement buy $  : $68,754
+  (a) ATR-trail RT $     : $13,271,267  (99.01% of total)
+      sell $             : $6,533,285
+      replacement buy $  : $6,737,982
+
+## Flicker (rank-dropout re-selected in Top-K within 1–3 months)
+  n_flicker              : 2  (33.3% of dropouts)
+  flicker RT cost $      : $21,838
+
+  Dropout detail rows:
+    SELF   exit=2022-08-04 prior_rank=30.0 exit_rank=33.0 bucket=in_top_30 RT=$15,445 flicker=['2022-11-01']
+    FISI   exit=2022-08-25 prior_rank=19.0 exit_rank=46.0 bucket=in_top_30 RT=$8,597 flicker=[]
+    SENEA  exit=2022-11-04 prior_rank=48.0 exit_rank=42.0 bucket=moderate_31_49 RT=$6,393 flicker=['2022-12-01', '2023-01-03']
+    FSBC   exit=2023-01-31 prior_rank=27.0 exit_rank=51.0 bucket=in_top_30 RT=$17,000 flicker=[]
+    CSPI   exit=2024-11-04 prior_rank=None exit_rank=None bucket=unranked RT=$17,713 flicker=[]
+    PESI   exit=2025-01-31 prior_rank=29.0 exit_rank=32.0 bucket=in_top_30 RT=$9,141 flicker=[]
+
+## Verdict (diagnose-first)
+  LOW: current default holds until ATR and almost never sells on rank-dropout; rank-buffer hysteresis would address a negligible exit path (like industry-neutral / corr filter — non-problem).
+  recommend_hysteresis_ab : False
+
+# END
