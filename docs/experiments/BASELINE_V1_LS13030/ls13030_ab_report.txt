@@ -1,0 +1,55 @@
+# Mom+Quality long-only vs 130/30 long-short A/B (VALID)
+
+Window: 2022-01-01 → 2026-06-30
+repro_id=f08696b99637
+payload_sha256_16=879978502f0116c7
+git_head=9b52a35eb867f31a1f027436a14bbc9fbceba568
+git_dirty=False
+mq_from_checkpoint=False
+
+Structure: long 130% EW top-30 MQ / short 30% EW bottom-30 MQ.
+Short HTB filter: exclude ADV < p25 of liquid+quality set.
+Borrow: flat 3% ann. on short notional (HTB excluded, not punitive-rated).
+Short risk: mirrored ATR cover (High > trough + 2.5*ATR).
+Exec: Fixed CS v2 on BUY/SELL/SHORT/COVER. No-chase per sleeve.
+UNCERTAIN: no real locate feed; flat borrow; no margin-call model.
+
+## TASK 3 — Side-by-side (+ beta)
+Metric                         MQ long-only      LS 130/30
+----------------------------------------------------------
+CAGR                                 +3.02%         +2.31%
+Sharpe                                0.268          0.227
+MDD                                 -25.60%        -21.33%
+Total cost $                    $13,404,546    $24,751,122
+  long exec $                   $13,404,546    $16,825,380
+  short exec $                           $0     $6,665,228
+  borrow $                               $0     $1,260,515
+n_trades long                         1,580          1,583
+n_trades short                            0          1,360
+Turnover (repl/yr)                    11.74          10.93
+Alpha vs QQQ                        -11.44%        -12.15%
+Beta vs QQQ                           0.544          0.417
+Mean net exposure                     ~1.00           0.62
+Mean gross exposure                   ~1.00           1.04
+----------------------------------------------------------
+BETA: MQ beta=0.544 → LS beta=0.417 (Δ=-0.127; NOT meaningful reduce vs threshold 0.15)
+
+## TASK 4 — LS per-year + 2023 short detail
+Year       Strat CAGR     QQQ CAGR        Alpha     Short $PnL   n_covers
+------------------------------------------------------------------------
+2022          -12.85%      -34.03%      +21.18%     $4,822,895        258 
+2023           +0.68%      +55.83%      -55.15%     $2,304,877        328 
+2024           +4.96%      +27.09%      -22.13%    $-2,369,943        296 
+2025           -7.02%      +20.54%      -27.56%        $62,658        300 
+2026          +71.42%      +45.33%      +26.09%    $-1,111,789        178 partial
+------------------------------------------------------------------------
+CALLOUT: 2023 Alpha: MQ -51.00% → LS -55.15% (Δ=-4.15%); short-book closed-lot $PnL in 2023: $2,304,877 on 328 covers (win%=0.42) — short book NET HELPED in 2023
+
+## Decision rule
+  sharpe_improved             : False
+  beta_reduced (meaningful)   : False
+  mdd_worsened (>3pp deeper)  : False
+  ADOPT                       : False
+  SIDE                        : DO NOT ADOPT: Sharpe did not improve vs long-only MQ. Consider 100/100 market-neutral before abandoning long-short.
+
+# END
