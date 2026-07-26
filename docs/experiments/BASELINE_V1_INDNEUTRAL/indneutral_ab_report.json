@@ -1,0 +1,381 @@
+{
+  "repro": {
+    "git_head": "f06dc6c9b38cd9417a55fecf6679f1d69f64bdad",
+    "git_dirty": false,
+    "window": {
+      "start": "2022-01-01",
+      "end": "2026-06-30"
+    },
+    "config_slice": {
+      "start_date": "2022-01-01",
+      "end_date": "2026-06-30",
+      "initial_cash": 50000000,
+      "cost_model": "corwin_schultz_v2",
+      "winsorize_adv": true,
+      "enable_topup_chasing": false,
+      "disable_topup_chasing": null,
+      "flat_cost_one_way": null,
+      "participation_cap_buy": 0.08,
+      "participation_cap_sell": 0.15,
+      "commission_rate": 0.0005,
+      "slippage_rate": 0.0002,
+      "universe_sample_size": 500,
+      "universe_sample_seed": 42,
+      "baseline_v1": null
+    },
+    "code_file_sha256_16": {
+      "engine/baseline_engine.py": "e9f4d40985d64fbe",
+      "engine/strategy_baseline_v1.py": "7c386e901369e704",
+      "engine/strategy_baseline_v1_quality.py": "6bf3bdcc0ae0a2e7",
+      "engine/pit_fundamentals.py": "078cc008150eff0d",
+      "engine/regime_exposure.py": "6d0322d6d9888b79",
+      "engine/regime_exposure_fast.py": "797504f692429c56",
+      "engine/strategy_baseline_v1_indneutral.py": "67ec3a8d15cd7019",
+      "engine/execution_costs.py": "2effc46d3bffc006",
+      "engine/topup_chase_diagnostics.py": "c76cc5f0965fe076",
+      "engine/report_charts.py": "5f694822f04c375f",
+      "engine/cost_model_audit.py": "19bd6e4e66187d72",
+      "run_topup_chase_report.py": "18f8be69fbfcfc5d",
+      "config/config.yaml": "b79742aca798fba0"
+    },
+    "data_cache": {
+      "panels.pkl": "5ce58a430ac1beec",
+      "universe.pkl": "3445a4589dd34c15",
+      "panels_bytes": 48091715,
+      "universe_bytes": 306708
+    },
+    "extra": {
+      "report": "indneutral_ab",
+      "baseline_mq_repro_id": "42799a276531"
+    },
+    "fingerprint_sha256": "94a59514bcf8ecc9403dcf13770cfb0b8a1f9647d810295a9fc91c5e30a75f3d",
+    "fingerprint_id": "94a59514bcf8"
+  },
+  "mq_checkpoint": {
+    "label": "Mom+Quality global ranks (default)",
+    "repro_id": "42799a276531",
+    "CAGR": 0.0302,
+    "Sharpe": 0.268,
+    "Maximum_Drawdown": -0.256,
+    "total_cost_dollars": 13404546.0,
+    "n_closed_trades": 1580,
+    "Alpha_CAGR": -0.1144,
+    "qqq_CAGR": 0.1446,
+    "avg_holding_period_days": 28.9,
+    "portfolio_replacement_rate_per_year": 11.74,
+    "by_year_alpha": {
+      "2022": 0.1576,
+      "2023": -0.51,
+      "2024": -0.1776,
+      "2025": -0.2383,
+      "2026": 0.1666
+    }
+  },
+  "global_ranking": {
+    "label": "Mom+Quality GLOBAL ranks",
+    "enable_industry_neutral_ranking": false,
+    "metrics": {
+      "CAGR": 0.030243471139700162,
+      "Sharpe": 0.2676744732582631,
+      "Maximum_Drawdown": -0.25604435756618305,
+      "Alpha_CAGR": -0.11437622235272493,
+      "total_cost_dollars": 13404546.424691427,
+      "n_cost_events": 3223,
+      "cost_model": "corwin_schultz_v2",
+      "flat_cost_one_way": 0.0005,
+      "n_closed_trades": 1580,
+      "enable_topup_chasing": false,
+      "disable_topup_chasing": true
+    },
+    "trade_stats": {
+      "n_closed_trades": 1580,
+      "trades_per_year": 352.1018913971934,
+      "portfolio_replacement_rate_per_year": 11.73672971323978,
+      "avg_holding_period_days": 28.949367088607595,
+      "win_rate": 0.39746835443037976,
+      "avg_return_winning_trade": 0.1278006793040333,
+      "avg_return_losing_trade": -0.07141297171443366,
+      "win_loss_payoff_ratio": 1.7896003518111938,
+      "total_execution_cost_dollars": 13404546.424691427,
+      "avg_equity": 43771761.94939929,
+      "execution_cost_drag_pct_of_avg_equity": 0.3062373052331604,
+      "years": 4.487337440109514
+    },
+    "comparison": {
+      "strategy": {
+        "CAGR": 0.030243471139700162,
+        "Sharpe": 0.2676744732582631,
+        "Maximum_Drawdown": -0.25604435756618305
+      },
+      "QQQ": {
+        "CAGR": 0.1446196934924251,
+        "Sharpe": 0.696850630177712,
+        "Maximum_Drawdown": -0.35246800176279247
+      },
+      "Alpha_CAGR": -0.11437622235272493,
+      "knobs": {
+        "strategy_id": "baseline_v1_mom12_1_quality_atr_nochase",
+        "TOP_LIQUID_POOL": 250,
+        "TOP_MOMENTUM_COUNT": 30,
+        "ATR_MULTIPLIER": 2.5,
+        "GROSS_EXPOSURE": 1.0,
+        "entry": "combined = 0.5*mom_12_1_pctile + 0.5*quality_pctile; quality = mean(pctile(GP), pctile(ROIC), pctile(op_margin)); exclude missing PIT fundamentals",
+        "exit": "ATR(14) Wilder trail; Low < stop \u2192 next Open",
+        "sizing": "equal_weight_1_over_N",
+        "leverage": "1.0x_always",
+        "fill_policy": "no_topup_chasing_default",
+        "mom_weight": 0.5,
+        "quality_weight": 0.5,
+        "enable_regime_exposure": false,
+        "enable_regime_exposure_fast": false,
+        "enable_industry_neutral_ranking": false,
+        "MIN_INDUSTRY_SIZE": 8,
+        "regime_max_exposure": 1.0
+      },
+      "window": {
+        "start": "2022-01-01",
+        "end": "2026-06-30"
+      },
+      "enable_quality_factor": true
+    },
+    "by_year": [
+      {
+        "year": 2022,
+        "partial_year": false,
+        "strategy": {
+          "CAGR": -0.1826906420934561,
+          "Sharpe": -1.0244062943693537,
+          "Maximum_Drawdown": -0.21900419279129119
+        },
+        "QQQ": {
+          "CAGR": -0.3402833791991774,
+          "Sharpe": -1.1260786147346324,
+          "Maximum_Drawdown": -0.35246800176279247
+        },
+        "Alpha_CAGR": 0.1575927371057213
+      },
+      {
+        "year": 2023,
+        "partial_year": false,
+        "strategy": {
+          "CAGR": 0.04830077707579594,
+          "Sharpe": 0.45210513614998843,
+          "Maximum_Drawdown": -0.1134950847988894
+        },
+        "QQQ": {
+          "CAGR": 0.5582972478799555,
+          "Sharpe": 2.5657073101572774,
+          "Maximum_Drawdown": -0.10908849971761518
+        },
+        "Alpha_CAGR": -0.5099964708041596
+      },
+      {
+        "year": 2024,
+        "partial_year": false,
+        "strategy": {
+          "CAGR": 0.09326099111351849,
+          "Sharpe": 0.7281123743451032,
+          "Maximum_Drawdown": -0.09554382741866328
+        },
+        "QQQ": {
+          "CAGR": 0.270893673050034,
+          "Sharpe": 1.426398532027721,
+          "Maximum_Drawdown": -0.13557688246273436
+        },
+        "Alpha_CAGR": -0.1776326819365155
+      },
+      {
+        "year": 2025,
+        "partial_year": false,
+        "strategy": {
+          "CAGR": -0.03295891698441067,
+          "Sharpe": -0.13538378955099373,
+          "Maximum_Drawdown": -0.17130362876857871
+        },
+        "QQQ": {
+          "CAGR": 0.20537185476329745,
+          "Sharpe": 0.9119176204385306,
+          "Maximum_Drawdown": -0.22883225092697176
+        },
+        "Alpha_CAGR": -0.23833077174770811
+      },
+      {
+        "year": 2026,
+        "partial_year": true,
+        "strategy": {
+          "CAGR": 0.619923844120275,
+          "Sharpe": 2.3360558918383183,
+          "Maximum_Drawdown": -0.06511210035271392
+        },
+        "QQQ": {
+          "CAGR": 0.453312080197368,
+          "Sharpe": 1.8834776662053123,
+          "Maximum_Drawdown": -0.11834714747902969
+        },
+        "Alpha_CAGR": 0.166611763922907
+      }
+    ],
+    "concentration": {
+      "mean_max_industry_weight": 0.10185185185185185,
+      "mean_n_industries": 25.166666666666668,
+      "n_rebalance_months": 54
+    }
+  },
+  "industry_neutral": {
+    "label": "Mom+Quality INDUSTRY-NEUTRAL ranks",
+    "enable_industry_neutral_ranking": true,
+    "metrics": {
+      "CAGR": 0.011646572487422402,
+      "Sharpe": 0.1525285340196269,
+      "Maximum_Drawdown": -0.2818789207382244,
+      "Alpha_CAGR": -0.1329731210050027,
+      "total_cost_dollars": 12917003.369785674,
+      "n_cost_events": 3223,
+      "cost_model": "corwin_schultz_v2",
+      "flat_cost_one_way": 0.0005,
+      "n_closed_trades": 1581,
+      "enable_topup_chasing": false,
+      "disable_topup_chasing": true
+    },
+    "trade_stats": {
+      "n_closed_trades": 1581,
+      "trades_per_year": 352.32474069554604,
+      "portfolio_replacement_rate_per_year": 11.744158023184868,
+      "avg_holding_period_days": 28.939278937381403,
+      "win_rate": 0.39215686274509803,
+      "avg_return_winning_trade": 0.1298672460308142,
+      "avg_return_losing_trade": -0.07352916697725967,
+      "win_loss_payoff_ratio": 1.766200425893281,
+      "total_execution_cost_dollars": 12917003.369785674,
+      "avg_equity": 42756212.80500594,
+      "execution_cost_drag_pct_of_avg_equity": 0.3021082205922911,
+      "years": 4.487337440109514
+    },
+    "comparison": {
+      "strategy": {
+        "CAGR": 0.011646572487422402,
+        "Sharpe": 0.1525285340196269,
+        "Maximum_Drawdown": -0.2818789207382244
+      },
+      "QQQ": {
+        "CAGR": 0.1446196934924251,
+        "Sharpe": 0.696850630177712,
+        "Maximum_Drawdown": -0.35246800176279247
+      },
+      "Alpha_CAGR": -0.1329731210050027,
+      "knobs": {
+        "strategy_id": "baseline_v1_mom_quality_indneutral_atr_nochase",
+        "TOP_LIQUID_POOL": 250,
+        "TOP_MOMENTUM_COUNT": 30,
+        "ATR_MULTIPLIER": 2.5,
+        "GROSS_EXPOSURE": 1.0,
+        "MIN_INDUSTRY_SIZE": 8,
+        "entry": "industry-neutral: mom_rank & quality_rank = within-industry pctiles (fallback to global if industry n < 8); combined = 0.5*mom + 0.5*quality; quality = mean(pctile GP/ROIC/op_margin)",
+        "exit": "ATR(14) Wilder trail; Low < stop \u2192 next Open",
+        "sizing": "equal_weight_1_over_N",
+        "leverage": "1.0x_always",
+        "fill_policy": "no_topup_chasing_default",
+        "mom_weight": 0.5,
+        "quality_weight": 0.5,
+        "enable_regime_exposure": false,
+        "enable_regime_exposure_fast": false,
+        "enable_industry_neutral_ranking": true,
+        "regime_max_exposure": 1.0
+      },
+      "window": {
+        "start": "2022-01-01",
+        "end": "2026-06-30"
+      },
+      "enable_quality_factor": true
+    },
+    "by_year": [
+      {
+        "year": 2022,
+        "partial_year": false,
+        "strategy": {
+          "CAGR": -0.17998756235506042,
+          "Sharpe": -0.9995790732971078,
+          "Maximum_Drawdown": -0.2137938171043195
+        },
+        "QQQ": {
+          "CAGR": -0.3402833791991774,
+          "Sharpe": -1.1260786147346324,
+          "Maximum_Drawdown": -0.35246800176279247
+        },
+        "Alpha_CAGR": 0.16029581684411698
+      },
+      {
+        "year": 2023,
+        "partial_year": false,
+        "strategy": {
+          "CAGR": -0.006374312487663181,
+          "Sharpe": 0.005141002673597447,
+          "Maximum_Drawdown": -0.14187551153110492
+        },
+        "QQQ": {
+          "CAGR": 0.5582972478799555,
+          "Sharpe": 2.5657073101572774,
+          "Maximum_Drawdown": -0.10908849971761518
+        },
+        "Alpha_CAGR": -0.5646715603676187
+      },
+      {
+        "year": 2024,
+        "partial_year": false,
+        "strategy": {
+          "CAGR": 0.10010684339808518,
+          "Sharpe": 0.7766003064196264,
+          "Maximum_Drawdown": -0.09383225563649122
+        },
+        "QQQ": {
+          "CAGR": 0.270893673050034,
+          "Sharpe": 1.426398532027721,
+          "Maximum_Drawdown": -0.13557688246273436
+        },
+        "Alpha_CAGR": -0.1707868296519488
+      },
+      {
+        "year": 2025,
+        "partial_year": false,
+        "strategy": {
+          "CAGR": -0.01607472465288906,
+          "Sharpe": -0.016410991478203612,
+          "Maximum_Drawdown": -0.1730003137745885
+        },
+        "QQQ": {
+          "CAGR": 0.20537185476329745,
+          "Sharpe": 0.9119176204385306,
+          "Maximum_Drawdown": -0.22883225092697176
+        },
+        "Alpha_CAGR": -0.2214465794161865
+      },
+      {
+        "year": 2026,
+        "partial_year": true,
+        "strategy": {
+          "CAGR": 0.4496904854461823,
+          "Sharpe": 2.054254704792119,
+          "Maximum_Drawdown": -0.06320579910649639
+        },
+        "QQQ": {
+          "CAGR": 0.453312080197368,
+          "Sharpe": 1.8834776662053123,
+          "Maximum_Drawdown": -0.11834714747902969
+        },
+        "Alpha_CAGR": -0.0036215947511857305
+      }
+    ],
+    "concentration": {
+      "mean_max_industry_weight": 0.11296296296296297,
+      "mean_n_industries": 23.203703703703702,
+      "n_rebalance_months": 54
+    }
+  },
+  "decision": {
+    "sharpe_improved": false,
+    "mdd_worsened_gt_3pp": false,
+    "keep_as_new_default": false,
+    "rule": "keep if Sharpe improves AND MDD not materially worse (>3pp deeper)"
+  },
+  "payload_sha256_16": "566234f030cf2943"
+}

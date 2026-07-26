@@ -1,0 +1,43 @@
+# Mom+Quality global vs industry-neutral A/B (VALID — clean committed state)
+
+Window: 2022-01-01 → 2026-06-30
+repro_id=94a59514bcf8
+payload_sha256_16=566234f030cf2943
+git_head=f06dc6c9b38cd9417a55fecf6679f1d69f64bdad
+git_dirty=False
+
+Industry-neutral: mom/quality pctiles within industry; global fallback if n < 8.
+Unchanged: ATR 2.5, equal-weight, 1.0x, monthly, no-chase, Fixed CS v2, no regime.
+
+## TASK 3 — Side-by-side
+Metric                                Global MQ    Ind-neutral
+--------------------------------------------------------------
+CAGR                                     +3.02%         +1.16%
+Sharpe                                    0.268          0.153
+MDD                                     -25.60%        -28.19%
+Cost $                               13,404,546     12,917,003
+n_trades                                  1,580          1,581
+Avg hold days                              28.9           28.9
+Turnover (repl/yr)                        11.74          11.74
+Alpha vs QQQ                            -11.44%        -13.30%
+Mean max industry weight                +10.19%        +11.30%
+Mean # industries / month                 25.17          23.20
+--------------------------------------------------------------
+(checkpoint MQ Sharpe/CAGR for reference: 0.268 / +3.02%)
+
+## TASK 4 — Industry-neutral per-year vs QQQ
+Year       Strat CAGR     QQQ CAGR        Alpha    Strat MDD       note
+----------------------------------------------------------------------
+2022          -18.00%      -34.03%      +16.03%      -21.38%           
+2023           -0.64%      +55.83%      -56.47%      -14.19%           
+2024          +10.01%      +27.09%      -17.08%       -9.38%           
+2025           -1.61%      +20.54%      -22.14%      -17.30%           
+2026          +44.97%      +45.33%       -0.36%       -6.32%    partial
+----------------------------------------------------------------------
+
+## Decision rule
+  sharpe_improved             : False
+  mdd_worsened (>3pp deeper)  : False
+  KEEP as new default         : False
+
+# END
