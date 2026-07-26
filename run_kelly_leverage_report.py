@@ -167,6 +167,7 @@ def format_report(
     subrows: List[dict],
     variants: List[dict],
     note_confirmed: dict,
+    confirmed_variant: Optional[dict] = None,
 ) -> str:
     lines: List[str] = []
     lines.append("# Kelly leverage — finalized momentum+quality baseline (VALID)")
@@ -364,7 +365,11 @@ def format_report(
         f"{'MDD':>9} {'MDD $ on $50M':>14}"
     )
     lines.append("-" * 90)
-    for v in variants:
+    risk_rows = []
+    if confirmed_variant is not None:
+        risk_rows.append(confirmed_variant)
+    risk_rows.extend(variants)
+    for v in risk_rows:
         r = v["risk"]
         m = v["metrics"]
         lines.append(
@@ -581,6 +586,14 @@ def main(argv=None) -> int:
         subrows=subrows,
         variants=variants,
         note_confirmed=confirmed_run["metrics"],
+        confirmed_variant={
+            **confirmed_run,
+            "label": "1.0x confirmed (no rf)",
+            "metrics": {
+                **confirmed_run["metrics"],
+                # ensure confirmed labels match checkpoint wording
+            },
+        },
     )
 
     txt_path = out_dir / "kelly_leverage_report.txt"
