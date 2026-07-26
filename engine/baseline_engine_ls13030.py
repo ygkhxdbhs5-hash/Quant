@@ -48,8 +48,8 @@ class BaselineEngineLS13030(BaselineEngineV1):
         cfg["enable_topup_chasing"] = False
         cfg["cost_model"] = cfg.get("cost_model", "corwin_schultz_v2")
         cfg["winsorize_adv"] = cfg.get("winsorize_adv", True)
-        super().__init__(config=cfg, config_path=config_path)
 
+        # Parent __init__ prints knobs via _active_strategy_knobs — set LS attrs first.
         bcfg = dict(cfg.get("baseline_v1") or {})
         self.LONG_EXPOSURE = float(cfg.get("ls_long_exposure", bcfg.get("LONG_EXPOSURE", LONG_EXPOSURE)))
         self.SHORT_EXPOSURE = float(
@@ -64,21 +64,19 @@ class BaselineEngineLS13030(BaselineEngineV1):
         self.SHORT_BASKET_COUNT = int(
             cfg.get("ls_short_basket_count", bcfg.get("SHORT_BASKET_COUNT", SHORT_BASKET_COUNT))
         )
-
         self.lowest_closes: Dict[str, float] = {}
         self.current_long_candidates: List[str] = []
         self.current_short_candidates: List[str] = []
-        self.position_side: Dict[str, str] = {}  # symbol -> LONG|SHORT
-
+        self.position_side: Dict[str, str] = {}
         self.diag_borrow_cost_dollars = 0.0
         self.diag_long_exec_cost_dollars = 0.0
         self.diag_short_exec_cost_dollars = 0.0
         self.diag_ls_months: List[dict] = []
         self.diag_sleeve_daily: List[dict] = []
         self.diag_closed_lots_ls: List[dict] = []
-
-        # Short lots for journal-like tracking (trade_journal is long-oriented).
         self._short_open: Dict[str, dict] = {}
+
+        super().__init__(config=cfg, config_path=config_path)
 
     # ------------------------------------------------------------------ knobs
     def _active_strategy_id(self) -> str:
