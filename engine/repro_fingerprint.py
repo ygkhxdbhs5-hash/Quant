@@ -32,9 +32,13 @@ FINGERPRINT_PATHS = [
     "engine/kelly_leverage.py",
     "engine/strategy_s2_meanrev.py",
     "engine/strategy2_engine.py",
+    "engine/s2_family_signals.py",
+    "engine/s2_family_engine.py",
+    "engine/s2_family_data.py",
     "run_topup_chase_report.py",
     "run_kelly_leverage_report.py",
     "run_strategy2_meanrev_report.py",
+    "run_s2_family_search_20.py",
     "config/config.yaml",
 ]
 
