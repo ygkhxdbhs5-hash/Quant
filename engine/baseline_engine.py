@@ -54,6 +54,12 @@ from engine.strategy_baseline_v1 import (
     strategy_id as strategy_id_mom,
     strategy_knobs as strategy_knobs_mom,
 )
+from engine.strategy_baseline_v1_indneutral import (
+    MIN_INDUSTRY_SIZE,
+    select_monthly_candidates_mom_quality_indneutral,
+    strategy_id as strategy_id_indneutral,
+    strategy_knobs as strategy_knobs_indneutral,
+)
 from engine.strategy_baseline_v1_quality import (
     select_monthly_candidates_mom_quality,
     strategy_id as strategy_id_quality,
@@ -149,6 +155,24 @@ class BaselineEngineV1:
             # Prefer the faster variant when both are accidentally set.
             self.ENABLE_REGIME_EXPOSURE = False
 
+        # Industry-neutral ranking (isolated; default OFF until A/B).
+        # Requires quality overlay; ranks mom/quality within industry groups.
+        self.ENABLE_INDUSTRY_NEUTRAL = bool(
+            cfg.get(
+                "enable_industry_neutral_ranking",
+                cfg.get(
+                    "ENABLE_INDUSTRY_NEUTRAL_RANKING",
+                    bcfg.get("ENABLE_INDUSTRY_NEUTRAL_RANKING", False),
+                ),
+            )
+        )
+        self.MIN_INDUSTRY_SIZE = int(
+            cfg.get("min_industry_size", bcfg.get("MIN_INDUSTRY_SIZE", MIN_INDUSTRY_SIZE))
+        )
+        if self.ENABLE_INDUSTRY_NEUTRAL:
+            # Industry-neutral ranks mom+quality within industry — requires quality path.
+            self.ENABLE_QUALITY_FACTOR = True
+
         print(">> Baseline v1: loading local panels (infrastructure artifacts)...")
         universe_path = Path(paths.get("metadata", "data/metadata")) / "universe.pkl"
         panels_path = Path(paths.get("prices", "data/prices")) / "panels.pkl"
@@ -201,6 +225,7 @@ class BaselineEngineV1:
         self.diag_fill_vs_target: List[dict] = []  # Issue 3 — buy fill vs intended target
         self.diag_dvol_spike_count = 0
         self.diag_regime_months: List[dict] = []
+        self.diag_industry_selection: List[dict] = []
 
         # Slice to configured window (START_DATE / END_DATE only)
         self._slice_to_window()
@@ -814,7 +839,12 @@ class BaselineEngineV1:
         return bool(self.ENABLE_REGIME_EXPOSURE or self.ENABLE_REGIME_EXPOSURE_FAST)
 
     def _active_strategy_id(self) -> str:
-        base = strategy_id_quality() if self.ENABLE_QUALITY_FACTOR else strategy_id_mom()
+        if self.ENABLE_QUALITY_FACTOR and self.ENABLE_INDUSTRY_NEUTRAL:
+            base = strategy_id_indneutral()
+        elif self.ENABLE_QUALITY_FACTOR:
+            base = strategy_id_quality()
+        else:
+            base = strategy_id_mom()
         if self.ENABLE_REGIME_EXPOSURE_FAST:
             return base + "_regime_fast"
         if self.ENABLE_REGIME_EXPOSURE:
@@ -822,16 +852,35 @@ class BaselineEngineV1:
         return base
 
     def _active_strategy_knobs(self) -> Dict[str, object]:
-        knobs = dict(
-            strategy_knobs_quality() if self.ENABLE_QUALITY_FACTOR else strategy_knobs_mom()
-        )
+        if self.ENABLE_QUALITY_FACTOR and self.ENABLE_INDUSTRY_NEUTRAL:
+            knobs = dict(strategy_knobs_indneutral())
+        elif self.ENABLE_QUALITY_FACTOR:
+            knobs = dict(strategy_knobs_quality())
+        else:
+            knobs = dict(strategy_knobs_mom())
         knobs["strategy_id"] = self._active_strategy_id()
         knobs["enable_regime_exposure"] = bool(self.ENABLE_REGIME_EXPOSURE)
         knobs["enable_regime_exposure_fast"] = bool(self.ENABLE_REGIME_EXPOSURE_FAST)
+        knobs["enable_industry_neutral_ranking"] = bool(self.ENABLE_INDUSTRY_NEUTRAL)
+        knobs["MIN_INDUSTRY_SIZE"] = int(self.MIN_INDUSTRY_SIZE)
         knobs["regime_max_exposure"] = 1.0  # no >1.0x in this pass
         return knobs
 
     def _select_candidates(self, idx: int, live: List[str]) -> List[str]:
+        if self.ENABLE_QUALITY_FACTOR and self.ENABLE_INDUSTRY_NEUTRAL:
+            return select_monthly_candidates_mom_quality_indneutral(
+                date_idx=idx,
+                close_m=self.close_m,
+                dvol_m=self.dvol_m,
+                mom_12_1_m=self.mom_12_1_m,
+                eligible_symbols=live,
+                fundamental_history=self.fundamental_history,
+                fund_ts=self._fund_ts,
+                profile_meta=self.profile_meta,
+                top_liquid_pool=self.TOP_LIQUID_POOL,
+                top_momentum_count=self.TOP_MOMENTUM_COUNT,
+                min_industry_size=self.MIN_INDUSTRY_SIZE,
+            )
         if self.ENABLE_QUALITY_FACTOR:
             return select_monthly_candidates_mom_quality(
                 date_idx=idx,
@@ -852,6 +901,37 @@ class BaselineEngineV1:
             eligible_symbols=live,
             top_liquid_pool=self.TOP_LIQUID_POOL,
             top_momentum_count=self.TOP_MOMENTUM_COUNT,
+        )
+
+    def _log_industry_concentration(self, current_date, selected: List[str]) -> None:
+        """Observation-only: largest industry weight + n distinct industries."""
+        if not selected:
+            self.diag_industry_selection.append(
+                {
+                    "date": current_date,
+                    "n_selected": 0,
+                    "n_industries": 0,
+                    "max_industry_weight": None,
+                    "max_industry": None,
+                }
+            )
+            return
+        counts: Dict[str, int] = {}
+        for sym in selected:
+            meta = self.profile_meta.get(sym) or {}
+            ind = str(meta.get("industry") or "Unknown").strip() or "Unknown"
+            counts[ind] = counts.get(ind, 0) + 1
+        n = len(selected)
+        max_ind = max(counts, key=counts.get)
+        self.diag_industry_selection.append(
+            {
+                "date": current_date,
+                "n_selected": n,
+                "n_industries": len(counts),
+                "max_industry_weight": float(counts[max_ind]) / float(n),
+                "max_industry": max_ind,
+                "industry_counts": dict(counts),
+            }
         )
 
     def _liquid_universe_for_breadth(self, live: List[str], current_date) -> List[str]:
@@ -952,6 +1032,8 @@ class BaselineEngineV1:
         print(f"  enable_quality_factor: {self.ENABLE_QUALITY_FACTOR}")
         print(f"  enable_regime_exposure: {self.ENABLE_REGIME_EXPOSURE}")
         print(f"  enable_regime_exposure_fast: {self.ENABLE_REGIME_EXPOSURE_FAST}")
+        print(f"  enable_industry_neutral_ranking: {self.ENABLE_INDUSTRY_NEUTRAL}")
+        print(f"  min_industry_size: {self.MIN_INDUSTRY_SIZE}")
         if self.COST_MODEL == "flat":
             print(f"  flat_cost_one_way: {self.FLAT_COST_ONE_WAY}")
         if self.diag_cs_raw_stats:
@@ -1011,6 +1093,7 @@ class BaselineEngineV1:
                     }
                 )
                 self.current_candidates = self._select_candidates(idx, live)
+                self._log_industry_concentration(current_date, self.current_candidates)
                 exposure = self._resolve_regime_exposure(idx, live, current_date)
                 exposure_changed = abs(float(exposure) - float(self._prev_regime_exposure)) > 1e-9
                 self.current_regime_exposure = float(exposure)

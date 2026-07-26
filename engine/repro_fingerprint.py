@@ -24,6 +24,7 @@ FINGERPRINT_PATHS = [
     "engine/pit_fundamentals.py",
     "engine/regime_exposure.py",
     "engine/regime_exposure_fast.py",
+    "engine/strategy_baseline_v1_indneutral.py",
     "engine/execution_costs.py",
     "engine/topup_chase_diagnostics.py",
     "engine/report_charts.py",
