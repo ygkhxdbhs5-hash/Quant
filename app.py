@@ -1,11 +1,11 @@
-"""Streamlit web UI: download Massive data + run Q_Alpha backtest.
+"""Streamlit web UI: download Massive data, breakout screener, Q_Alpha backtest.
 
 Local:
     streamlit run app.py
 
 Streamlit Community Cloud:
     Deploy this repo, set Main file path = app.py,
-    add secret MASSIVE_API_KEY in app settings.
+    branch cursor/webapp-cb1c, add secret MASSIVE_API_KEY in app settings.
 """
 
 from __future__ import annotations
@@ -16,11 +16,19 @@ import pickle
 import subprocess
 import sys
 import tempfile
+from dataclasses import asdict
 from pathlib import Path
 
 import pandas as pd
 import streamlit as st
 import yaml
+
+from engine.breakout_screener import (
+    BreakoutScreenerConfig,
+    breakout_config_from_dict,
+    run_screener,
+)
+from engine.strategy import load_config
 
 ROOT = Path(__file__).resolve().parent
 CONFIG_PATH = ROOT / "config" / "config.yaml"
@@ -29,6 +37,7 @@ PX_PATH = ROOT / "data" / "prices" / "panels.pkl"
 FUND_PATH = ROOT / "data" / "fundamentals" / "pit_history.pkl"
 EQUITY_CSV = ROOT / "cache" / "equity_curve.csv"
 EQUITY_PNG = ROOT / "cache" / "equity_curve_v5.png"
+BREAKOUT_CSV = ROOT / "cache" / "breakout_candidates.csv"
 RESEARCH_REPORT = ROOT / "cache" / "research_report.txt"
 TRADE_JOURNAL = ROOT / "cache" / "trade_journal.csv"
 RANK_DIAG_JSON = ROOT / "cache" / "rank_diagnostics.json"
@@ -390,8 +399,8 @@ c4.metric("Price panel", str(status["prices_shape"]) if status["prices_shape"] e
 if status["price_range"]:
     st.write(f"Price history: `{status['price_range']}`")
 
-tab_dl, tab_bt, tab_exp, tab_help = st.tabs(
-    ["1) Download data", "2) Run backtest", "3) Experiment 1", "Help"]
+tab_dl, tab_screen, tab_bt, tab_exp, tab_help = st.tabs(
+    ["1) Download data", "Screener", "2) Run backtest", "3) Experiment 1", "Help"]
 )
 
 with tab_dl:
@@ -446,8 +455,136 @@ with tab_dl:
                 break
             st.success(f"{title} done")
         if not failed:
-            st.success("All downloads finished. Open the Backtest tab.")
+            st.success("All downloads finished. Open the Screener or Backtest tab.")
             st.rerun()
+
+with tab_screen:
+    st.subheader("Screener — breakout candidates")
+    st.write(
+        "Scan **already-downloaded** local price panels for a fresh EMA upward breakout "
+        "and a fresh horizontal resistance breakout, occurring close together, with "
+        "elevated volume and limited extension above the breakout level. "
+        "Does not re-download data and does not trade."
+    )
+
+    prices_ready = UNI_PATH.exists() and PX_PATH.exists()
+    if not prices_ready:
+        st.warning("Missing `data/metadata/universe.pkl` or `data/prices/panels.pkl`. Run Download first.")
+    else:
+        st.success("Local price panels found — screener reads `data/` only.")
+
+    _break0 = breakout_config_from_dict(_cfg0)
+    c_a, c_b, c_c, c_d = st.columns(4)
+    with c_a:
+        ema_period = st.number_input("EMA period", min_value=5, max_value=200, value=int(_break0.ema_period), step=1)
+        resistance_lookback = st.number_input(
+            "Resistance lookback", min_value=10, max_value=252, value=int(_break0.resistance_lookback), step=1
+        )
+    with c_b:
+        volume_avg_window = st.number_input(
+            "Volume avg window", min_value=5, max_value=120, value=int(_break0.volume_avg_window), step=1
+        )
+        volume_threshold = st.number_input(
+            "Volume threshold (× avg)",
+            min_value=1.0,
+            max_value=5.0,
+            value=float(_break0.volume_threshold),
+            step=0.1,
+            format="%.1f",
+        )
+    with c_c:
+        max_breakout_age = st.number_input(
+            "Max breakout age (bars)", min_value=1, max_value=30, value=int(_break0.max_breakout_age), step=1
+        )
+        max_breakout_separation = st.number_input(
+            "Max EMA/resistance separation",
+            min_value=0,
+            max_value=20,
+            value=int(_break0.max_breakout_separation),
+            step=1,
+        )
+    with c_d:
+        max_extension_pct = st.number_input(
+            "Max extension above resistance",
+            min_value=0.0,
+            max_value=0.25,
+            value=float(_break0.max_extension_pct),
+            step=0.01,
+            format="%.2f",
+            help="Fraction above resistance (0.05 = 5%).",
+        )
+        min_history_bars = st.number_input(
+            "Min history bars", min_value=40, max_value=400, value=int(_break0.min_history_bars), step=5
+        )
+
+    as_of_date = st.text_input(
+        "As-of date (optional YYYY-MM-DD)",
+        value="",
+        help="Blank = latest session in the local panels",
+        key="screener_as_of",
+    )
+
+    if st.button("Run screener", type="primary", disabled=not prices_ready, key="run_screener_btn"):
+        screener_cfg = BreakoutScreenerConfig(
+            ema_period=int(ema_period),
+            resistance_lookback=int(resistance_lookback),
+            volume_avg_window=int(volume_avg_window),
+            volume_threshold=float(volume_threshold),
+            max_breakout_age=int(max_breakout_age),
+            max_breakout_separation=int(max_breakout_separation),
+            max_extension_pct=float(max_extension_pct),
+            min_history_bars=int(min_history_bars),
+        )
+        cfg_disk = load_yaml(CONFIG_PATH)
+        cfg_disk["breakout_screener"] = asdict(screener_cfg)
+        save_yaml(CONFIG_PATH, cfg_disk)
+
+        cfg = load_config(str(CONFIG_PATH))
+        cfg["breakout_screener"] = asdict(screener_cfg)
+        as_of = as_of_date.strip() or None
+        with st.spinner("Scanning local panels…"):
+            try:
+                candidates = run_screener(config=cfg, as_of=as_of)
+            except FileNotFoundError as exc:
+                st.error(str(exc))
+                candidates = pd.DataFrame()
+            except Exception as exc:  # noqa: BLE001 — surface in UI
+                st.exception(exc)
+                candidates = pd.DataFrame()
+
+        st.session_state["breakout_candidates"] = candidates
+        BREAKOUT_CSV.parent.mkdir(parents=True, exist_ok=True)
+        candidates.to_csv(BREAKOUT_CSV, index=False)
+
+    candidates = st.session_state.get("breakout_candidates")
+    if candidates is None and BREAKOUT_CSV.exists():
+        candidates = pd.read_csv(BREAKOUT_CSV)
+        st.session_state["breakout_candidates"] = candidates
+
+    if candidates is not None:
+        st.metric("Candidates", len(candidates))
+        if candidates.empty:
+            st.info("No breakout candidates matched the filter with the current parameters.")
+        else:
+            view = candidates.copy()
+            if "as_of" in view.columns:
+                view["as_of"] = pd.to_datetime(view["as_of"]).dt.strftime("%Y-%m-%d")
+            if "extension_pct" in view.columns:
+                view["extension_pct"] = (pd.to_numeric(view["extension_pct"], errors="coerce") * 100).map(
+                    lambda x: f"{x:.2f}%" if pd.notna(x) else ""
+                )
+            if "volume_ratio" in view.columns:
+                view["volume_ratio"] = pd.to_numeric(view["volume_ratio"], errors="coerce").map(
+                    lambda x: f"{float(x):.2f}x" if pd.notna(x) else ""
+                )
+            st.dataframe(view, use_container_width=True, hide_index=True)
+            st.download_button(
+                "Download candidates CSV",
+                data=candidates.to_csv(index=False),
+                file_name="breakout_candidates.csv",
+                mime="text/csv",
+                key="dl_breakout_csv",
+            )
 
 with tab_bt:
     st.subheader("Run backtest")
@@ -729,6 +866,7 @@ MASSIVE_API_KEY = "your_key"
 - Free Streamlit Cloud often **times out** on long Massive downloads. Use **500 sample** locally, or download on a VPS/Colab then upload `data/` into the app environment.
 - CMVS v3 needs **universe + prices** only. Fundamentals download is optional / off by default.
 - Backtest-only is fast once `data/` exists.
+- **Screener** tab filters local panels for fresh EMA + horizontal resistance breakouts (no re-download, no trading). Knobs also live under `breakout_screener:` in `config/config.yaml`.
 - After a backtest, **Rank diagnostics** shows `rank_exit_candidates`, `ema_preempted_rank_exit`, and `holding_rank_distribution` from `cache/rank_diagnostics.json` (observation only).
 - **Experiment 1** tab runs baseline vs `EXIT_RANK=80` (single variable) and shows Validation, Delta Report, Facts, Recommendation, and Decision.
 """
