@@ -18,6 +18,7 @@ config/config.yaml
 cache/                   # HTTP cache + equity outputs
 run_backtest.py
 run_breakout_screener.py
+app.py                   # Streamlit UI (includes Breakout Screener tab)
 ```
 
 ## Setup
@@ -59,7 +60,17 @@ Outputs: `cache/equity_curve.csv`, `cache/equity_curve_v5.png`
 ## 3) Breakout candidate screener
 
 Scan the **already-downloaded** price panels for fresh 30-EMA + horizontal
-resistance breakouts (no re-download, no trading):
+resistance breakouts (no re-download, no trading).
+
+### Streamlit UI
+
+```bash
+streamlit run app.py
+```
+
+Open the **Breakout Screener** tab. Filter knobs are in the sidebar.
+
+### Console
 
 ```bash
 python run_breakout_screener.py --config config/config.yaml
@@ -67,7 +78,7 @@ python run_breakout_screener.py --config config/config.yaml
 
 Optional: `--as-of YYYY-MM-DD`, `--out cache/breakout_candidates.csv`.
 
-Tunable knobs live under `breakout_screener:` in `config/config.yaml`
+Tunable knobs also live under `breakout_screener:` in `config/config.yaml`
 (EMA period, resistance lookback, volume threshold, max breakout age, etc.).
 
 ## Notes
