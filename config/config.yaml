@@ -48,6 +48,17 @@ min_revenue_growth_yoy: 0.0  # Growth: Revenue YoY growth must be positive
 # Daily trailing-stop exit (peak since purchase); does not change monthly rebalance
 trailing_stop_pct: 0.10    # Sell if close falls 10% below highest_price
 
+# Breakout candidate screener (run_breakout_screener.py) — local panels only
+breakout_screener:
+  ema_period: 30                 # EMA length for the fresh upward cross
+  resistance_lookback: 60        # Bars used to form horizontal resistance (prior highs)
+  volume_avg_window: 20          # Average volume lookback
+  volume_threshold: 1.5          # Require volume >= threshold × average
+  max_breakout_age: 5            # Breakout must be within this many sessions
+  max_breakout_separation: 3     # |EMA age − resistance age| must be ≤ this
+  max_extension_pct: 0.05        # Exclude names already >5% above resistance
+  min_history_bars: 80           # Minimum bars of history required per ticker
+
 paths:
   prices: data/prices
   fundamentals: data/fundamentals

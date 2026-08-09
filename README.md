@@ -13,9 +13,11 @@ data/
   prices/panels.pkl
   fundamentals/pit_history.pkl
 engine/strategy.py       # StandaloneEngine (v5 investment logic)
+engine/breakout_screener.py  # Local-data breakout candidate filter
 config/config.yaml
 cache/                   # HTTP cache + equity outputs
 run_backtest.py
+run_breakout_screener.py
 ```
 
 ## Setup
@@ -53,6 +55,20 @@ python run_backtest.py --config config/config.yaml
 ```
 
 Outputs: `cache/equity_curve.csv`, `cache/equity_curve_v5.png`
+
+## 3) Breakout candidate screener
+
+Scan the **already-downloaded** price panels for fresh 30-EMA + horizontal
+resistance breakouts (no re-download, no trading):
+
+```bash
+python run_breakout_screener.py --config config/config.yaml
+```
+
+Optional: `--as-of YYYY-MM-DD`, `--out cache/breakout_candidates.csv`.
+
+Tunable knobs live under `breakout_screener:` in `config/config.yaml`
+(EMA period, resistance lookback, volume threshold, max breakout age, etc.).
 
 ## Notes
 
