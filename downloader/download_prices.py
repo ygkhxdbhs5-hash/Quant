@@ -210,19 +210,167 @@ def save_panels(prices_dir: Path, panels: dict) -> Path:
     return path
 
 
+def _fetch_daily_bars_fresh(
+    client: MassiveClient,
+    ticker: str,
+    start_date: str,
+    end_date: str,
+    retries: int = 2,
+) -> pd.DataFrame:
+    """Like ``_fetch_daily_bars`` but bypasses disk cache (for incremental/live catch-up)."""
+    path = f"/v2/aggs/ticker/{ticker}/range/1/day/{start_date}/{end_date}"
+    params = {"adjusted": "true", "sort": "asc", "limit": 50000}
+
+    for attempt in range(max(1, retries)):
+        frames: List[pd.DataFrame] = []
+        page = 0
+        next_path: str | None = path
+        next_params: dict | None = params
+        while next_path and page < 20:
+            payload = client.get_json(next_path, params=next_params)
+            part = _aggs_to_df(payload)
+            if not part.empty:
+                frames.append(part)
+            if not isinstance(payload, dict) or not payload.get("next_url"):
+                break
+            next_path = payload["next_url"]
+            next_params = None
+            page += 1
+        if frames:
+            out = pd.concat(frames).sort_index()
+            return out[~out.index.duplicated(keep="last")]
+        time.sleep(0.5 + attempt)
+    return pd.DataFrame()
+
+
+def _upsert_series(frame: pd.DataFrame, ticker: str, series: pd.Series) -> pd.DataFrame:
+    if ticker not in frame.columns:
+        frame[ticker] = pd.NA
+    for ts, val in series.items():
+        frame.loc[pd.Timestamp(ts).normalize(), ticker] = val
+    return frame
+
+
+def incremental_update_panels(
+    client: MassiveClient,
+    panels: dict,
+    tickers: List[str],
+    *,
+    end_date: str,
+    lookback_calendar_days: int = 7,
+    workers: int = 8,
+    benchmark: str = "QQQ",
+) -> dict:
+    """Fetch recent daily bars and upsert into existing panels (no full rebuild)."""
+    close_m = panels["close_m"].copy()
+    open_m = panels["open_m"].copy()
+    high_m = panels["high_m"].copy()
+    low_m = panels["low_m"].copy()
+    dvol_m = panels["dvol_m"].copy()
+
+    if close_m.empty:
+        raise RuntimeError("Existing panels are empty; run a full price download first.")
+
+    last_dt = pd.Timestamp(close_m.dropna(how="all").index.max()).normalize()
+    start_dt = last_dt - pd.Timedelta(days=max(1, int(lookback_calendar_days)))
+    start_date = start_dt.strftime("%Y-%m-%d")
+    end_date = pd.Timestamp(end_date).strftime("%Y-%m-%d")
+
+    symbols = list(dict.fromkeys([*(tickers or []), *(close_m.columns.astype(str)), benchmark]))
+    symbols = [s for s in symbols if s]
+    print(
+        f">> Incremental price refresh {start_date} → {end_date} "
+        f"for {len(symbols)} symbols (workers={workers})..."
+    )
+
+    fetched = map_parallel(
+        symbols,
+        lambda t: (t, _fetch_daily_bars_fresh(client, t, start_date, end_date)),
+        workers=workers,
+        progress_every=25,
+        label="prices-incr",
+    )
+
+    updated = 0
+    for t, df in fetched:
+        if df is None or df.empty:
+            continue
+        open_m = _upsert_series(open_m, t, df["open"])
+        close_m = _upsert_series(close_m, t, df["adjClose"])
+        high_m = _upsert_series(high_m, t, df["high"])
+        low_m = _upsert_series(low_m, t, df["low"])
+        dvol_m = _upsert_series(dvol_m, t, df["adjClose"] * df["volume"])
+        updated += 1
+
+    # Align matrices on a shared sorted calendar
+    idx = close_m.index.union(open_m.index).union(high_m.index).union(low_m.index).union(dvol_m.index)
+    idx = idx.sort_values()
+    open_m = open_m.reindex(idx).sort_index()
+    close_m = close_m.reindex(idx).sort_index()
+    high_m = high_m.reindex(idx).sort_index()
+    low_m = low_m.reindex(idx).sort_index()
+    dvol_m = dvol_m.reindex(idx).sort_index()
+
+    print(f" -> incremental upsert complete: {updated}/{len(symbols)} symbols had bars")
+    out = dict(panels)
+    out.update(
+        {
+            "open_m": open_m,
+            "close_m": close_m,
+            "high_m": high_m,
+            "low_m": low_m,
+            "dvol_m": dvol_m,
+            "incremental_updated_at": pd.Timestamp.now(tz="UTC"),
+        }
+    )
+    return out
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Download OHLCV price panels (Massive)")
     parser.add_argument("--config", default="config/config.yaml")
+    parser.add_argument(
+        "--mode",
+        choices=("full", "incremental"),
+        default="full",
+        help="full = rebuild panels from start_date; incremental = upsert recent bars only",
+    )
     args = parser.parse_args(argv)
     config = load_config(args.config)
     client = make_client(config)
     paths = config.get("paths", {})
+    prices_dir = Path(paths.get("prices", "data/prices"))
+    panels_path = prices_dir / "panels.pkl"
 
     universe_path = Path(paths.get("metadata", "data/metadata")) / "universe.pkl"
     if not universe_path.exists():
         raise SystemExit(f"Missing {universe_path}. Run download_universe first.")
     with open(universe_path, "rb") as f:
         universe = pickle.load(f)
+
+    workers = max(1, int(config.get("download_workers", 8)))
+    rt_cfg = config.get("realtime") or {}
+    lookback = int(rt_cfg.get("incremental_lookback_days", 7))
+
+    if args.mode == "incremental":
+        if not panels_path.exists():
+            raise SystemExit(
+                f"Missing {panels_path}. Run a full download first "
+                "(python -m downloader.download_prices --mode full)."
+            )
+        with open(panels_path, "rb") as f:
+            panels = pickle.load(f)
+        panels = incremental_update_panels(
+            client=client,
+            panels=panels,
+            tickers=universe["tickers"],
+            end_date=config["end_date"],
+            lookback_calendar_days=lookback,
+            workers=workers,
+            benchmark=config.get("benchmark", "QQQ"),
+        )
+        save_panels(prices_dir, panels)
+        return 0
 
     open_m, close_m, high_m, low_m, dvol_m, silent = build_price_panel(
         client=client,
@@ -233,10 +381,10 @@ def main(argv: list[str] | None = None) -> int:
         end_date=config["end_date"],
         benchmark=config.get("benchmark", "QQQ"),
         silent_delist_gap_days=int(config.get("silent_delist_gap_days", 10)),
-        workers=max(1, int(config.get("download_workers", 8))),
+        workers=workers,
     )
     save_panels(
-        Path(paths.get("prices", "data/prices")),
+        prices_dir,
         {
             "open_m": open_m,
             "close_m": close_m,

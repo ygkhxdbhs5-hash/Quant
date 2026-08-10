@@ -6,6 +6,7 @@ import argparse
 
 from downloader.download_fundamentals import main as fundamentals_main
 from downloader.download_prices import main as prices_main
+from downloader.download_realtime import main as realtime_main
 from downloader.download_universe import main as universe_main
 from downloader.download_universe_utils import load_config
 
@@ -25,6 +26,17 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Force fundamentals download even if config.download_fundamentals is false",
     )
+    parser.add_argument(
+        "--with-realtime",
+        action="store_true",
+        help="After prices, pull Massive snapshots and merge today's live bar into panels",
+    )
+    parser.add_argument(
+        "--prices-mode",
+        choices=("full", "incremental"),
+        default="full",
+        help="Price download mode (incremental requires existing panels.pkl)",
+    )
     args = parser.parse_args(argv)
 
     config = load_config(args.config)
@@ -39,7 +51,7 @@ def main(argv: list[str] | None = None) -> int:
     if not args.skip_universe:
         universe_main(cfg)
     if not args.skip_prices:
-        prices_main(cfg)
+        prices_main([*cfg, "--mode", args.prices_mode])
     if want_fundamentals:
         fundamentals_main(cfg)
     else:
@@ -47,6 +59,8 @@ def main(argv: list[str] | None = None) -> int:
             "[update_data] Skipping fundamentals "
             "(set download_fundamentals: true or pass --with-fundamentals)"
         )
+    if args.with_realtime:
+        realtime_main(cfg)
     return 0
 
 

@@ -42,9 +42,25 @@ python -m downloader.download_fundamentals
 ```
 
 Tips:
-- Set `universe_limit` (e.g. `50`) for a smaller first download
+- Set `universe_sample_size` (e.g. `50` / `500`) for a smaller first download
 - Keep a curated list in `data/metadata/symbols.txt` if desired
 - Financials require a Massive plan that includes Financials & Ratios
+
+### Keep data current (live / trading prep)
+
+After the historical download exists:
+
+```bash
+# Catch up recent daily bars only (no full rebuild)
+python -m downloader.download_prices --mode incremental
+
+# Massive snapshots → data/prices/realtime_snapshot.pkl (+ merge into panels.pkl)
+python -m downloader.download_realtime
+```
+
+Also available in Streamlit under **Download data** and as “Refresh realtime snapshots before scan” on **Screener**.
+Snapshot access needs Massive Starter+; true realtime (not 15-min delayed) needs Advanced/Business.
+This updates local files only — it does **not** place trades.
 
 ## 2) Run backtest
 

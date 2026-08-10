@@ -150,6 +150,14 @@ breakout_screener:
   max_extension_pct: 0.05        # Exclude names already >5% above resistance
   min_history_bars: 80           # Minimum bars of history required per ticker
 
+# Live / near-live Massive snapshots + incremental daily catch-up
+# Snapshots require a Massive plan that includes Snapshot (Starter+).
+# True realtime (not 15-min delayed) needs Stocks Advanced / Business.
+realtime:
+  snapshot_batch_size: 50
+  merge_into_panels: true        # Upsert today's live day bar into panels.pkl
+  incremental_lookback_days: 7   # Days re-fetched on --mode incremental
+
 paths:
   prices: data/prices
   fundamentals: data/fundamentals

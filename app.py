@@ -458,6 +458,90 @@ with tab_dl:
             st.success("All downloads finished. Open the Screener or Backtest tab.")
             st.rerun()
 
+    st.divider()
+    st.subheader("Keep prices current (for trading / live screener)")
+    st.caption(
+        "Historical download above builds the full panel once. These buttons only "
+        "refresh recent daily bars and Massive snapshots (live or 15-min delayed by plan). "
+        "No orders are placed."
+    )
+    live_ready = UNI_PATH.exists() and PX_PATH.exists()
+    if not live_ready:
+        st.info("Run a full Download first so universe + panels exist.")
+    b1, b2 = st.columns(2)
+    with b1:
+        if st.button(
+            "Incremental daily refresh",
+            disabled=not (live_ready and bool(api_key)),
+            key="btn_incr_prices",
+            help="Re-fetch the last ~7 calendar days of daily bars into panels.pkl (no full rebuild).",
+        ):
+            env = dict(os.environ)
+            env["MASSIVE_API_KEY"] = api_key
+            env["PYTHONUNBUFFERED"] = "1"
+            log = st.empty()
+            code = stream_command(
+                [
+                    sys.executable,
+                    "-u",
+                    "-m",
+                    "downloader.download_prices",
+                    "--config",
+                    str(CONFIG_PATH),
+                    "--mode",
+                    "incremental",
+                ],
+                env,
+                log,
+            )
+            if code != 0:
+                st.error(f"Incremental refresh failed (exit {code})")
+            else:
+                st.success("Incremental daily bars updated.")
+                st.rerun()
+    with b2:
+        if st.button(
+            "Pull realtime snapshots",
+            disabled=not (live_ready and bool(api_key)),
+            type="primary",
+            key="btn_realtime_snap",
+            help="Massive snapshot endpoint → realtime_snapshot.pkl and merge today's live bar into panels.",
+        ):
+            env = dict(os.environ)
+            env["MASSIVE_API_KEY"] = api_key
+            env["PYTHONUNBUFFERED"] = "1"
+            log = st.empty()
+            code = stream_command(
+                [
+                    sys.executable,
+                    "-u",
+                    "-m",
+                    "downloader.download_realtime",
+                    "--config",
+                    str(CONFIG_PATH),
+                ],
+                env,
+                log,
+            )
+            if code != 0:
+                st.error(
+                    f"Realtime snapshot failed (exit {code}). "
+                    "Your Massive plan must include Snapshot (Starter+; Advanced for true realtime)."
+                )
+            else:
+                st.success("Realtime snapshots saved and merged into panels.")
+                st.rerun()
+
+    rt_path = ROOT / "data" / "prices" / "realtime_snapshot.pkl"
+    if rt_path.exists():
+        try:
+            rt = pickle.load(open(rt_path, "rb"))
+            n = len(rt.get("rows") or [])
+            fetched_at = rt.get("fetched_at")
+            st.caption(f"Last realtime snapshot: **{n}** symbols @ `{fetched_at}`")
+        except Exception:
+            st.caption("Realtime snapshot file present but unreadable.")
+
 with tab_screen:
     st.subheader("Screener — breakout candidates")
     st.write(
@@ -472,6 +556,16 @@ with tab_screen:
         st.warning("Missing `data/metadata/universe.pkl` or `data/prices/panels.pkl`. Run Download first.")
     else:
         st.success("Local price panels found — screener reads `data/` only.")
+
+    refresh_live = st.checkbox(
+        "Refresh realtime snapshots before scan",
+        value=False,
+        help=(
+            "Calls Massive snapshots, merges today's live day bar into panels.pkl, "
+            "then runs the screener. Requires API key + Snapshot entitlement."
+        ),
+        key="screener_refresh_live",
+    )
 
     _break0 = breakout_config_from_dict(_cfg0)
     c_a, c_b, c_c, c_d = st.columns(4)
@@ -525,6 +619,30 @@ with tab_screen:
     )
 
     if st.button("Run screener", type="primary", disabled=not prices_ready, key="run_screener_btn"):
+        if refresh_live:
+            if not api_key:
+                st.error("Enter a Massive API key in the sidebar to refresh realtime data.")
+                st.stop()
+            env = dict(os.environ)
+            env["MASSIVE_API_KEY"] = api_key
+            env["PYTHONUNBUFFERED"] = "1"
+            log = st.empty()
+            code = stream_command(
+                [
+                    sys.executable,
+                    "-u",
+                    "-m",
+                    "downloader.download_realtime",
+                    "--config",
+                    str(CONFIG_PATH),
+                ],
+                env,
+                log,
+            )
+            if code != 0:
+                st.error(f"Realtime refresh failed (exit {code}); screener aborted.")
+                st.stop()
+
         screener_cfg = BreakoutScreenerConfig(
             ema_period=int(ema_period),
             resistance_lookback=int(resistance_lookback),
@@ -867,6 +985,7 @@ MASSIVE_API_KEY = "your_key"
 - CMVS v3 needs **universe + prices** only. Fundamentals download is optional / off by default.
 - Backtest-only is fast once `data/` exists.
 - **Screener** tab filters local panels for fresh EMA + horizontal resistance breakouts (no re-download, no trading). Knobs also live under `breakout_screener:` in `config/config.yaml`.
+- **Realtime / trading prep:** after the historical download, use **Incremental daily refresh** and **Pull realtime snapshots** on the Download tab (or enable “Refresh realtime snapshots before scan” on Screener). Snapshots need a Massive plan with Snapshot access (Starter+; Advanced/Business for true realtime vs 15-min delay). This updates local files only — it does **not** place trades.
 - After a backtest, **Rank diagnostics** shows `rank_exit_candidates`, `ema_preempted_rank_exit`, and `holding_rank_distribution` from `cache/rank_diagnostics.json` (observation only).
 - **Experiment 1** tab runs baseline vs `EXIT_RANK=80` (single variable) and shows Validation, Delta Report, Facts, Recommendation, and Decision.
 """
